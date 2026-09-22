@@ -60,7 +60,7 @@ yes '' | lerobot-teleoperate \
       \"height\": 480,
       \"fps\": 30,
       \"fourcc\": \"MJPG\",
-      \"warmup_s\": 3
+      \"warmup_s\": 6
     },
     \"wrist\": {
       \"type\": \"opencv\",
