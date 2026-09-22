@@ -19,6 +19,8 @@ export PATH="$PROJECT_ROOT/.venv/bin:$PATH"
 # Swapped ports:
 FOLLOWER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79031690-if00"
 LEADER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79034180-if00"
+FRONT_CAMERA="/dev/v4l/by-id/usb-046d_0825_A0006B50-video-index0"
+WRIST_CAMERA="/dev/v4l/by-id/usb-Alpha_Imaging_Tech._Corp._SEMIC_Camera-video-index0"
 CALIB_DIR="$PROJECT_ROOT/calibration"
 
 # Validate ports exist
@@ -32,6 +34,16 @@ if [ ! -e "$LEADER_PORT" ]; then
     exit 1
 fi
 
+if [ ! -e "$FRONT_CAMERA" ]; then
+    echo "Error: Front camera not found at $FRONT_CAMERA"
+    exit 1
+fi
+
+if [ ! -e "$WRIST_CAMERA" ]; then
+    echo "Error: Wrist camera not found at $WRIST_CAMERA"
+    exit 1
+fi
+
 echo "Starting teleoperation (auto-accepting calibration)..."
 
 # Pipe empty newlines into standard input to auto-confirm calibration
@@ -40,26 +52,26 @@ yes '' | lerobot-teleoperate \
   --robot.port="$FOLLOWER_PORT" \
   --robot.id=follower_arm \
   --robot.calibration_dir="$CALIB_DIR" \
-  --robot.cameras='{
-    "front": {
-      "type": "opencv",
-      "index_or_path": "/dev/video0",
-      "width": 640,
-      "height": 480,
-      "fps": 30,
-      "fourcc": "MJPG",
-      "warmup_s": 3
+  --robot.cameras="{
+    \"front\": {
+      \"type\": \"opencv\",
+      \"index_or_path\": \"$FRONT_CAMERA\",
+      \"width\": 640,
+      \"height\": 480,
+      \"fps\": 30,
+      \"fourcc\": \"MJPG\",
+      \"warmup_s\": 3
     },
-    "wrist": {
-      "type": "opencv",
-      "index_or_path": "/dev/video2",
-      "width": 640,
-      "height": 480,
-      "fps": 15,
-      "fourcc": "MJPG",
-      "warmup_s": 5
+    \"wrist\": {
+      \"type\": \"opencv\",
+      \"index_or_path\": \"$WRIST_CAMERA\",
+      \"width\": 640,
+      \"height\": 480,
+      \"fps\": 30,
+      \"fourcc\": \"MJPG\",
+      \"warmup_s\": 5
     }
-  }' \
+  }" \
   --teleop.type=so101_leader \
   --teleop.port="$LEADER_PORT" \
   --teleop.id=leader_arm \
