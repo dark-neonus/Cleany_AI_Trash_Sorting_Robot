@@ -1,0 +1,954 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "electronics_robot_subsystems",
+        "label": "Cleany robot hardware subsystems",
+        "nodes": [
+          "electronics_electronics_so101_follower_arm",
+          "electronics_electronics_operational_box",
+          "electronics_electronics_trash_drop_mechanism"
+        ],
+        "relation": "form",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "electronics/ELECTRONICS.md"
+      },
+      {
+        "id": "electronics_usb_hub_data_topology",
+        "label": "USB hub data topology to Host PC",
+        "nodes": [
+          "electronics_electronics_usb_hub",
+          "electronics_electronics_fe_urt_2",
+          "electronics_electronics_wrist_camera",
+          "electronics_electronics_ambient_camera",
+          "electronics_electronics_esp32_s3_super_mini",
+          "electronics_electronics_leader_arm_control_board",
+          "electronics_electronics_host_pc"
+        ],
+        "relation": "form",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "electronics/ELECTRONICS.md"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "scripts_calibrate_follower",
+      "label": "calibrate_follower.sh",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "norm_label": "calibrate_follower.sh",
+      "source_file": "scripts/calibrate_follower.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_calibrate_follower_path",
+      "label": "PATH",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "norm_label": "path",
+      "source_file": "scripts/calibrate_follower.sh",
+      "source_location": "L16"
+    },
+    {
+      "id": "scripts_calibrate_follower_sh__entry",
+      "label": "calibrate_follower.sh script",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "norm_label": "calibrate_follower.sh script",
+      "source_file": "scripts/calibrate_follower.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_calibrate_leader",
+      "label": "calibrate_leader.sh",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "norm_label": "calibrate_leader.sh",
+      "source_file": "scripts/calibrate_leader.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_calibrate_leader_path",
+      "label": "PATH",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "norm_label": "path",
+      "source_file": "scripts/calibrate_leader.sh",
+      "source_location": "L16"
+    },
+    {
+      "id": "scripts_calibrate_leader_sh__entry",
+      "label": "calibrate_leader.sh script",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "norm_label": "calibrate_leader.sh script",
+      "source_file": "scripts/calibrate_leader.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_run_teleop",
+      "label": "run_teleop.sh",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "norm_label": "run_teleop.sh",
+      "source_file": "scripts/run_teleop.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_run_teleop_path",
+      "label": "PATH",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "norm_label": "path",
+      "source_file": "scripts/run_teleop.sh",
+      "source_location": "L17"
+    },
+    {
+      "id": "scripts_run_teleop_sh__entry",
+      "label": "run_teleop.sh script",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "norm_label": "run_teleop.sh script",
+      "source_file": "scripts/run_teleop.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_config_install_lerobot",
+      "label": "install_lerobot.sh",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "LeRobot Installation",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "norm_label": "install_lerobot.sh",
+      "source_file": "scripts/config/install_lerobot.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "scripts_config_install_lerobot_path",
+      "label": "PATH",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "LeRobot Installation",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "norm_label": "path",
+      "source_file": "scripts/config/install_lerobot.sh",
+      "source_location": "L26"
+    },
+    {
+      "id": "scripts_config_install_lerobot_sh__entry",
+      "label": "install_lerobot.sh script",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "LeRobot Installation",
+      "file_type": "code",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "norm_label": "install_lerobot.sh script",
+      "source_file": "scripts/config/install_lerobot.sh",
+      "source_location": "L1"
+    },
+    {
+      "id": "electronics_electronics_12v_supply",
+      "label": "12V Power Supply Rail",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "12v power supply rail",
+      "rationale": "Typical ~2.1A/25W; worst case 17.2A/206W with all servos stalled, realistic peak 3-5A during fast moves.",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L153",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_fe_urt_2",
+      "label": "Feetech FE-URT-2 Bus Adapter (CH343P)",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "feetech fe-urt-2 bus adapter (ch343p)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L17",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_light_source",
+      "label": "Light Source (2x LED Lamp LN-12-6--50-4 12V)",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "light source (2x led lamp ln-12-6--50-4 12v)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L22",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_so101_follower_arm",
+      "label": "LeRobot SO-101 Follower Arm",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "lerobot so-101 follower arm",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L13",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_sts3215_servo",
+      "label": "Feetech STS3215-C001 12V Servo (x6)",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "feetech sts3215-c001 12v servo (x6)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L15",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_servo_daisy_chain_bus",
+      "label": "3-pin TTL Servo Daisy-Chain Bus",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "community_name": "Follower Arm Servo Bus",
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "3-pin ttl servo daisy-chain bus",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L34",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_esp32_s3_super_mini",
+      "label": "ESP32-S3 Super Mini Servo Controller",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "esp32-s3 super mini servo controller",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L28",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_rds3115_servo",
+      "label": "RDS3115 7.2V Servo (x4)",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "rds3115 7.2v servo (x4)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L27",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_tbd_servo_supply",
+      "label": "TBD 5-7.2V Servo Supply",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "tbd 5-7.2v servo supply",
+      "rationale": "Voltage still undecided (5V or 7V); peak 10-12A if all 4 RDS3115 stall.",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L154",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_trash_drop_mechanism",
+      "label": "Trash Drop Mechanism",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "trash drop mechanism",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L25",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_electronics_doc",
+      "label": "Electronics Documentation",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "electronics documentation",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L1",
+      "source_url": null
+    },
+    {
+      "id": "readme_cleany_ai_trash_sorting_robot",
+      "label": "Cleany AI Trash Sorting Robot",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "cleany ai trash sorting robot",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_power_demand_budget",
+      "label": "Power Demand Budget per Rail",
+      "author": null,
+      "captured_at": null,
+      "community": 1,
+      "community_name": "Trash Drop Mechanism",
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "power demand budget per rail",
+      "rationale": "Values marked est. lack datasheets and should be verified with a USB power meter.",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L120",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_leader_arm_control_board",
+      "label": "Leader Arm Control Board",
+      "author": null,
+      "captured_at": null,
+      "community": 2,
+      "community_name": "Leader Arm Teleop",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "leader arm control board",
+      "rationale": "Leader Arm is out of scope of the box and used only for training; a hub port is reserved for it but it has an independent power supply with shared ground.",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L57",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_ambient_camera",
+      "label": "Ambient Camera (Logitech C270)",
+      "author": null,
+      "captured_at": null,
+      "community": 3,
+      "community_name": "Cameras and USB Hub",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "ambient camera (logitech c270)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L21",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_host_pc",
+      "label": "Host PC",
+      "author": null,
+      "captured_at": null,
+      "community": 3,
+      "community_name": "Cameras and USB Hub",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "host pc",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L90",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_operational_box",
+      "label": "Operational Box",
+      "author": null,
+      "captured_at": null,
+      "community": 3,
+      "community_name": "Cameras and USB Hub",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "operational box",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L19",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_usb_hub",
+      "label": "USB Hub Dynamode BYL-2218TU",
+      "author": null,
+      "captured_at": null,
+      "community": 3,
+      "community_name": "Cameras and USB Hub",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "usb hub dynamode byl-2218tu",
+      "rationale": "Bus-powered: all 5V USB devices share a single host port's current (0.9A USB 3.0 Type-A, 1.5-3A Type-C).",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L23",
+      "source_url": null
+    },
+    {
+      "id": "electronics_electronics_wrist_camera",
+      "label": "Wrist Camera (AIT SEMIC UVC)",
+      "author": null,
+      "captured_at": null,
+      "community": 3,
+      "community_name": "Cameras and USB Hub",
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "wrist camera (ait semic uvc)",
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L16",
+      "source_url": null
+    }
+  ],
+  "links": [
+    {
+      "source": "scripts_calibrate_follower",
+      "target": "scripts_calibrate_follower_sh__entry",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/calibrate_follower.sh",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_calibrate_leader",
+      "target": "scripts_calibrate_leader_sh__entry",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/calibrate_leader.sh",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_config_install_lerobot",
+      "target": "scripts_config_install_lerobot_sh__entry",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/config/install_lerobot.sh",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_run_teleop",
+      "target": "scripts_run_teleop_sh__entry",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/run_teleop.sh",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_calibrate_follower",
+      "target": "scripts_calibrate_follower_path",
+      "relation": "defines",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/calibrate_follower.sh",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_calibrate_leader",
+      "target": "scripts_calibrate_leader_path",
+      "relation": "defines",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/calibrate_leader.sh",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_config_install_lerobot",
+      "target": "scripts_config_install_lerobot_path",
+      "relation": "defines",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/config/install_lerobot.sh",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_run_teleop",
+      "target": "scripts_run_teleop_path",
+      "relation": "defines",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/run_teleop.sh",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_sts3215_servo",
+      "target": "electronics_electronics_servo_daisy_chain_bus",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_power_demand_budget",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L157",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_12v_supply",
+      "target": "electronics_electronics_sts3215_servo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L167",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_12v_supply",
+      "target": "electronics_electronics_light_source",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L180",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_electronics_doc",
+      "target": "electronics_electronics_power_demand_budget",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L120",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_electronics_doc",
+      "target": "electronics_electronics_so101_follower_arm",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_electronics_doc",
+      "target": "electronics_electronics_operational_box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_electronics_doc",
+      "target": "electronics_electronics_trash_drop_mechanism",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_operational_box",
+      "target": "electronics_electronics_ambient_camera",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_operational_box",
+      "target": "electronics_electronics_light_source",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_operational_box",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_power_demand_budget",
+      "target": "electronics_electronics_12v_supply",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L153",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_power_demand_budget",
+      "target": "electronics_electronics_tbd_servo_supply",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L154",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_so101_follower_arm",
+      "target": "electronics_electronics_sts3215_servo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_so101_follower_arm",
+      "target": "electronics_electronics_wrist_camera",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_so101_follower_arm",
+      "target": "electronics_electronics_fe_urt_2",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_tbd_servo_supply",
+      "target": "electronics_electronics_rds3115_servo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L194",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_trash_drop_mechanism",
+      "target": "electronics_electronics_rds3115_servo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_trash_drop_mechanism",
+      "target": "electronics_electronics_esp32_s3_super_mini",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_ambient_camera",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L56",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_esp32_s3_super_mini",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L71",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_fe_urt_2",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_leader_arm_control_board",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L57",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_rds3115_servo",
+      "target": "electronics_electronics_esp32_s3_super_mini",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_servo_daisy_chain_bus",
+      "target": "electronics_electronics_fe_urt_2",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_usb_hub",
+      "target": "electronics_electronics_host_pc",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L112",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_wrist_camera",
+      "target": "electronics_electronics_usb_hub",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": "L43",
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_sts3215_servo",
+      "target": "electronics_electronics_rds3115_servo",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_cleany_ai_trash_sorting_robot",
+      "target": "electronics_electronics_electronics_doc",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_calibrate_leader",
+      "target": "electronics_electronics_leader_arm_control_board",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_run_teleop",
+      "target": "electronics_electronics_fe_urt_2",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_run_teleop",
+      "target": "electronics_electronics_leader_arm_control_board",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "electronics_electronics_wrist_camera",
+      "target": "electronics_electronics_ambient_camera",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "scripts_calibrate_follower",
+      "target": "electronics_electronics_so101_follower_arm",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "electronics/ELECTRONICS.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "electronics_robot_subsystems",
+      "label": "Cleany robot hardware subsystems",
+      "nodes": [
+        "electronics_electronics_so101_follower_arm",
+        "electronics_electronics_operational_box",
+        "electronics_electronics_trash_drop_mechanism"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md"
+    },
+    {
+      "id": "electronics_usb_hub_data_topology",
+      "label": "USB hub data topology to Host PC",
+      "nodes": [
+        "electronics_electronics_usb_hub",
+        "electronics_electronics_fe_urt_2",
+        "electronics_electronics_wrist_camera",
+        "electronics_electronics_ambient_camera",
+        "electronics_electronics_esp32_s3_super_mini",
+        "electronics_electronics_leader_arm_control_board",
+        "electronics_electronics_host_pc"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "electronics/ELECTRONICS.md"
+    }
+  ],
+  "built_at_commit": "54777c5053632d937a9cb95402aa5d454430cac6"
+}

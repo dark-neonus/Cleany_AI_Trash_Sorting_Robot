@@ -1,0 +1,50 @@
+{
+  "calibration/follower_arm.json": {
+    "mtime": 1790881180.2741592,
+    "seen": 1791240494.0408902,
+    "ast_hash": "dc3ac7dc35fe0660ddf233b97d8dc90d",
+    "semantic_hash": "dc3ac7dc35fe0660ddf233b97d8dc90d"
+  },
+  "calibration/leader_arm.json": {
+    "mtime": 1790882818.7439325,
+    "seen": 1791240494.0408945,
+    "ast_hash": "a99ead70a9c3790df4270e5d8564b1a5",
+    "semantic_hash": "a99ead70a9c3790df4270e5d8564b1a5"
+  },
+  "scripts/calibrate_follower.sh": {
+    "mtime": 1789828684.0574834,
+    "seen": 1791240494.0408964,
+    "ast_hash": "0ca7fa60b755ae15a98d8a62aee4b347",
+    "semantic_hash": "0ca7fa60b755ae15a98d8a62aee4b347"
+  },
+  "scripts/calibrate_leader.sh": {
+    "mtime": 1789839346.0262828,
+    "seen": 1791240494.0408976,
+    "ast_hash": "6c3176329fb799372d8638179c8d439f",
+    "semantic_hash": "6c3176329fb799372d8638179c8d439f"
+  },
+  "scripts/config/install_lerobot.sh": {
+    "mtime": 1789839346.0263987,
+    "seen": 1791240494.0408986,
+    "ast_hash": "9046bd4af74e8bcbd4654c898d16ee82",
+    "semantic_hash": "9046bd4af74e8bcbd4654c898d16ee82"
+  },
+  "scripts/run_teleop.sh": {
+    "mtime": 1790114452.5828292,
+    "seen": 1791240494.0408995,
+    "ast_hash": "37fef422a3239dbf3ac21c3ace932780",
+    "semantic_hash": "37fef422a3239dbf3ac21c3ace932780"
+  },
+  "README.md": {
+    "mtime": 1789760162.9163265,
+    "seen": 1791240494.0409007,
+    "ast_hash": "f0c59f5d4065f7e1b8d52fddc683bd78",
+    "semantic_hash": "f0c59f5d4065f7e1b8d52fddc683bd78"
+  },
+  "electronics/ELECTRONICS.md": {
+    "mtime": 1791239510.0379038,
+    "seen": 1791240494.0409014,
+    "ast_hash": "fdc09cae877b0f6da18fc76d22479870",
+    "semantic_hash": "fdc09cae877b0f6da18fc76d22479870"
+  }
+}
