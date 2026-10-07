@@ -1,1 +1,11 @@
-{"0": "Follower Arm Servo Bus", "1": "Trash Drop Mechanism", "2": "Leader Arm Teleop", "3": "Cameras and USB Hub", "4": "LeRobot Installation"}
+{
+  "0": "calibrate_follower.sh",
+  "1": "ELECTRONICS.md",
+  "2": "calibrate_leader.sh",
+  "3": "Power Supply",
+  "4": "install_lerobot.sh",
+  "5": "Data Connections",
+  "6": "Power Demand",
+  "7": "run_teleop.sh",
+  "8": "README.md"
+}
