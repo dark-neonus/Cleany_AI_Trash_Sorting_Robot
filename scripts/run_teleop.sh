@@ -46,8 +46,16 @@ fi
 
 echo "Starting teleoperation (auto-accepting calibration)..."
 
+# 640x480 is a center crop on both cameras. Capture in full-FOV modes instead and
+# let teleop_wide_fov.py downscale frames to the width/height configured below.
+# Wrist sensor is 16:9, so its full view is squeezed horizontally into 4:3.
+export CAMERA_CAPTURE_MODES="{
+  \"$FRONT_CAMERA\": [800, 600],
+  \"$WRIST_CAMERA\": [1280, 720]
+}"
+
 # Pipe empty newlines into standard input to auto-confirm calibration
-yes '' | lerobot-teleoperate \
+yes '' | python "$SCRIPT_DIR/teleop_wide_fov.py" \
   --robot.type=so101_follower \
   --robot.port="$FOLLOWER_PORT" \
   --robot.id=follower_arm \
