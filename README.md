@@ -67,34 +67,100 @@ There is one dataset per ACT model, selected by the model name `plastic` or `met
 Model names, task texts and the Hub namespace live in
 [scripts/config/datasets.sh](scripts/config/datasets.sh). `data/` is never committed to git.
 
-### Workflow
+### Before the first recording (once per machine)
+
+1. Install LeRobot: `scripts/setup/install_lerobot.sh`
+2. Log in to Hugging Face (see [One-time setup](#one-time-setup)): `.venv/bin/hf auth login`
+3. Make sure `calibration/` has `leader_arm.json` and `follower_arm.json`; if not, run
+   `scripts/calibration/calibrate_leader.sh` and `scripts/calibration/calibrate_follower.sh`.
+
+### How to record a dataset, step by step
+
+The example records the `plastic` model; for the metal one, replace `plastic` with `metal`.
+
+**1. Connect the hardware.** Plug in the leader arm, the follower arm (with its 12 V supply
+on), the front camera and the wrist camera. The script stops with
+`Error: <device> not found` if one is missing.
+
+**2. Check that everything works** with a quick teleoperation run (Ctrl+C to stop):
 
 ```bash
-scripts/dataset/sync.sh pull plastic        # 1. get the latest shared copy (skip if the Hub repo is still empty)
-scripts/dataset/record.sh plastic 10        # 2. record 10 episodes (appends if the dataset exists)
-scripts/dataset/view.sh plastic 9           # 3. check the last one
-scripts/dataset/delete_last_episode.sh plastic   #    ...and drop it if it went wrong
-scripts/dataset/sync.sh push plastic        # 4. upload
+scripts/teleop/run_teleop.sh
 ```
 
-`record.sh --push plastic 10` does steps 2 and 4 in one go.
+The follower should copy the leader, and Rerun should show both camera images.
 
-While recording, the follower copies the leader arm and both cameras show in Rerun.
-Each episode lasts `EPISODE_TIME_S` (30 s), followed by `RESET_TIME_S` (10 s) to put a new
-item into the box. Keys: **→** ends the episode early, **←** re-records it, **Esc** stops.
-If asked about calibration, press ENTER to use the files in `calibration/`.
-
-Tips for good ACT data:
-
-- Start every episode from the same arm start position, the one the pipeline returns to.
-- Vary the item and where it lands; keep lighting and camera positions fixed.
-- Aim for 50+ episodes per model before the first serious training run.
-
-Replay an episode on the real arm, at half speed:
+**3. Get the latest shared dataset** so new episodes are appended to it:
 
 ```bash
-scripts/dataset/replay.sh --speed 0.5 --episode 3 plastic
+scripts/dataset/sync.sh pull plastic
 ```
+
+Skip this for the very first recording of a model (the Hub repo does not exist yet).
+
+**4. Start recording**, here 10 episodes:
+
+```bash
+scripts/dataset/record.sh plastic 10
+```
+
+If asked about calibration, press **ENTER** to use the files in `calibration/`. Rerun
+opens with the camera images and joint plots. Keep the **terminal focused**: the
+keyboard controls are read from it.
+
+**5. Record each episode.** The script alternates between two phases:
+
+| Phase   | Length (env var)             | What you do |
+| ------- | ---------------------------- | ----------- |
+| Episode | 30 s (`EPISODE_TIME_S`)      | Is recorded. With the leader arm: reach for the item, grasp it, carry it to the **right hole** (left for metal), release it, return the arm to the start position. |
+| Reset   | 10 s (`RESET_TIME_S`)        | Not recorded. Drop the next item into the box and hold the arm at the start position. |
+
+Keyboard controls during recording:
+
+| Key     | Effect |
+| ------- | ------ |
+| **→**   | End the current episode (or reset) early and save it. Use it as soon as the arm is back at the start position. |
+| **←**   | Throw away the current episode and record it again (a failed grasp, a dropped item, a wrong move). |
+| **Esc** | Stop the session. Episodes recorded so far are kept. |
+
+Change the lengths for one session with env vars, e.g.
+`EPISODE_TIME_S=20 RESET_TIME_S=15 scripts/dataset/record.sh plastic 10`.
+
+**6. Check what you recorded** (no robot needed):
+
+```bash
+scripts/dataset/view.sh plastic 9      # episode 9 = the 10th one; episodes count from 0
+```
+
+Drop a bad last episode with `scripts/dataset/delete_last_episode.sh plastic` (the
+previous version is kept in `data/cleany_plastic.before_delete/`). To see a recording
+played back on the real arm, at half speed:
+
+```bash
+scripts/dataset/replay.sh --speed 0.5 --episode 9 plastic
+```
+
+**7. Upload it:**
+
+```bash
+scripts/dataset/sync.sh push plastic
+scripts/dataset/sync.sh status         # local and Hub episode counts should match
+```
+
+`scripts/dataset/record.sh --push plastic 10` does steps 4 and 7 in one go. Running
+`record.sh` again later appends more episodes to the same dataset.
+
+### Tips for good ACT data
+
+- **Same start, same end.** Begin and finish every episode at the same arm start
+  position: the one the pipeline returns the arm to between items.
+- **Vary what matters.** Use many different items and let them land in different places
+  and orientations; that is what the model must generalize over.
+- **Keep the rest fixed.** Same lighting, same camera positions, nothing extra in view.
+  Moving a camera after recording makes the dataset much less useful.
+- **Move smoothly and decisively.** Hesitations and corrections get copied by the model.
+  Re-record (**←**) rather than keep a messy episode.
+- **Amount.** Aim for 50+ good episodes per model before the first serious training run.
 
 ### Training
 

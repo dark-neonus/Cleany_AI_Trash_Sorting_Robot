@@ -34,7 +34,11 @@ if [ "$TARGET" = "all" ]; then TARGETS=("${MODELS[@]}"); else TARGETS=("$TARGET"
 mkdir -p "$PROJECT_ROOT/data"
 echo "*" > "$PROJECT_ROOT/data/.gitignore"
 
+# Keep going when one model fails so `all` still syncs the others.
+STATUS=0
 for target in "${TARGETS[@]}"; do
+    unset TASK
     resolve_dataset "$target"
-    python "$PROJECT_ROOT/scripts/common/dataset_sync.py" "$COMMAND" "$DATASET_REPO_ID" "$DATASET_ROOT" "${FORCE[@]}"
+    python "$PROJECT_ROOT/scripts/common/dataset_sync.py" "$COMMAND" "$DATASET_REPO_ID" "$DATASET_ROOT" "${FORCE[@]}" || STATUS=1
 done
+exit $STATUS

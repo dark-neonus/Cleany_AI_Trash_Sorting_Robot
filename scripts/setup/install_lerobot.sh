@@ -23,19 +23,25 @@ fi
 
 echo "=== 3. Ensuring 'uv' is Available in PATH ==="
 # Check common directories where uv might have been installed
-export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$HOME/snap/code/common/.local/bin:$HOME/snap/code/264/.local/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
-if ! command -v uv &> /dev/null; then
+# `command -v` is not enough: a version-manager shim (mise, asdf) can exist without a uv version set.
+if ! uv --version &> /dev/null; then
     echo "Installing uv package manager..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$HOME/snap/code/264/.local/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
+    hash -r
 fi
 
-echo "Using uv at: $(command -v uv)"
+echo "Using uv at: $(command -v uv) ($(uv --version))"
 
 echo "=== 4. Creating Virtual Environment (Python 3.12) ==="
-# uv automatically downloads and compiles standalone Python 3.12 without touching system Python
-uv venv --python 3.12 .venv
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$PROJECT_ROOT"
+# Keep uv's standalone Python out of sandboxed data dirs (e.g. snap VS Code terminals set
+# XDG_DATA_HOME to ~/snap/code/<revision>/, which disappears on update and breaks .venv).
+export UV_PYTHON_INSTALL_DIR="$HOME/.local/share/uv/python"
+uv venv --clear --python 3.12 .venv
 source .venv/bin/activate
 
 echo "=== 5. Installing PyTorch with CUDA ==="

@@ -35,7 +35,8 @@ def local_episodes(root: Path) -> int | None:
 
 def hub_episodes(repo_id: str) -> int | None:
     try:
-        path = hf_hub_download(repo_id, INFO_PATH, repo_type="dataset", force_download=True)
+        # No force_download: it wraps these errors in a ValueError. The cache is revalidated anyway.
+        path = hf_hub_download(repo_id, INFO_PATH, repo_type="dataset")
     except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
         return None
     return json.loads(Path(path).read_text())["total_episodes"]
@@ -93,6 +94,8 @@ def pull(repo_id: str, root: Path, force: bool) -> None:
 def status(repo_id: str, root: Path) -> None:
     local, hub = local_episodes(root), hub_episodes(repo_id)
     print(f"{repo_id}: local {local if local is not None else '-'}, hub {hub if hub is not None else '-'}")
+    if hub is None:
+        print("  not on the Hub yet (created on the first push), or no access: check `hf auth whoami`")
 
 
 def main() -> None:
