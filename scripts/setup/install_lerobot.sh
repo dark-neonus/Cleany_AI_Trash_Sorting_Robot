@@ -42,7 +42,7 @@ echo "=== 5. Installing PyTorch with CUDA ==="
 uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 
 echo "=== 6. Installing LeRobot with Core Scripts, Hardware & Training Extras ==="
-uv pip install "lerobot[core_scripts,training,feetech,dynamixel,intelrealsense,pi,smolvla,diffusion]"
+uv pip install "lerobot[core_scripts,training,feetech,dynamixel,intelrealsense,diffusion]"
 
 echo "=== 7. Verifying Installation ==="
 lerobot-info

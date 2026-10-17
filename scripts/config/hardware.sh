@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared hardware config. Source it from scripts after PROJECT_ROOT is set:
-#   source "$SCRIPT_DIR/config/hardware.sh"
+#   source "$PROJECT_ROOT/scripts/config/hardware.sh"
 
 FOLLOWER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79031690-if00"
 LEADER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79034180-if00"
@@ -36,9 +36,6 @@ ROBOT_CAMERAS="{
     \"warmup_s\": 5
   }
 }"
-
-# smolvla_base was pretrained on cameras named camera1..camera3; map ours onto them.
-POLICY_RENAME_MAP='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}'
 
 # Follower motion limits (applied by lerobot_wide_fov.py). Usage: parse_motion_flags "$@"
 # Consumes --max-velocity DEG_PER_S, --acceleration 0-254 and --max-step DEG (also as
@@ -84,7 +81,7 @@ require_devices() {
 require_venv() {
     if [ ! -f "$PROJECT_ROOT/.venv/bin/lerobot-record" ]; then
         echo "Error: .venv not found or lerobot is not installed."
-        echo "Please run scripts/config/install_lerobot.sh first."
+        echo "Please run scripts/setup/install_lerobot.sh first."
         exit 1
     fi
     export PATH="$PROJECT_ROOT/.venv/bin:$PATH"

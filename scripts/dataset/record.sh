@@ -1,36 +1,40 @@
 #!/usr/bin/env bash
 set -e
 
-# Record teleoperated episodes into a LeRobot dataset.
+# Record teleoperated episodes into the dataset of one ACT model.
 #
-# Usage: scripts/record_dataset.sh "<task instruction>" [num_episodes]
-#   scripts/record_dataset.sh "Put the plastic bottle into the plastic bin" 10
+# Usage: scripts/dataset/record.sh [--push] <plastic|metal> [num_episodes]
+#   scripts/dataset/record.sh plastic 10
+#   scripts/dataset/record.sh --push metal 5    # upload to the Hub when done
 #
-# Run it again with another task to append episodes to the same dataset.
-# Env overrides: DATASET_REPO_ID, EPISODE_TIME_S, RESET_TIME_S, PUSH_TO_HUB
+# Run it again to append episodes to the same dataset (data/cleany_<model>).
+# Env overrides: TASK, EPISODE_TIME_S, RESET_TIME_S, HF_NAMESPACE
 #
 # Keys while recording: → finish episode early, ← re-record episode, Esc stop.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-source "$SCRIPT_DIR/config/hardware.sh"
-require_venv
-require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
+source "$PROJECT_ROOT/scripts/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/datasets.sh"
 
-TASK="$1"
-NUM_EPISODES="${2:-10}"
-if [ -z "$TASK" ]; then
-    echo "Usage: $0 \"<task instruction>\" [num_episodes]"
+PUSH=false
+if [ "$1" = "--push" ]; then
+    PUSH=true
+    shift
+fi
+if [ -z "$1" ]; then
+    echo "Usage: $0 [--push] <$MODELS_USAGE> [num_episodes]"
     exit 1
 fi
-
-DATASET_REPO_ID="${DATASET_REPO_ID:-local/cleany_trash_sorting}"
-DATASET_ROOT="$PROJECT_ROOT/data/${DATASET_REPO_ID#*/}"
+resolve_dataset "$1"
+NUM_EPISODES="${2:-10}"
 EPISODE_TIME_S="${EPISODE_TIME_S:-30}"
 RESET_TIME_S="${RESET_TIME_S:-10}"
-PUSH_TO_HUB="${PUSH_TO_HUB:-false}"
+
+require_venv
+require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
 
 # Keep data/ out of git without touching the root .gitignore
 mkdir -p "$PROJECT_ROOT/data"
@@ -42,12 +46,13 @@ if [ -d "$DATASET_ROOT" ]; then
     echo "Appending to existing dataset at $DATASET_ROOT"
 fi
 
+echo "Model: $MODEL ($DATASET_REPO_ID)"
 echo "Task: $TASK"
 echo "Episodes: $NUM_EPISODES (${EPISODE_TIME_S}s each, ${RESET_TIME_S}s reset)"
 
 # No `yes '' |` here: on Wayland the →/←/Esc keys are read from stdin, so it must stay
 # a TTY. If asked about calibration, press ENTER to use the files in calibration/.
-python "$SCRIPT_DIR/lerobot_wide_fov.py" record \
+python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" record \
   --robot.type=so101_follower \
   --robot.port="$FOLLOWER_PORT" \
   --robot.id=follower_arm \
@@ -63,8 +68,14 @@ python "$SCRIPT_DIR/lerobot_wide_fov.py" record \
   --dataset.num_episodes="$NUM_EPISODES" \
   --dataset.episode_time_s="$EPISODE_TIME_S" \
   --dataset.reset_time_s="$RESET_TIME_S" \
-  --dataset.push_to_hub="$PUSH_TO_HUB" \
+  --dataset.push_to_hub=false \
   --dataset.streaming_encoding=true \
   --dataset.encoder_threads=2 \
   --resume="$RESUME" \
   --display_data=true
+
+if [ "$PUSH" = true ]; then
+    "$PROJECT_ROOT/scripts/dataset/sync.sh" push "$MODEL"
+else
+    echo "Upload with: scripts/dataset/sync.sh push $MODEL"
+fi

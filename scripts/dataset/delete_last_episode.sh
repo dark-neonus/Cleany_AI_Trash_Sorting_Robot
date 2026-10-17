@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-# Delete the last recorded episode from the local dataset.
+# Delete the last recorded episode from the local dataset of one ACT model.
 #
-# Usage: scripts/delete_last_episode.sh
-# Env overrides: DATASET_REPO_ID
+# Usage: scripts/dataset/delete_last_episode.sh <plastic|metal>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-source "$SCRIPT_DIR/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/datasets.sh"
+resolve_dataset "$1"
 require_venv
 
-DATASET_REPO_ID="${DATASET_REPO_ID:-local/cleany_trash_sorting}"
-DATASET_ROOT="$PROJECT_ROOT/data/${DATASET_REPO_ID#*/}"
 EDITED_ROOT="$DATASET_ROOT.edited"
 BACKUP_ROOT="$DATASET_ROOT.before_delete"
 

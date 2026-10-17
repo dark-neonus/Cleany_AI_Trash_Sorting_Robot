@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-# Replay a recorded run (or any local dataset episode) on the follower arm.
+# Replay an episode of an ACT dataset (or any local LeRobot dataset) on the follower arm.
 #
-# Usage: scripts/replay_recording.sh [options] <recording_dir>
-#   scripts/replay_recording.sh --speed 0.5 recordings/rollout_<model>_<timestamp>
+# Usage: scripts/dataset/replay.sh [options] <plastic|metal|dataset_dir>
+#   scripts/dataset/replay.sh --episode 3 plastic
+#   scripts/dataset/replay.sh --speed 0.5 recordings/rollout_<model>_<timestamp>
 #
 # Options:
 #   --speed X             Playback speed, e.g. 0.5 = half speed (default 1)
@@ -15,16 +16,22 @@ set -e
 # Motion limits default to the ones stored in the recording's rollout_info.json.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-source "$SCRIPT_DIR/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/datasets.sh"
 require_venv
 require_devices FOLLOWER_PORT
 
-# Find the recording dir first so its stored motion limits become the defaults.
+# Find the dataset dir first so a recording's stored motion limits become the defaults.
 for arg in "$@"; do
-    if [ -d "$arg" ]; then RECORDING_ROOT="$(realpath "$arg")"; fi
+    if [ -n "${MODEL_TASKS[$arg]}" ]; then
+        resolve_dataset "$arg"
+        RECORDING_ROOT="$DATASET_ROOT"
+    elif [ -d "$arg" ]; then
+        RECORDING_ROOT="$(realpath "$arg")"
+    fi
 done
 INFO="$RECORDING_ROOT/rollout_info.json"
 if [ -f "$INFO" ]; then
@@ -54,7 +61,7 @@ while [ $i -lt ${#ARGS[@]} ]; do
 done
 
 if [ -z "$RECORDING_ROOT" ] || [ ! -f "$RECORDING_ROOT/meta/info.json" ]; then
-    echo "Usage: $0 [--speed X] [--episode N] [--max-velocity DEG_S] [--acceleration N] [--max-step DEG] <recording_dir>"
+    echo "Usage: $0 [--speed X] [--episode N] [--max-velocity DEG_S] [--acceleration N] [--max-step DEG] <$MODELS_USAGE|dataset_dir>"
     exit 1
 fi
 if ! [[ "$SPEED" =~ ^[0-9]*\.?[0-9]+$ ]] || ! python -c "import sys; sys.exit(not 0 < float(sys.argv[1]) <= 1)" "$SPEED"; then
@@ -68,7 +75,7 @@ export REPLAY_FPS="$(python -c "import json, sys; print(json.load(open(sys.argv[
 echo "Replaying episode $EPISODE of $RECORDING_ROOT at ${SPEED}x"
 echo "Motion limits: ${SERVO_MAX_VELOCITY_DEG} deg/s, acceleration ${SERVO_ACCELERATION}, ${MAX_STEP_DEG} deg/step"
 
-python "$SCRIPT_DIR/lerobot_wide_fov.py" replay \
+python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" replay \
   --robot.type=so101_follower \
   --robot.port="$FOLLOWER_PORT" \
   --robot.id=follower_arm \
