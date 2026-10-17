@@ -67,3 +67,34 @@ scripts/run_policy.sh outputs/train/<job>/checkpoints/last/pretrained_model \
 ```
 
 Use exactly the same task text as during recording.
+
+### Motion limits
+
+LeRobot sets the servos to maximum acceleration, so the arm snaps to every target.
+`run_policy.sh` limits the follower servos in hardware instead:
+
+| Flag (env default)                         | Default | Meaning                                                |
+| ------------------------------------------ | ------- | ------------------------------------------------------ |
+| `--max-velocity` (`SERVO_MAX_VELOCITY_DEG`) | 90      | max joint speed, deg/s (demos peak ~110–120 deg/s p99) |
+| `--acceleration` (`SERVO_ACCELERATION`)     | 40      | 0–254, units of 100 steps/s² (LeRobot default 254)     |
+| `--max-step` (`MAX_STEP_DEG`)               | 10      | max joint change per control step, clips sudden jumps  |
+
+```bash
+scripts/run_policy.sh --max-velocity 60 --acceleration 20 <checkpoint> "<task>"
+```
+
+### Recording and replaying runs
+
+Add `--record` to save camera video, joint states and actions as a LeRobot dataset:
+
+```bash
+scripts/run_policy.sh --record outputs/train/<job>/checkpoints/last/pretrained_model "<task>" 60
+```
+
+The run lands in `recordings/rollout_<job>_<step>_<YYYYmmdd_HHMMSS>/` with a
+`rollout_info.json` (policy path, task, motion limits). Replay it on the arm, optionally
+slower; motion limits default to the ones the run was recorded with:
+
+```bash
+scripts/replay_recording.sh --speed 0.5 recordings/rollout_<job>_<step>_<timestamp>
+```
