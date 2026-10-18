@@ -143,4 +143,9 @@ if __name__ == "__main__":
     module = importlib.import_module(COMMANDS[command])
     if command == "replay" and REPLAY_SPEED is not None:
         _slow_down_replay(module)
+    # Control panel window with countdown and End/Discard/Stop buttons (see record_panel.py).
+    if command == "record" and os.environ.get("RECORD_PANEL", "true") != "false":
+        import record_panel
+
+        record_panel.install(module, title=os.environ.get("RECORD_PANEL_TITLE", "Cleany recorder"))
     module.main()

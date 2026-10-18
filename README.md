@@ -102,18 +102,26 @@ scripts/dataset/record.sh plastic 10           # 3. record 10 episodes (appends 
 scripts/dataset/sync.sh push plastic           # 4. upload
 ```
 
-Each episode is recorded for 30 s, followed by a 10 s reset that is not recorded. In the
-episode: grasp the item, drop it into its bin, return the arm to the start position. In the
-reset: put the next item into the start zone. Keep the terminal focused for the keys:
+A **control panel** window opens next to Rerun. It shows the phase, the episode number and a
+countdown, and nothing is recorded until you press **Start**:
 
-| Key     | Effect                                                         |
-| ------- | -------------------------------------------------------------- |
-| **→**   | End the episode (or reset) now, e.g. once the arm is back home |
-| **←**   | Discard the episode and record it again                        |
-| **Esc** | Stop; episodes recorded so far are kept                        |
+1. **READY** (not recorded, no time limit): arm at the start position, item in the start zone.
+   Press **Start episode**.
+2. **RECORDING** (30 s countdown): grasp the item, drop it into its bin, return to the start
+   position. Press **End episode** as soon as the arm is back, or let the countdown finish.
+3. **RESET** (not recorded, no time limit): put the next item in place, then **Start episode**
+   for the next one, or **Discard last episode** if the one you just recorded went wrong.
 
-Options: `record.sh --push plastic 10` uploads at the end; `EPISODE_TIME_S=20 RESET_TIME_S=15`
-change the timing; `DISPLAY_DATA=false` turns the viewer off.
+| Button         | Key (terminal focused) | Effect                                             |
+| -------------- | ---------------------- | -------------------------------------------------- |
+| Start episode  | **→**                  | Start recording the next episode                   |
+| End episode    | **→**                  | End the current episode now                        |
+| Discard        | **←**                  | Drop the current (or just recorded) episode, redo it |
+| Stop session   | **Esc**                | Stop; episodes recorded so far are kept            |
+
+Options: `record.sh --push plastic 10` uploads at the end; `EPISODE_TIME_S=20` changes the
+episode length; `DISPLAY_DATA=false` turns the viewer off; `RECORD_PANEL=false` disables the
+panel (plain LeRobot behaviour: episodes start automatically after a `RESET_TIME_S` reset).
 
 ### Review and manage
 

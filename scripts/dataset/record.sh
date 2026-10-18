@@ -8,9 +8,11 @@ set -e
 #   scripts/dataset/record.sh --push metal 5    # upload to the Hub when done
 #
 # Run it again to append episodes to the same dataset (data/cleany_<model>).
-# Env overrides: TASK, EPISODE_TIME_S, RESET_TIME_S, HF_NAMESPACE, DISPLAY_DATA
+# Env overrides: TASK, EPISODE_TIME_S, RESET_TIME_S, HF_NAMESPACE, DISPLAY_DATA,
+# RECORD_PANEL=false (no control panel window)
 #
-# Keys while recording: → finish episode early, ← re-record episode, Esc stop.
+# A control panel window shows the phase and countdown; each episode starts only when you
+# press Start (or → in the terminal). → ends an episode early, ← discards it, Esc stops.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -64,6 +66,7 @@ echo "Episodes: $NUM_EPISODES (${EPISODE_TIME_S}s each, ${RESET_TIME_S}s reset)"
 
 # No `yes '' |` here: on Wayland the →/←/Esc keys are read from stdin, so it must stay
 # a TTY. If asked about calibration, press ENTER to use the files in calibration/.
+RECORD_PANEL_TITLE="Cleany recorder · $MODEL" \
 python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" record \
   --robot.type=so101_follower \
   --robot.port="$FOLLOWER_PORT" \
