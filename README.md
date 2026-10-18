@@ -43,7 +43,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 
 | Folder                 | Script                   | What it does                                                  |
 | ---------------------- | ------------------------ | ------------------------------------------------------------- |
-| `scripts/setup/`       | `install_lerobot.sh`     | Install system packages and LeRobot into `.venv`              |
+| `scripts/setup/`       | `install_dependencies.sh`     | Install system packages, LeRobot and YOLO (Ultralytics) into `.venv`              |
 | `scripts/calibration/` | `calibrate_leader.sh`, `calibrate_follower.sh` | Calibrate the arms into `calibration/`  |
 | `scripts/teleop/`      | `run_teleop.sh`          | Drive the follower with the leader arm, cameras shown in Rerun |
 | `scripts/dataset/`     | `record.sh`              | Record teleoperated episodes for one ACT model                |
@@ -69,7 +69,7 @@ Model names, task texts and the Hub namespace live in
 
 ### Before the first recording (once per machine)
 
-1. Install LeRobot: `scripts/setup/install_lerobot.sh`
+1. Install the dependencies: `scripts/setup/install_dependencies.sh`
 2. Log in to Hugging Face (see [One-time setup](#one-time-setup)): `.venv/bin/hf auth login`
 3. Make sure `calibration/` has `leader_arm.json` and `follower_arm.json`; if not, run
    `scripts/calibration/calibrate_leader.sh` and `scripts/calibration/calibrate_follower.sh`.

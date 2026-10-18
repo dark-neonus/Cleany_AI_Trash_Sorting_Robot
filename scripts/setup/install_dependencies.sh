@@ -45,13 +45,24 @@ uv venv --clear --python 3.12 .venv
 source .venv/bin/activate
 
 echo "=== 5. Installing PyTorch with CUDA ==="
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# CUDA 12.6 builds: the cu128 ones dropped Pascal GPUs (sm_61, e.g. GTX 1070) and fail with
+# "no kernel image is available for execution on the device".
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 echo "=== 6. Installing LeRobot with Core Scripts, Hardware & Training Extras ==="
 uv pip install "lerobot[core_scripts,training,feetech,dynamixel,intelrealsense,diffusion]"
 
-echo "=== 7. Verifying Installation ==="
+echo "=== 7. Installing YOLO (Ultralytics) ==="
+# LeRobot requires opencv-python-headless, Ultralytics requires opencv-python. Both install the
+# same cv2 module, so pin them to one version and reinstall the GUI build last: its cv2 wins,
+# which keeps cv2.imshow working for the YOLO test windows.
+OPENCV_VERSION="$(uv pip show opencv-python-headless | awk '/^Version:/ {print $2}')"
+uv pip install ultralytics "opencv-python==$OPENCV_VERSION"
+uv pip install --reinstall --no-deps "opencv-python==$OPENCV_VERSION"
+
+echo "=== 8. Verifying Installation ==="
 lerobot-info
+python -c "import cv2, ultralytics; print(f'OpenCV {cv2.__version__}, Ultralytics {ultralytics.__version__}')"
 
 echo "================================================================="
 echo "Installation complete!"

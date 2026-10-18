@@ -81,7 +81,7 @@ require_devices() {
 require_venv() {
     if [ ! -f "$PROJECT_ROOT/.venv/bin/lerobot-record" ]; then
         echo "Error: .venv not found or lerobot is not installed."
-        echo "Please run scripts/setup/install_lerobot.sh first."
+        echo "Please run scripts/setup/install_dependencies.sh first."
         exit 1
     fi
     export PATH="$PROJECT_ROOT/.venv/bin:$PATH"
