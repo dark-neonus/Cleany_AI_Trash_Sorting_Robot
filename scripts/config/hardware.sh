@@ -37,11 +37,15 @@ ROBOT_CAMERAS="{
   }
 }"
 
-# Rerun display. Images are JPEG-compressed before they go to the viewer (~50 KB instead of
-# ~900 KB per frame), which saves CPU and memory on weak laptops. The recorded data is not
-# affected. DISPLAY_DATA=false turns the viewer off entirely.
+# Rerun display. DISPLAY_DATA=false turns the viewer off entirely (the recorded data is not
+# affected). DISPLAY_COMPRESSED=true JPEG-compresses images before they go to the viewer
+# (~50 KB instead of ~900 KB per frame); off by default because on our setup the viewer froze
+# and showed no camera images with it on. LeRobot reuses a Rerun viewer already running on
+# port 9876 instead of starting a new one, so close stale viewers (pkill -x rerun) if the
+# viewer shows no new data.
 DISPLAY_DATA="${DISPLAY_DATA:-true}"
-DISPLAY_ARGS=(--display_data="$DISPLAY_DATA" --display_compressed_images=true)
+DISPLAY_COMPRESSED="${DISPLAY_COMPRESSED:-false}"
+DISPLAY_ARGS=(--display_data="$DISPLAY_DATA" --display_compressed_images="$DISPLAY_COMPRESSED")
 
 # Video codec for recorded datasets. LeRobot defaults to libsvtav1, a CPU encoder costing
 # ~100 ms of CPU per frame: two cameras at 30 fps saturate a weak CPU and the cameras lag.

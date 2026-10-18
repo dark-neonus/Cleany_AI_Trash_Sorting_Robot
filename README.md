@@ -76,8 +76,10 @@ this automatically:
   saturate a weak CPU and delay the cameras). `record.sh` test-encodes first and stops if
   NVENC does not work. Keep `VIDEO_CODEC` the same for the whole team: episodes from both
   laptops end up in the same video files.
-- **Lighter display.** Images sent to the Rerun viewer are JPEG-compressed. To turn the viewer
-  off completely: `DISPLAY_DATA=false scripts/dataset/record.sh plastic 10`.
+- **Display options.** To turn the Rerun viewer off completely (saves CPU on a weak laptop):
+  `DISPLAY_DATA=false scripts/dataset/record.sh plastic 10`. If the viewer shows no new data,
+  close stale viewers first with `pkill -x rerun`: LeRobot reuses a viewer that is already
+  running instead of starting a new one.
 
 ## Recording datasets for the ACT models
 
