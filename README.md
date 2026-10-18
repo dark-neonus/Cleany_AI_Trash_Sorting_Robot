@@ -81,112 +81,73 @@ this automatically:
   close stale viewers first with `pkill -x rerun`: LeRobot reuses a viewer that is already
   running instead of starting a new one.
 
-## Recording datasets for the ACT models
+## Dataset collection
 
-There is one dataset per ACT model, selected by the model name `plastic` or `metal`:
+One dataset per ACT model, picked by the model name (`plastic` or `metal`):
 
-| Model     | Local folder           | Hub repo                     | Task text                                  |
-| --------- | ---------------------- | ---------------------------- | ------------------------------------------ |
-| `plastic` | `data/cleany_plastic/` | `cleany-ai/cleany_plastic`   | Put the plastic item into the right hole   |
-| `metal`   | `data/cleany_metal/`   | `cleany-ai/cleany_metal`     | Put the metal item into the left hole      |
+| Model     | Local folder           | Hub repo                   | Task                                     |
+| --------- | ---------------------- | -------------------------- | ---------------------------------------- |
+| `plastic` | `data/cleany_plastic/` | `cleany-ai/cleany_plastic` | Put the plastic item into the right hole |
+| `metal`   | `data/cleany_metal/`   | `cleany-ai/cleany_metal`   | Put the metal item into the left hole    |
 
-Model names, task texts and the Hub namespace live in
-[scripts/config/datasets.sh](scripts/config/datasets.sh). `data/` is never committed to git.
+**Once per machine:** run `scripts/setup/install_dependencies.sh`, then `.venv/bin/hf auth login`
+(see [One-time setup](#one-time-setup)). The arm calibration in `calibration/` is shared via git.
 
-### Before the first recording (once per machine)
-
-1. Install LeRobot: `scripts/setup/install_lerobot.sh`
-2. Log in to Hugging Face (see [One-time setup](#one-time-setup)): `.venv/bin/hf auth login`
-3. Make sure `calibration/` has `leader_arm.json` and `follower_arm.json`; if not, run
-   `scripts/calibration/calibrate_leader.sh` and `scripts/calibration/calibrate_follower.sh`.
-
-### How to record a dataset, step by step
-
-The example records the `plastic` model; for the metal one, replace `plastic` with `metal`.
-
-**1. Connect the hardware.** Plug in the leader arm, the follower arm (with its 12 V supply
-on), the front camera and the wrist camera. The script stops with
-`Error: <device> not found` if one is missing.
-
-**2. Check that everything works** with a quick teleoperation run (Ctrl+C to stop):
+### Record
 
 ```bash
-scripts/teleop/run_teleop.sh
+pkill -x rerun; scripts/teleop/run_teleop.sh   # 1. check arm and both cameras, Ctrl+C to stop
+scripts/dataset/sync.sh pull plastic           # 2. get the shared copy (skip for the first recording)
+scripts/dataset/record.sh plastic 10           # 3. record 10 episodes (appends to the dataset)
+scripts/dataset/sync.sh push plastic           # 4. upload
 ```
 
-The follower should copy the leader, and Rerun should show both camera images.
+Each episode is recorded for 30 s, followed by a 10 s reset that is not recorded. In the
+episode: grasp the item, drop it into its bin, return the arm to the start position. In the
+reset: put the next item into the start zone. Keep the terminal focused for the keys:
 
-**3. Get the latest shared dataset** so new episodes are appended to it:
+| Key     | Effect                                                         |
+| ------- | -------------------------------------------------------------- |
+| **→**   | End the episode (or reset) now, e.g. once the arm is back home |
+| **←**   | Discard the episode and record it again                        |
+| **Esc** | Stop; episodes recorded so far are kept                        |
+
+Options: `record.sh --push plastic 10` uploads at the end; `EPISODE_TIME_S=20 RESET_TIME_S=15`
+change the timing; `DISPLAY_DATA=false` turns the viewer off.
+
+### Review and manage
 
 ```bash
-scripts/dataset/sync.sh pull plastic
+scripts/dataset/view.sh plastic 9                          # watch episode 9 (counted from 0), no robot needed
+scripts/dataset/replay.sh --speed 0.5 --episode 9 plastic  # play it back on the real arm
+scripts/dataset/delete_last_episode.sh plastic             # drop the last episode
+scripts/dataset/sync.sh status                             # episode counts, local vs Hub
 ```
 
-Skip this for the very first recording of a model (the Hub repo does not exist yet).
-
-**4. Start recording**, here 10 episodes:
+To delete other episodes, e.g. 3 and 7, then swap the result in:
 
 ```bash
-scripts/dataset/record.sh plastic 10
+.venv/bin/lerobot-edit-dataset --repo_id=cleany-ai/cleany_plastic --root=data/cleany_plastic \
+  --new_root=data/cleany_plastic.edited --operation.type=delete_episodes --operation.episode_indices="[3, 7]"
+mv data/cleany_plastic data/cleany_plastic.old && mv data/cleany_plastic.edited data/cleany_plastic
 ```
 
-If asked about calibration, press **ENTER** to use the files in `calibration/`. Rerun
-opens with the camera images and joint plots. Keep the **terminal focused**: the
-keyboard controls are read from it.
+After deleting episodes, upload with `scripts/dataset/sync.sh push plastic --force` (the Hub
+copy has more episodes, so a normal push refuses).
 
-**5. Record each episode.** The script alternates between two phases:
+### Recommendations
 
-| Phase   | Length (env var)             | What you do |
-| ------- | ---------------------------- | ----------- |
-| Episode | 30 s (`EPISODE_TIME_S`)      | Is recorded. With the leader arm: reach for the item, grasp it, carry it to the **right hole** (left for metal), release it, return the arm to the start position. |
-| Reset   | 10 s (`RESET_TIME_S`)        | Not recorded. Drop the next item into the box and hold the arm at the start position. |
-
-Keyboard controls during recording:
-
-| Key     | Effect |
-| ------- | ------ |
-| **→**   | End the current episode (or reset) early and save it. Use it as soon as the arm is back at the start position. |
-| **←**   | Throw away the current episode and record it again (a failed grasp, a dropped item, a wrong move). |
-| **Esc** | Stop the session. Episodes recorded so far are kept. |
-
-Change the lengths for one session with env vars, e.g.
-`EPISODE_TIME_S=20 RESET_TIME_S=15 scripts/dataset/record.sh plastic 10`.
-
-**6. Check what you recorded** (no robot needed):
-
-```bash
-scripts/dataset/view.sh plastic 9      # episode 9 = the 10th one; episodes count from 0
-```
-
-Drop a bad last episode with `scripts/dataset/delete_last_episode.sh plastic` (the
-previous version is kept in `data/cleany_plastic.before_delete/`). To see a recording
-played back on the real arm, at half speed:
-
-```bash
-scripts/dataset/replay.sh --speed 0.5 --episode 9 plastic
-```
-
-**7. Upload it:**
-
-```bash
-scripts/dataset/sync.sh push plastic
-scripts/dataset/sync.sh status         # local and Hub episode counts should match
-```
-
-`scripts/dataset/record.sh --push plastic 10` does steps 4 and 7 in one go. Running
-`record.sh` again later appends more episodes to the same dataset.
-
-### Tips for good ACT data
-
-- **Same start, same end.** Begin and finish every episode at the same arm start
-  position: the one the pipeline returns the arm to between items.
-- **Vary what matters.** Use many different items and let them land in different places
-  and orientations; that is what the model must generalize over.
-- **Keep the rest fixed.** Same lighting, same camera positions, nothing extra in view.
-  Moving a camera after recording makes the dataset much less useful.
-- **Move smoothly and decisively.** Hesitations and corrections get copied by the model.
-  Re-record (**←**) rather than keep a messy episode.
-- **Amount.** Aim for 50+ good episodes per model before the first serious training run.
+- **Same start and end pose** in every episode: the position the pipeline returns the arm to.
+- **Vary the items**: different objects, landing spots and orientations in the start zone.
+- **Keep the cameras fixed**: never move them between sessions; a moved camera makes earlier
+  episodes much less useful. Re-run `scripts/tools/tune_cameras.sh` only when the final
+  lighting or a camera changes for good.
+- **Vary the lighting a little**: for about a quarter of the episodes, move a lamp or switch the
+  room light, with the box light always on. This makes the models robust to light changes.
+- **Smooth, decisive moves**: hesitations are copied by the model; re-record (**←**) messy ones.
+- **Review before pushing**: watch a few episodes with `view.sh`, drop bad ones.
+- **Amount**: 50+ good episodes per model before the first serious training run.
+- **One person per model at a time**: pull before recording, push right after (see [Team rules](#team-rules)).
 
 ### Training
 

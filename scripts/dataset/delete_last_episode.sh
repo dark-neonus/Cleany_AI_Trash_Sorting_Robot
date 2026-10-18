@@ -17,7 +17,7 @@ require_venv
 EDITED_ROOT="$DATASET_ROOT.edited"
 BACKUP_ROOT="$DATASET_ROOT.before_delete"
 
-if [ ! -d "$DATASET_ROOT" ]; then
+if [ ! -f "$DATASET_ROOT/meta/info.json" ]; then
     echo "Error: dataset not found at $DATASET_ROOT"
     exit 1
 fi

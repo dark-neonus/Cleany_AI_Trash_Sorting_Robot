@@ -42,10 +42,20 @@ configure_cameras
 mkdir -p "$PROJECT_ROOT/data"
 echo "*" > "$PROJECT_ROOT/data/.gitignore"
 
+# Append only to a real dataset (it has meta/info.json). A folder without it is left over from
+# a run that stopped before saving an episode; LeRobot would then look for the dataset on the Hub.
 RESUME=false
-if [ -d "$DATASET_ROOT" ]; then
+if [ -f "$DATASET_ROOT/meta/info.json" ]; then
     RESUME=true
     echo "Appending to existing dataset at $DATASET_ROOT"
+elif [ -d "$DATASET_ROOT" ]; then
+    if [ -z "$(ls -A "$DATASET_ROOT")" ]; then
+        rmdir "$DATASET_ROOT"
+    else
+        INCOMPLETE_ROOT="$DATASET_ROOT.incomplete_$(date +%Y%m%d_%H%M%S)"
+        mv "$DATASET_ROOT" "$INCOMPLETE_ROOT"
+        echo "Moved an incomplete dataset (no meta/info.json) to $INCOMPLETE_ROOT"
+    fi
 fi
 
 echo "Model: $MODEL ($DATASET_REPO_ID)"
