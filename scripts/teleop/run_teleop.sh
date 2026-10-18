@@ -28,5 +28,5 @@ yes '' | python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" teleoperate \
   --teleop.port="$LEADER_PORT" \
   --teleop.id=leader_arm \
   --teleop.calibration_dir="$CALIB_DIR" \
-  --display_data=true \
+  "${DISPLAY_ARGS[@]}" \
   2> >(filter_jpeg_warnings)

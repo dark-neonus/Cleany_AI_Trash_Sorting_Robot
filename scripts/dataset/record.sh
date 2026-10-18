@@ -8,7 +8,7 @@ set -e
 #   scripts/dataset/record.sh --push metal 5    # upload to the Hub when done
 #
 # Run it again to append episodes to the same dataset (data/cleany_<model>).
-# Env overrides: TASK, EPISODE_TIME_S, RESET_TIME_S, HF_NAMESPACE
+# Env overrides: TASK, EPISODE_TIME_S, RESET_TIME_S, HF_NAMESPACE, DISPLAY_DATA
 #
 # Keys while recording: → finish episode early, ← re-record episode, Esc stop.
 
@@ -35,6 +35,7 @@ RESET_TIME_S="${RESET_TIME_S:-10}"
 
 require_venv
 require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
+require_video_encoder
 configure_cameras
 
 # Keep data/ out of git without touching the root .gitignore
@@ -72,8 +73,9 @@ python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" record \
   --dataset.push_to_hub=false \
   --dataset.streaming_encoding=true \
   --dataset.encoder_threads=2 \
+  "${VIDEO_ENCODER_ARGS[@]}" \
   --resume="$RESUME" \
-  --display_data=true \
+  "${DISPLAY_ARGS[@]}" \
   2> >(filter_jpeg_warnings)
 
 if [ "$PUSH" = true ]; then

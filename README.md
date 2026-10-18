@@ -43,7 +43,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 
 | Folder                 | Script                   | What it does                                                  |
 | ---------------------- | ------------------------ | ------------------------------------------------------------- |
-| `scripts/setup/`       | `install_dependencies.sh`     | Install system packages, LeRobot and YOLO (Ultralytics) into `.venv`              |
+| `scripts/setup/`       | `install_dependencies.sh` | Install system packages, LeRobot and YOLO (Ultralytics) into `.venv` |
 | `scripts/calibration/` | `calibrate_leader.sh`, `calibrate_follower.sh` | Calibrate the arms into `calibration/`  |
 | `scripts/teleop/`      | `run_teleop.sh`          | Drive the follower with the leader arm, cameras shown in Rerun |
 | `scripts/dataset/`     | `record.sh`              | Record teleoperated episodes for one ACT model                |
@@ -52,8 +52,32 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `delete_last_episode.sh` | Drop the last episode (e.g. a failed demo)                    |
 |                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material                           |
-| `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, motion limits; model names, tasks, Hub namespace |
+| `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
+| `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
+|                        | `camera_settings.sh`     | Fixed camera settings written by `tune_cameras.sh`            |
 | `scripts/common/`      | `lerobot_wide_fov.py`, `dataset_sync.py` | Helpers used by the scripts above   |
+
+## Cameras and recording performance
+
+Both laptops must capture images that look the same and arrive with the same delay, or a
+model trained on data from one laptop behaves differently on the other. The scripts handle
+this automatically:
+
+- **Fixed camera settings.** Auto exposure and auto white balance change with the light, so
+  images (and frame timing) differ between sessions. `scripts/tools/tune_cameras.sh` finds
+  manual settings that match what auto mode picks under the current lighting and saves them to
+  `scripts/config/camera_settings.sh`; every script applies them before opening the cameras.
+  **Re-run it whenever the lighting or a camera position changes, and commit the file.**
+  Without the file, the cameras run in auto mode.
+- **30 fps in dim light.** Dynamic frame rate is off and mains is set to 50 Hz on both cameras
+  (the front C270 otherwise dropped to ~12 fps).
+- **Video encoding on the GPU.** Datasets are encoded with `h264_nvenc` (~3 ms of CPU per
+  frame) instead of LeRobot's default CPU AV1 encoder (~100 ms of CPU per frame, enough to
+  saturate a weak CPU and delay the cameras). `record.sh` test-encodes first and stops if
+  NVENC does not work. Keep `VIDEO_CODEC` the same for the whole team: episodes from both
+  laptops end up in the same video files.
+- **Lighter display.** Images sent to the Rerun viewer are JPEG-compressed. To turn the viewer
+  off completely: `DISPLAY_DATA=false scripts/dataset/record.sh plastic 10`.
 
 ## Recording datasets for the ACT models
 
@@ -69,7 +93,7 @@ Model names, task texts and the Hub namespace live in
 
 ### Before the first recording (once per machine)
 
-1. Install the dependencies: `scripts/setup/install_dependencies.sh`
+1. Install LeRobot: `scripts/setup/install_lerobot.sh`
 2. Log in to Hugging Face (see [One-time setup](#one-time-setup)): `.venv/bin/hf auth login`
 3. Make sure `calibration/` has `leader_arm.json` and `follower_arm.json`; if not, run
    `scripts/calibration/calibrate_leader.sh` and `scripts/calibration/calibrate_follower.sh`.

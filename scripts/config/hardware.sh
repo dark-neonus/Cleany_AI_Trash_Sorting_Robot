@@ -37,6 +37,56 @@ ROBOT_CAMERAS="{
   }
 }"
 
+# Rerun display. Images are JPEG-compressed before they go to the viewer (~50 KB instead of
+# ~900 KB per frame), which saves CPU and memory on weak laptops. The recorded data is not
+# affected. DISPLAY_DATA=false turns the viewer off entirely.
+DISPLAY_DATA="${DISPLAY_DATA:-true}"
+DISPLAY_ARGS=(--display_data="$DISPLAY_DATA" --display_compressed_images=true)
+
+# Video codec for recorded datasets. LeRobot defaults to libsvtav1, a CPU encoder costing
+# ~100 ms of CPU per frame: two cameras at 30 fps saturate a weak CPU and the cameras lag.
+# h264_nvenc encodes on the NVIDIA GPU for ~3 ms of CPU per frame. Keep one codec for the
+# whole team: episodes from both laptops end up in the same video files.
+# VIDEO_QUALITY is the constant quantizer (lower = better quality, bigger files).
+# bf=0 (no B-frames): LeRobot puts a keyframe every 2 frames (g=2, fast seeking in training),
+# which NVENC rejects with its default B-frames; no B-frames also means lower latency.
+VIDEO_CODEC="${VIDEO_CODEC:-h264_nvenc}"
+VIDEO_QUALITY="${VIDEO_QUALITY:-23}"
+VIDEO_EXTRA_OPTIONS='{"bf": 0}'
+VIDEO_ENCODER_ARGS=(
+    --dataset.rgb_encoder.vcodec="$VIDEO_CODEC"
+    --dataset.rgb_encoder.crf="$VIDEO_QUALITY"
+    --dataset.rgb_encoder.extra_options="$VIDEO_EXTRA_OPTIONS"
+)
+
+# LeRobot only checks that FFmpeg knows the encoder, not that the GPU can run it, so encode a
+# few test frames with exactly the options recording will use. Stops instead of silently
+# switching codecs (see VIDEO_CODEC above).
+require_video_encoder() {
+    if ! python - "$VIDEO_CODEC" "$VIDEO_QUALITY" "$VIDEO_EXTRA_OPTIONS" <<'EOF'
+import io, json, sys
+import av, numpy as np
+from lerobot.configs.video import RGBEncoderConfig
+codec, quality, extra = sys.argv[1], int(sys.argv[2]), json.loads(sys.argv[3])
+options = RGBEncoderConfig(vcodec=codec, crf=quality, extra_options=extra).get_codec_options(as_strings=True)
+out = av.open(io.BytesIO(), "w", format="mp4")
+stream = out.add_stream(codec, 30, options=options)
+stream.width, stream.height, stream.pix_fmt = 640, 480, "yuv420p"
+for _ in range(5):
+    for packet in stream.encode(av.VideoFrame.from_ndarray(np.zeros((480, 640, 3), np.uint8), "rgb24")):
+        out.mux(packet)
+for packet in stream.encode():
+    out.mux(packet)
+out.close()
+EOF
+    then
+        echo "Error: video encoder $VIDEO_CODEC does not work on this machine (see the error above)."
+        echo "For NVENC, check the NVIDIA driver with nvidia-smi. Only change VIDEO_CODEC together with"
+        echo "the whole team: mixing codecs in one dataset can corrupt its video files."
+        exit 1
+    fi
+}
+
 # Follower motion limits (applied by lerobot_wide_fov.py). Usage: parse_motion_flags "$@"
 # Consumes --max-velocity DEG_PER_S, --acceleration 0-254 and --max-step DEG (also as
 # --flag=value), exports SERVO_MAX_VELOCITY_DEG / SERVO_ACCELERATION / MAX_STEP_DEG,
@@ -72,13 +122,27 @@ parse_motion_flags() {
 #   exposure_dynamic_framerate=0  otherwise they drop fps in dim light to expose longer
 #                                 (the front C270 fell to ~12 fps at 800x600)
 #   power_line_frequency=1        50 Hz mains (Ukraine), avoids flicker bands under room lights
+# plus the fixed exposure/gain/white balance from camera_settings.sh (written by
+# scripts/tools/tune_cameras.sh). Without that file the cameras run in auto mode.
 configure_cameras() {
     if ! command -v v4l2-ctl &> /dev/null; then
         echo "Warning: v4l2-ctl not found (sudo apt install v4l-utils); the front camera may run below 30 fps"
         return
     fi
-    v4l2-ctl -d "$FRONT_CAMERA" -c exposure_dynamic_framerate=0 -c power_line_frequency=1
-    v4l2-ctl -d "$WRIST_CAMERA" -c exposure_dynamic_framerate=0 -c power_line_frequency=1
+    local FRONT_CAMERA_CONTROLS="auto_exposure=3,white_balance_automatic=1,brightness=128"
+    local WRIST_CAMERA_CONTROLS="auto_exposure=3,white_balance_automatic=1,brightness=128"
+    if [ -f "$PROJECT_ROOT/scripts/config/camera_settings.sh" ]; then
+        source "$PROJECT_ROOT/scripts/config/camera_settings.sh"
+    fi
+    local device controls
+    for device in FRONT WRIST; do
+        controls="${device}_CAMERA_CONTROLS"
+        device="${device}_CAMERA"
+        v4l2-ctl -d "${!device}" -c exposure_dynamic_framerate=0,power_line_frequency=1
+        # Modes first: the manual values are rejected while the matching auto mode is on.
+        v4l2-ctl -d "${!device}" -c "$(echo "${!controls}" | tr ',' '\n' | grep -E '^(auto_exposure|white_balance_automatic)=' | paste -sd,)"
+        v4l2-ctl -d "${!device}" -c "${!controls}"
+    done
 }
 
 # The C270 MJPG stream makes libjpeg print "Corrupt JPEG data: N extraneous bytes before
