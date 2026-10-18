@@ -5,7 +5,7 @@ echo "=== 1. Installing Linux System Libraries & Video Headers ==="
 sudo apt-get update
 sudo apt-get install -y \
     git curl cmake pkg-config build-essential \
-    ffmpeg libevdev-dev \
+    ffmpeg libevdev-dev v4l-utils \
     libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev \
     libswscale-dev libswresample-dev libavfilter-dev
 

@@ -14,16 +14,19 @@ Cameras not listed are captured as usual.
 
 Follower servo motion limits can be set with SERVO_ACCELERATION and
 SERVO_MAX_VELOCITY_DEG, and replay playback speed with REPLAY_SPEED (see below).
+Servo torque is switched on one servo at a time, TORQUE_STAGGER_S apart (default 0.5).
 """
 
 import importlib
 import json
 import os
 import sys
+import time
 
 import cv2
 
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
+from lerobot.motors.feetech.feetech import FeetechMotorsBus
 from lerobot.robots.so_follower.so_follower import SOFollower
 
 CAPTURE_MODES = {
@@ -93,6 +96,25 @@ def _follower_configure(self: SOFollower) -> None:
 
 if SERVO_ACCELERATION is not None or SERVO_MAX_VELOCITY_DEG is not None:
     SOFollower.configure = _follower_configure
+
+
+# Soft start: lerobot switches torque on for all servos back to back, so they all start
+# pulling current at once. That spike can make a servo miss its reply ("There is no status
+# packet") and abort the connect. Switch them on one at a time from servo 1 (base) to
+# servo 6 (gripper), TORQUE_STAGGER_S apart, and retry each write a couple of times.
+TORQUE_STAGGER_S = float(os.environ.get("TORQUE_STAGGER_S", "0.5"))
+
+_original_enable_torque = FeetechMotorsBus.enable_torque
+
+
+def _enable_torque_staggered(self: FeetechMotorsBus, motors=None, num_retry: int = 0) -> None:
+    for i, motor in enumerate(self._get_motors_list(motors)):
+        if i > 0:
+            time.sleep(TORQUE_STAGGER_S)
+        _original_enable_torque(self, motor, num_retry=max(num_retry, 2))
+
+
+FeetechMotorsBus.enable_torque = _enable_torque_staggered
 
 COMMANDS = {
     "teleoperate": "lerobot.scripts.lerobot_teleoperate",

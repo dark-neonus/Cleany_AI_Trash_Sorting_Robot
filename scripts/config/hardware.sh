@@ -9,7 +9,7 @@ WRIST_CAMERA="/dev/v4l/by-id/usb-Alpha_Imaging_Tech._Corp._SEMIC_Camera-video-in
 CALIB_DIR="$PROJECT_ROOT/calibration"
 
 # 640x480 is a center crop on the front camera. Capture it in its full-FOV 800x600 mode
-# instead and let the *_wide_fov.py wrapper downscale frames to 640x480 (same 4:3 view).
+# instead and let lerobot_wide_fov.py downscale frames to 640x480 (same 4:3 view).
 # The wrist camera's 640x360 mode is already its full 16:9 view (and has lower latency
 # than 1280x720), so it is captured as is.
 export CAMERA_CAPTURE_MODES="{
@@ -65,6 +65,27 @@ parse_motion_flags() {
         exit 1
     fi
     export SERVO_MAX_VELOCITY_DEG SERVO_ACCELERATION MAX_STEP_DEG
+}
+
+# Camera driver settings. They live in the camera and reset when it is replugged, so scripts
+# apply them before opening the cameras (both cameras):
+#   exposure_dynamic_framerate=0  otherwise they drop fps in dim light to expose longer
+#                                 (the front C270 fell to ~12 fps at 800x600)
+#   power_line_frequency=1        50 Hz mains (Ukraine), avoids flicker bands under room lights
+configure_cameras() {
+    if ! command -v v4l2-ctl &> /dev/null; then
+        echo "Warning: v4l2-ctl not found (sudo apt install v4l-utils); the front camera may run below 30 fps"
+        return
+    fi
+    v4l2-ctl -d "$FRONT_CAMERA" -c exposure_dynamic_framerate=0 -c power_line_frequency=1
+    v4l2-ctl -d "$WRIST_CAMERA" -c exposure_dynamic_framerate=0 -c power_line_frequency=1
+}
+
+# The C270 MJPG stream makes libjpeg print "Corrupt JPEG data: N extraneous bytes before
+# marker" for nearly every frame. The frames decode fine, so drop those lines.
+# Usage: some_command 2> >(filter_jpeg_warnings)
+filter_jpeg_warnings() {
+    grep --line-buffered -v "^Corrupt JPEG data" >&2
 }
 
 # Usage: require_devices FOLLOWER_PORT LEADER_PORT ...

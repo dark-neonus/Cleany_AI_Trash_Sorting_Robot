@@ -35,6 +35,7 @@ RESET_TIME_S="${RESET_TIME_S:-10}"
 
 require_venv
 require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
+configure_cameras
 
 # Keep data/ out of git without touching the root .gitignore
 mkdir -p "$PROJECT_ROOT/data"
@@ -72,7 +73,8 @@ python "$PROJECT_ROOT/scripts/common/lerobot_wide_fov.py" record \
   --dataset.streaming_encoding=true \
   --dataset.encoder_threads=2 \
   --resume="$RESUME" \
-  --display_data=true
+  --display_data=true \
+  2> >(filter_jpeg_warnings)
 
 if [ "$PUSH" = true ]; then
     "$PROJECT_ROOT/scripts/dataset/sync.sh" push "$MODEL"
