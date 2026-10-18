@@ -46,12 +46,12 @@ fi
 
 echo "Starting teleoperation (auto-accepting calibration)..."
 
-# 640x480 is a center crop on both cameras. Capture in full-FOV modes instead and
-# let teleop_wide_fov.py downscale frames to the width/height configured below.
-# Wrist sensor is 16:9, so its full view is squeezed horizontally into 4:3.
+# 640x480 is a center crop on the front camera. Capture it in its full-FOV 800x600 mode
+# instead and let the *_wide_fov.py wrapper downscale frames to 640x480 (same 4:3 view).
+# The wrist camera's 640x360 mode is already its full 16:9 view (and has lower latency
+# than 1280x720), so it is captured as is.
 export CAMERA_CAPTURE_MODES="{
-  \"$FRONT_CAMERA\": [800, 600],
-  \"$WRIST_CAMERA\": [1280, 720]
+  \"$FRONT_CAMERA\": [800, 600]
 }"
 
 # Pipe empty newlines into standard input to auto-confirm calibration
@@ -74,7 +74,7 @@ yes '' | python "$SCRIPT_DIR/teleop_wide_fov.py" \
       \"type\": \"opencv\",
       \"index_or_path\": \"$WRIST_CAMERA\",
       \"width\": 640,
-      \"height\": 480,
+      \"height\": 360,
       \"fps\": 30,
       \"fourcc\": \"MJPG\",
       \"warmup_s\": 5
