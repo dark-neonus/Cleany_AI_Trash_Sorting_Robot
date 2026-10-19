@@ -1,0 +1,8 @@
+{
+  "brightness": {"weight": 1.0, "type": "ColorJitter", "kwargs": {"brightness": [0.75, 1.25]}},
+  "contrast": {"weight": 1.0, "type": "ColorJitter", "kwargs": {"contrast": [0.75, 1.25]}},
+  "saturation": {"weight": 1.0, "type": "ColorJitter", "kwargs": {"saturation": [0.5, 1.5]}},
+  "hue": {"weight": 1.0, "type": "ColorJitter", "kwargs": {"hue": [-0.15, 0.15]}},
+  "sharpness": {"weight": 1.0, "type": "SharpnessJitter", "kwargs": {"sharpness": [0.5, 1.5]}},
+  "grayscale": {"weight": 0.15, "type": "Grayscale", "kwargs": {"num_output_channels": 3}}
+}

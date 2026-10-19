@@ -53,6 +53,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material                           |
 | `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
+|                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
 |                        | `camera_settings.sh`     | Fixed camera settings written by `tune_cameras.sh`            |
 | `scripts/common/`      | `lerobot_wide_fov.py`, `dataset_sync.py` | Helpers used by the scripts above   |
@@ -164,7 +165,28 @@ scripts/train/train_act.sh plastic --steps=2000   # smoke test
 scripts/train/train_act.sh plastic                # full run (100k steps)
 ```
 
-Checkpoints go to `outputs/train/act_<model>_<timestamp>/checkpoints/`.
+Checkpoints go to `outputs/train/act_<model>_<timestamp>/checkpoints/`, every 5000 steps
+(`SAVE_FREQ=2500` to save more often; each checkpoint is ~0.6 GB).
+
+**Image augmentation is on by default**, so the models learn the item's position and shape
+rather than its colour (YOLO already decides the material). Each training frame gets 3 random
+changes out of: brightness and contrast (±25%), saturation (0.5–1.5×), hue (±0.15, which really
+changes object colours), sharpness, and grayscale (about 11% of frames). LeRobot's random image
+shift/rotation is left out, because ACT needs exact pixel positions and our cameras are fixed.
+The recorded dataset is not changed. The settings are in
+[scripts/config/augmentation.json](scripts/config/augmentation.json); to see each one on a
+recorded episode (written to `outputs/augmentation_preview/`):
+
+```bash
+scripts/tools/preview_augmentation.sh plastic 49
+```
+
+To check that augmentation helps, train a second model without it and compare both on the real
+robot with objects in colours that are not in the dataset:
+
+```bash
+AUGMENT=false JOB_NAME=act_plastic_noaug scripts/train/train_act.sh plastic
+```
 
 ## Storing datasets in the cloud
 
