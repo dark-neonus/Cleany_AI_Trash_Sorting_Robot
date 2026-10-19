@@ -4,8 +4,14 @@ set -e
 # Train the ACT model of one material on its local dataset.
 #
 # Usage: scripts/train/train_act.sh <plastic|metal> [extra lerobot-train args...]
+#        scripts/train/train_act.sh <plastic|metal> --resume [run_dir] [extra lerobot-train args...]
 #   scripts/train/train_act.sh plastic --steps=2000     # quick smoke test
-#   scripts/train/train_act.sh metal --resume=true --config_path=outputs/train/<job>/checkpoints/last/pretrained_model/train_config.json
+#   scripts/train/train_act.sh plastic --resume         # continue the latest act_plastic_* run
+#   STEPS=150000 scripts/train/train_act.sh plastic --resume outputs/train/act_plastic_20261020_1400
+#
+# Every run without --resume starts from scratch in a new outputs/train/<JOB_NAME>/ folder.
+# --resume continues a run from its last checkpoint (weights, optimizer, step counter) in the same
+# folder, with the settings it was started with; only STEPS (if set) and extra args change them.
 #
 # Env overrides: JOB_NAME, BATCH_SIZE, STEPS, SAVE_FREQ, AUGMENT=false (no image augmentation)
 
@@ -19,12 +25,34 @@ resolve_dataset "$1"
 shift
 require_venv
 
+if [ "$1" = "--resume" ]; then
+    shift
+    if [ -n "$1" ] && [ "${1#--}" = "$1" ]; then
+        RUN_DIR="$1"
+        shift
+    else
+        # Most recently modified run of this model that has a checkpoint
+        RUN_DIR=""
+        for dir in $(ls -dt "$PROJECT_ROOT"/outputs/train/act_"${MODEL}"_* 2>/dev/null); do
+            if [ -e "$dir/checkpoints/last" ]; then RUN_DIR="$dir"; break; fi
+        done
+    fi
+    CONFIG="$RUN_DIR/checkpoints/last/pretrained_model/train_config.json"
+    if [ -z "$RUN_DIR" ] || [ ! -f "$CONFIG" ]; then
+        echo "Error: no checkpoint to resume (looked for ${RUN_DIR:-outputs/train/act_${MODEL}_*}/checkpoints/last)"
+        exit 1
+    fi
+    echo "Resuming $RUN_DIR from step $(readlink "$RUN_DIR/checkpoints/last" | xargs basename)"
+    # Only --resume and --config_path: all other settings come from the checkpoint's train_config.json.
+    exec lerobot-train --resume=true --config_path="$CONFIG" ${STEPS:+--steps="$STEPS"} "$@"
+fi
+
 JOB_NAME="${JOB_NAME:-act_${MODEL}_$(date +%Y%m%d_%H%M)}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 STEPS="${STEPS:-100000}"
 # ACT trains fast, so save often enough to pick a good intermediate checkpoint. Each checkpoint
 # (weights + optimizer state) is ~0.6 GB: 20 per 100k-step run with the default.
-SAVE_FREQ="${SAVE_FREQ:-5000}"
+SAVE_FREQ="${SAVE_FREQ:-10000}"
 
 # Keep outputs/ out of git without touching the root .gitignore
 mkdir -p "$PROJECT_ROOT/outputs"

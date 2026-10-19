@@ -168,6 +168,15 @@ scripts/train/train_act.sh plastic                # full run (100k steps)
 Checkpoints go to `outputs/train/act_<model>_<timestamp>/checkpoints/`, every 5000 steps
 (`SAVE_FREQ=2500` to save more often; each checkpoint is ~0.6 GB).
 
+Every run starts from scratch in a new folder. To **continue** a stopped or finished run from
+its last checkpoint (same folder, same settings, step counter continues):
+
+```bash
+scripts/train/train_act.sh plastic --resume                    # latest act_plastic_* run
+scripts/train/train_act.sh plastic --resume outputs/train/act_plastic_20261020_1400
+STEPS=150000 scripts/train/train_act.sh plastic --resume       # train longer than planned
+```
+
 **Image augmentation is on by default**, so the models learn the item's position and shape
 rather than its colour (YOLO already decides the material). Each training frame gets 3 random
 changes out of: brightness and contrast (±25%), saturation (0.5–1.5×), hue (±0.15, which really
