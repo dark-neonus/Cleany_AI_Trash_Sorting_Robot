@@ -16,6 +16,9 @@
   - [Available models](#available-models)
   - [Get a model from the cloud](#get-a-model-from-the-cloud)
   - [Run it on the arm](#run-it-on-the-arm)
+- [YOLO detector](#yolo-detector)
+  - [Use it](#use-it)
+  - [Retrain it](#retrain-it)
 - [Storing datasets in the cloud](#storing-datasets-in-the-cloud)
   - [Recommended: private Hugging Face Hub dataset repos](#recommended-private-hugging-face-hub-dataset-repos)
   - [One-time setup](#one-time-setup)
@@ -56,8 +59,9 @@ flowchart TD
 - **ACT models get no YOLO output.** Each material has its own ACT model, so the class is
   already chosen by picking the model. Each ACT finds the item from the camera images alone.
 - **The YOLO model needs an `other` class**, so "an item that is neither plastic nor metal"
-  can be told apart from "the box is empty". YOLO weights are not in the repo yet; the
-  pipeline runner and YOLO scripts will be added with them.
+  can be told apart from "the box is empty". The current YOLO knows only `metal` and
+  `plastic` (see [YOLO detector](#yolo-detector)); the `other` class and the pipeline runner
+  are not done yet.
 
 ## Scripts
 
@@ -76,8 +80,11 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
 |                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
 | `scripts/run/`         | `run_policy.sh`          | Run a trained ACT model (Hub repo or local folder) on the follower arm |
-| `scripts/yolo/`        | `extract_frames.py`      | Take front-camera frames from the datasets for YOLO training  |
+| `scripts/yolo/`        | `extract_frames.py`      | Take the first front-camera frame of every episode, pre-labelled by the current YOLO |
 |                        | `label_studio.sh`        | Local Label Studio for checking and fixing YOLO labels        |
+|                        | `extra_frames.py`        | More labelled frames per episode: the ones before the arm reaches the item |
+|                        | `prepare_dataset.py`     | Build the YOLO train/val dataset from the labelled frames     |
+|                        | `train.sh`               | Train the metal/plastic YOLO (runs the two scripts above first) |
 | `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
@@ -263,7 +270,8 @@ Download one on another machine (or pass the repo id directly as `--policy.path`
 | ----- | ----- | ---------- |
 | ACT `plastic` | Hub: [`cleany-ai/setupv2_act_plastic_20261020_1926`](https://huggingface.co/cleany-ai/setupv2_act_plastic_20261020_1926) (public) | `setupv2`, trained on `cleany_plastic` (60 episodes), 100k steps, batch 8, colour augmentation |
 | ACT `metal` | not trained yet | |
-| YOLO metal/plastic | git: `models/yolo/yolo_kaggle_best.pt` | Trained on Kaggle photos only; on our camera it often calls cans `plastic`. Being retrained on our own frames. |
+| YOLO metal/plastic | git: `models/yolo/yolo_cleany_best.pt`, Hub: [`cleany-ai/setupv2_yolo_20261020_2008`](https://huggingface.co/cleany-ai/setupv2_yolo_20261020_2008) (public) | `setupv2` front camera, trained on our own frames; see [YOLO detector](#yolo-detector) |
+| YOLO, old | git: `models/yolo/yolo_kaggle_best.pt` | Kaggle photos only, does not work on our camera; kept as the starting point for training |
 
 All models of the team: https://huggingface.co/cleany-ai. Each ACT model only works with
 the setup it was trained on (box, camera positions, lighting, arm calibration).
@@ -328,6 +336,62 @@ into several episodes (`view.sh <dir> 1` shows the second one).
 The cameras are shown in Rerun as during teleoperation (`DISPLAY_DATA=false` turns it off).
 The speed limits are written to the servos' RAM when the arm connects, so they last until
 the arm is power-cycled or another script connects with its own limits.
+
+## YOLO detector
+
+YOLO finds the items on the table in the front-camera image and says `metal` (class 0) or
+`plastic` (class 1); the pipeline uses it to pick which ACT to run.
+
+| | |
+| --- | --- |
+| Weights | `models/yolo/yolo_cleany_best.pt` (in git, 5 MB), also on the Hub: [`cleany-ai/setupv2_yolo_20261020_2008`](https://huggingface.co/cleany-ai/setupv2_yolo_20261020_2008) |
+| Data | the first frame of each `cleany_plastic` (60) and `cleany_metal` (40) episode, one item per frame, plus 60 frames of the same episodes before the arm reaches the item; every 5th episode is held out for validation |
+| Validation (20 frames) | mAP50 0.995, mAP50-95 0.87 |
+| Unseen photo (8 items, another camera) | all 8 found with the right class at confidence 0.25 |
+| Limits | It has seen ~20 different items. New cans and bottles, especially crumpled transparent ones, may be missed or mixed up: record episodes with new items and retrain. |
+
+### Use it
+
+```python
+from ultralytics import YOLO
+model = YOLO("models/yolo/yolo_cleany_best.pt")
+result = model.predict("frame.jpg", conf=0.25)[0]
+for cls, conf, box in zip(result.boxes.cls, result.boxes.conf, result.boxes.xyxy):
+    print(model.names[int(cls)], float(conf), box.tolist())
+```
+
+Run Python from `.venv` with `export YOLO_AUTOINSTALL=false` (`train.sh` sets it): otherwise
+Ultralytics may install an OpenCV that breaks LeRobot's. On another machine,
+`.venv/bin/hf download cleany-ai/setupv2_yolo_20261020_2008 best.pt --local-dir outputs/models/yolo`
+gets the same weights.
+
+### Retrain it
+
+The labelled frames live in `yolo/frames/` (not in git: images, YOLO labels and
+`boxes_first.json`), so retraining is done on the laptop that has them.
+
+```bash
+scripts/yolo/train.sh                          # ~7 min on the RTX 2050; result in outputs/yolo/<job>/weights/best.pt
+scripts/yolo/train.sh epochs=5                 # smoke test
+```
+
+`train.sh` fine-tunes `models/yolo/yolo_kaggle_best.pt` for 150 epochs with strong colour
+augmentation (hue ±0.1, saturation, brightness), so that the material and not the label colour
+decides the class. Tried and found worse on the unseen photo: adding the Kaggle photos to the
+training set, and the bigger `yolo26s` model. Copy a better `best.pt` to
+`models/yolo/yolo_cleany_best.pt` and commit it.
+
+**Adding newly recorded episodes:**
+
+1. `.venv/bin/python scripts/yolo/extract_frames.py` takes the first frame of every episode
+   that has no label yet, boxes the item with the current model and sets the class from the
+   dataset name (`cleany_metal` → `metal`). Frames that already have labels are not touched.
+2. Check the new boxes: `scripts/yolo/label_studio.sh`, open http://localhost:8080 (login
+   and password are printed; the account is local) and import
+   `yolo/frames/label_studio_new_tasks.json` with **Import**. Fix wrong or missing boxes;
+   copy the corrected ones back into `yolo/frames/labels/<frame>.txt`
+   (`<class> <cx> <cy> <w> <h>`, normalized to 0–1).
+3. `scripts/yolo/train.sh`.
 
 ## Storing datasets in the cloud
 

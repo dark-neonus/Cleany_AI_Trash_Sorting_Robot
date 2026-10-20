@@ -2,17 +2,24 @@
 
 Usage:
     python extract_frames.py [--datasets cleany_plastic cleany_metal] [--out yolo/frames]
-                             [--model models/yolo/yolo_kaggle_best.pt] [--conf 0.25] [--device cpu]
+                             [--positions first] [--model models/yolo/yolo_cleany_best.pt]
+                             [--conf 0.25] [--device cpu] [--max-area 0.25] [--overwrite]
 
-Takes the first and the last frame of every episode (the pile before and after one item
-was moved, so every episode gives two different layouts) and pre-labels them with the
-current YOLO model, so labeling only means fixing classes and adding missed items.
+Takes the first frame of every episode (the item on the table before the arm moves it; add
+--positions first last for the frame after it, with the item in its bin) and pre-labels it
+with the current YOLO model, so labeling only means checking the boxes and fixing misses.
+Every episode moves one item of the dataset's material, so in a dataset named *_metal or
+*_plastic every box gets that class.
+
+Frames that already have a label file are skipped, so new episodes can be added without
+touching labels that were already checked (--overwrite re-extracts and re-labels all).
 
 Output (<out>/):
     images/<dataset>_ep<NNN>_<first|last>.jpg
     labels/<same name>.txt          YOLO pre-labels: "<class> cx cy w h", normalized
     classes.txt                     0 metal, 1 plastic
-    label_studio_tasks.json         import into Label Studio (pre-labels as predictions)
+    label_studio_tasks.json         import into Label Studio (pre-labels as predictions);
+                                    label_studio_new_tasks.json if that file already exists
     label_studio_config.xml         labeling interface for the Label Studio project
 
 Label Studio reads the images from disk through local file serving, with the repo as the
@@ -67,7 +74,9 @@ def main():
     parser.add_argument("--datasets", nargs="+", default=["cleany_plastic", "cleany_metal"],
                         help="dataset folder names under data/")
     parser.add_argument("--out", default="yolo/frames")
-    parser.add_argument("--model", default="models/yolo/yolo_kaggle_best.pt",
+    parser.add_argument("--positions", nargs="+", default=["first"], choices=["first", "last"])
+    parser.add_argument("--overwrite", action="store_true", help="re-extract frames that already have labels")
+    parser.add_argument("--model", default="models/yolo/yolo_cleany_best.pt",
                         help="model for pre-labels; 'none' extracts frames only")
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--device", default="cpu", help="cpu keeps the GPU free for training")
@@ -93,10 +102,13 @@ def main():
     total_boxes = 0
     for name in args.datasets:
         dataset_root = PROJECT_ROOT / "data" / name
+        material = next((c for c in CLASSES if name.endswith(f"_{c}")), None)
         for episode, position, timestamp, video in episode_frames(dataset_root):
+            stem = f"{name}_ep{episode:03d}_{position}"
+            if position not in args.positions or ((out / "labels" / f"{stem}.txt").exists() and not args.overwrite):
+                continue
             frame = decode_video_frames(video, [timestamp], tolerance_s=0.02, backend="pyav", return_uint8=True)
             image = cv2.cvtColor(frame[0].permute(1, 2, 0).numpy(), cv2.COLOR_RGB2BGR)
-            stem = f"{name}_ep{episode:03d}_{position}"
             image_path = out / "images" / f"{stem}.jpg"
             cv2.imwrite(str(image_path), image, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
@@ -107,7 +119,8 @@ def main():
                 for cls, xywhn, score in zip(result.boxes.cls.tolist(), result.boxes.xywhn.tolist(),
                                              result.boxes.conf.tolist()):
                     if int(cls) in class_map and xywhn[2] * xywhn[3] <= args.max_area:
-                        boxes.append((class_map[int(cls)], *xywhn, score))
+                        c = CLASSES.index(material) if material else class_map[int(cls)]
+                        boxes.append((c, *xywhn, score))
             total_boxes += len(boxes)
             (out / "labels" / f"{stem}.txt").write_text(
                 "".join(f"{c} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n" for c, cx, cy, w, h, _ in boxes)
@@ -135,8 +148,13 @@ def main():
             })
             print(f"{stem}: {len(boxes)} boxes")
 
-    (out / "label_studio_tasks.json").write_text(json.dumps(tasks, indent=1))
-    print(f"\n{len(tasks)} frames, {total_boxes} pre-label boxes -> {out}")
+    # label_studio_tasks.json is what label_studio_setup.py imports into a new project: keep it,
+    # and put the frames of this run in a separate file to import with Label Studio's Import button
+    tasks_file = out / "label_studio_tasks.json"
+    if tasks_file.exists():
+        tasks_file = out / "label_studio_new_tasks.json"
+    tasks_file.write_text(json.dumps(tasks, indent=1))
+    print(f"\n{len(tasks)} new frames, {total_boxes} pre-label boxes -> {out} (Label Studio tasks: {tasks_file.name})")
 
 
 if __name__ == "__main__":
