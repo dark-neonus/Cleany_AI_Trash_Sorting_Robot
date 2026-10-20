@@ -367,8 +367,18 @@ gets the same weights.
 
 ### Retrain it
 
-The labelled frames live in `yolo/frames/` (not in git: images, YOLO labels and
-`boxes_first.json`), so retraining is done on the laptop that has them.
+The labelled frames live in `yolo/frames/` (not in git) and are shared as the private Hub
+dataset [`cleany-ai/cleany_yolo_frames`](https://huggingface.co/datasets/cleany-ai/cleany_yolo_frames)
+(images, YOLO labels, `boxes_first.json`, Label Studio tasks). On a machine without them, get
+them first (needs `hf auth login` with a team account):
+
+```bash
+.venv/bin/hf download cleany-ai/cleany_yolo_frames --repo-type dataset --local-dir yolo/frames
+```
+
+The episode videos are needed too (`extra_frames.py` reads them):
+`scripts/dataset/sync.sh pull all`. After adding or fixing labels, upload the frames again:
+`.venv/bin/hf upload cleany-ai/cleany_yolo_frames yolo/frames . --repo-type dataset --exclude "*_last*"`.
 
 ```bash
 scripts/yolo/train.sh                          # ~7 min on the RTX 2050; result in outputs/yolo/<job>/weights/best.pt
