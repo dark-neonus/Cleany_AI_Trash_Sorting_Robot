@@ -295,16 +295,30 @@ is used straight from its checkpoint folder,
 3. Run the model, staying next to the arm (Ctrl+C stops it):
 
 ```bash
-scripts/run/run_policy.sh plastic cleany-ai/setupv2_act_plastic_20261020_1926    # from the Hub
-scripts/run/run_policy.sh plastic outputs/models/setupv2_act_plastic_20261020_1926   # downloaded copy
-scripts/run/run_policy.sh plastic outputs/train/act_plastic_20261020_0133/checkpoints/050000/pretrained_model
-scripts/run/run_policy.sh --max-velocity 60 --duration 30 plastic cleany-ai/setupv2_act_plastic_20261020_1926   # slower, 30 s
+scripts/run/run_policy.sh --record false plastic cleany-ai/setupv2_act_plastic_20261020_1926   # from the Hub
+scripts/run/run_policy.sh --record true plastic outputs/models/setupv2_act_plastic_20261020_1926   # downloaded copy, saved
+scripts/run/run_policy.sh --record false plastic outputs/train/act_plastic_20261020_0133/checkpoints/050000/pretrained_model
+scripts/run/run_policy.sh --record false --max-velocity 60 --duration 30 plastic cleany-ai/setupv2_act_plastic_20261020_1926   # slower, 30 s
 ```
 
-The first argument picks the task text and must match the model's material.
+The material argument picks the task text and must match the model's material.
+
+**`--record true|false` is required, there is no default:** decide for every run whether to
+save it. With `true`, the run (both camera videos, joint states and the model's actions) is
+saved as a LeRobot dataset in `recordings/rollout_<material>_<model>_<YYYYmmdd_HHMMSS>/`
+(not committed to git). The script prints the folder at the end; review the run with:
+
+```bash
+scripts/dataset/view.sh recordings/rollout_plastic_<model>_<timestamp>                # watch both cameras, no robot needed
+scripts/dataset/replay.sh --speed 0.5 recordings/rollout_plastic_<model>_<timestamp>  # repeat the motion on the arm
+```
+
+Replays use the speed limits the run had. Recordings are never uploaded; long runs are split
+into several episodes (`view.sh <dir> 1` shows the second one).
 
 | Option | Default | Effect |
 | ------ | ------- | ------ |
+| `--record true\|false` | **required** | Save the run's camera videos, joint states and actions to `recordings/` |
 | `--duration S` | 60 | Stop after S seconds; `0` runs until Ctrl+C |
 | `--max-velocity DEG_S` | 90 | Max joint speed. Use 60 or less for the first runs of a new model |
 | `--acceleration N` | 40 | Servo acceleration, 0–254 |
