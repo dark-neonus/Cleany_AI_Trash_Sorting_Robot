@@ -87,6 +87,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `train.sh`               | Train the metal/plastic YOLO (runs the two scripts above first) |
 | `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
+|                        | `start_frames.sh`        | One image with the first top-camera frame of every episode    |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
 |                        | `camera_settings.sh`     | Fixed camera settings written by `tune_cameras.sh`            |
 | `scripts/common/`      | `lerobot_wide_fov.py`, `dataset_sync.py` | Helpers used by the scripts above   |
@@ -164,6 +165,15 @@ scripts/dataset/view.sh plastic 9                          # watch episode 9 (co
 scripts/dataset/replay.sh --speed 0.5 --episode 9 plastic  # play it back on the real arm
 scripts/dataset/delete_last_episode.sh plastic             # drop the last episode
 scripts/dataset/sync.sh status                             # episode counts, local vs Hub
+```
+
+To see the start positions of all episodes at once (to spot positions that are missing or
+over-represented), make one image per dataset from the first top-camera frame of every episode,
+labelled with the episode index:
+
+```bash
+scripts/tools/start_frames.sh            # both datasets -> outputs/start_frames/plastic.jpg, metal.jpg
+scripts/tools/start_frames.sh metal      # just one
 ```
 
 To delete other episodes, e.g. 3 and 7, then swap the result in:
