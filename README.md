@@ -12,6 +12,10 @@
   - [Recommendations](#recommendations)
   - [Training](#training)
   - [Sharing trained models](#sharing-trained-models)
+- [Running a trained model](#running-a-trained-model)
+  - [Available models](#available-models)
+  - [Get a model from the cloud](#get-a-model-from-the-cloud)
+  - [Run it on the arm](#run-it-on-the-arm)
 - [Storing datasets in the cloud](#storing-datasets-in-the-cloud)
   - [Recommended: private Hugging Face Hub dataset repos](#recommended-private-hugging-face-hub-dataset-repos)
   - [One-time setup](#one-time-setup)
@@ -71,6 +75,9 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
 |                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
+| `scripts/run/`         | `run_policy.sh`          | Run a trained ACT model (Hub repo or local folder) on the follower arm |
+| `scripts/yolo/`        | `extract_frames.py`      | Take front-camera frames from the datasets for YOLO training  |
+|                        | `label_studio.sh`        | Local Label Studio for checking and fixing YOLO labels        |
 | `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
@@ -248,6 +255,66 @@ Download one on another machine (or pass the repo id directly as `--policy.path`
 .venv/bin/hf download cleany-ai/setupv2_act_plastic_20261020_1432 --local-dir outputs/models/setupv2_act_plastic_20261020_1432
 ```
 
+## Running a trained model
+
+### Available models
+
+| Model | Where | What it is |
+| ----- | ----- | ---------- |
+| ACT `plastic` | Hub: [`cleany-ai/setupv2_act_plastic_20261020_1926`](https://huggingface.co/cleany-ai/setupv2_act_plastic_20261020_1926) (public) | `setupv2`, trained on `cleany_plastic` (60 episodes), 100k steps, batch 8, colour augmentation |
+| ACT `metal` | not trained yet | |
+| YOLO metal/plastic | git: `models/yolo/yolo_kaggle_best.pt` | Trained on Kaggle photos only; on our camera it often calls cans `plastic`. Being retrained on our own frames. |
+
+All models of the team: https://huggingface.co/cleany-ai. Each ACT model only works with
+the setup it was trained on (box, camera positions, lighting, arm calibration).
+
+### Get a model from the cloud
+
+A model on the Hub needs no download step: pass its repo id to `run_policy.sh` and it is
+downloaded on the first run and cached in `~/.cache/huggingface/`. Public repos need no login;
+private ones need `.venv/bin/hf auth login` with a team account (see
+[One-time setup](#one-time-setup)).
+
+To keep a copy in the project instead (e.g. to work offline):
+
+```bash
+.venv/bin/hf download cleany-ai/setupv2_act_plastic_20261020_1926 --local-dir outputs/models/setupv2_act_plastic_20261020_1926
+```
+
+The folder holds the weights (`model.safetensors`), the config and the input/output
+normalization (`policy_*processor*`); all of them are needed. A model trained on this machine
+is used straight from its checkpoint folder,
+`outputs/train/<job>/checkpoints/<step>/pretrained_model`.
+
+### Run it on the arm
+
+1. Plug in the follower arm and both cameras (the leader arm is not needed). Check them with
+   `pkill -x rerun; scripts/teleop/run_teleop.sh` if in doubt.
+2. Put the arm in its start pose and **one item of the model's material** in the start zone.
+   The ACT runs on its own, without YOLO, so it always tries to move the item to its bin.
+3. Run the model, staying next to the arm (Ctrl+C stops it):
+
+```bash
+scripts/run/run_policy.sh plastic cleany-ai/setupv2_act_plastic_20261020_1926    # from the Hub
+scripts/run/run_policy.sh plastic outputs/models/setupv2_act_plastic_20261020_1926   # downloaded copy
+scripts/run/run_policy.sh plastic outputs/train/act_plastic_20261020_0133/checkpoints/050000/pretrained_model
+scripts/run/run_policy.sh --max-velocity 60 --duration 30 plastic cleany-ai/setupv2_act_plastic_20261020_1926   # slower, 30 s
+```
+
+The first argument picks the task text and must match the model's material.
+
+| Option | Default | Effect |
+| ------ | ------- | ------ |
+| `--duration S` | 60 | Stop after S seconds; `0` runs until Ctrl+C |
+| `--max-velocity DEG_S` | 90 | Max joint speed. Use 60 or less for the first runs of a new model |
+| `--acceleration N` | 40 | Servo acceleration, 0–254 |
+| `--max-step DEG` | 10 | Max joint change per control step |
+| `--device cpu` | `cuda` if available | Run on the CPU, e.g. while a training run uses the GPU (4 GB is not enough for both) |
+
+The cameras are shown in Rerun as during teleoperation (`DISPLAY_DATA=false` turns it off).
+The speed limits are written to the servos' RAM when the arm connects, so they last until
+the arm is power-cycled or another script connects with its own limits.
+
 ## Storing datasets in the cloud
 
 ### Recommended: private Hugging Face Hub dataset repos
@@ -302,5 +369,5 @@ scripts/dataset/sync.sh pull all            # download Hub → local, every mode
   machine pushes to a personal namespace instead
   (`HF_NAMESPACE=<your-user> scripts/dataset/sync.sh push plastic`), and the two datasets
   are merged afterwards with `lerobot-edit-dataset --operation.type=merge`.
-- Trained checkpoints are not synced yet. Upload good ones to Hub **model** repos
-  (`hf upload --private cleany-ai/act_plastic outputs/train/<job>/checkpoints/last/pretrained_model`).
+- Trained models are shared as Hub **model** repos, see
+  [Sharing trained models](#sharing-trained-models) and [Running a trained model](#running-a-trained-model).
