@@ -1,5 +1,23 @@
 # Cleany_AI_Trash_Sorting_Robot
 
+## Table of contents
+
+- [Purpose](#purpose)
+- [Model Pipeline](#model-pipeline)
+- [Scripts](#scripts)
+- [Cameras and recording performance](#cameras-and-recording-performance)
+- [Dataset collection](#dataset-collection)
+  - [Record](#record)
+  - [Review and manage](#review-and-manage)
+  - [Recommendations](#recommendations)
+  - [Training](#training)
+  - [Sharing trained models](#sharing-trained-models)
+- [Storing datasets in the cloud](#storing-datasets-in-the-cloud)
+  - [Recommended: private Hugging Face Hub dataset repos](#recommended-private-hugging-face-hub-dataset-repos)
+  - [One-time setup](#one-time-setup)
+  - [Sync commands](#sync-commands)
+  - [Team rules](#team-rules)
+
 ## Purpose
 
 Sorting trash using lerobot so101 robot arm inside custom made box in which trash is dropped.
@@ -51,7 +69,8 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `replay.sh`              | Replay a recorded episode on the follower arm                 |
 |                        | `delete_last_episode.sh` | Drop the last episode (e.g. a failed demo)                    |
 |                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
-| `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material                           |
+| `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
+|                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
 | `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
@@ -168,6 +187,10 @@ scripts/train/train_act.sh plastic                # full run (100k steps)
 Checkpoints go to `outputs/train/act_<model>_<timestamp>/checkpoints/`, every 5000 steps
 (`SAVE_FREQ=2500` to save more often; each checkpoint is ~0.6 GB).
 
+**To stop early, type `exit` and press Enter** in the training terminal: the step in progress
+finishes, a checkpoint of exactly that step is saved (e.g. `checkpoints/054321`) and training
+ends. Ctrl+C instead stops immediately and loses everything since the last checkpoint.
+
 Every run starts from scratch in a new folder. To **continue** a stopped or finished run from
 its last checkpoint (same folder, same settings, step counter continues):
 
@@ -195,6 +218,34 @@ robot with objects in colours that are not in the dataset:
 
 ```bash
 AUGMENT=false JOB_NAME=act_plastic_noaug scripts/train/train_act.sh plastic
+```
+
+### Sharing trained models
+
+Upload a checkpoint to a private model repo on the Hugging Face Hub, e.g. to run it on the
+other laptop. Repos are named `cleany-ai/<setup>_act_<model>_<YYYYmmdd_HHMM>`, for example
+`cleany-ai/setupv2_act_plastic_20261020_1432`:
+
+- `<setup>` (`SETUP_NAME` in [scripts/config/datasets.sh](scripts/config/datasets.sh), now
+  `setupv2`): a model only works with the box, cameras, lighting and arm calibration it was
+  trained with. Change it whenever the physical setup changes.
+- the timestamp is when the checkpoint's last training step finished.
+
+```bash
+scripts/train/upload_model.sh plastic --dry-run                # show what would be uploaded
+scripts/train/upload_model.sh plastic                          # last checkpoint of the latest run
+scripts/train/upload_model.sh plastic outputs/train/act_plastic_20261020_1400 --checkpoint 50000
+```
+
+Only the model itself is uploaded (`pretrained_model/` plus a model card with the dataset,
+step and settings), not the optimizer state, so an uploaded model can be run but not resumed.
+Uploading the same checkpoint twice is refused. All uploaded models:
+https://huggingface.co/cleany-ai (filter by `setupv2`).
+
+Download one on another machine (or pass the repo id directly as `--policy.path`):
+
+```bash
+.venv/bin/hf download cleany-ai/setupv2_act_plastic_20261020_1432 --local-dir outputs/models/setupv2_act_plastic_20261020_1432
 ```
 
 ## Storing datasets in the cloud

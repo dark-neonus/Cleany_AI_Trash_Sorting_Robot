@@ -6,6 +6,10 @@
 # Hugging Face namespace (user or org) the datasets are pushed to.
 HF_NAMESPACE="${HF_NAMESPACE:-cleany-ai}"
 
+# Prefix of uploaded model names. Models only work with the physical setup (box, cameras,
+# lighting, arm calibration) they were trained on: change it whenever that setup changes.
+SETUP_NAME="${SETUP_NAME:-setupv2}"
+
 # One ACT model, and so one dataset, per material.
 MODELS=(plastic metal)
 MODELS_USAGE="$(IFS="|"; echo "${MODELS[*]}")"

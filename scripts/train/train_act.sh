@@ -9,6 +9,8 @@ set -e
 #   scripts/train/train_act.sh plastic --resume         # continue the latest act_plastic_* run
 #   STEPS=150000 scripts/train/train_act.sh plastic --resume outputs/train/act_plastic_20261020_1400
 #
+# While training, type `exit` + Enter to save a checkpoint at the current step and stop.
+#
 # Every run without --resume starts from scratch in a new outputs/train/<JOB_NAME>/ folder.
 # --resume continues a run from its last checkpoint (weights, optimizer, step counter) in the same
 # folder, with the settings it was started with; only STEPS (if set) and extra args change them.
@@ -44,7 +46,8 @@ if [ "$1" = "--resume" ]; then
     fi
     echo "Resuming $RUN_DIR from step $(readlink "$RUN_DIR/checkpoints/last" | xargs basename)"
     # Only --resume and --config_path: all other settings come from the checkpoint's train_config.json.
-    exec lerobot-train --resume=true --config_path="$CONFIG" ${STEPS:+--steps="$STEPS"} "$@"
+    exec python "$PROJECT_ROOT/scripts/common/train_with_controls.py" --resume=true --config_path="$CONFIG" \
+        ${STEPS:+--steps="$STEPS"} "$@"
 fi
 
 JOB_NAME="${JOB_NAME:-act_${MODEL}_$(date +%Y%m%d_%H%M)}"
@@ -79,7 +82,8 @@ if [ ! -f "$DATASET_ROOT/meta/info.json" ]; then
     exit 1
 fi
 
-lerobot-train \
+# train_with_controls.py = lerobot-train + typing `exit` saves the current step and stops.
+python "$PROJECT_ROOT/scripts/common/train_with_controls.py" \
   --policy.type=act \
   --policy.device=cuda \
   --policy.push_to_hub=false \
