@@ -279,7 +279,7 @@ Download one on another machine (or pass the repo id directly as `--policy.path`
 | Model | Where | What it is |
 | ----- | ----- | ---------- |
 | ACT `plastic` | Hub: [`cleany-ai/setupv2_act_plastic_20261020_1926`](https://huggingface.co/cleany-ai/setupv2_act_plastic_20261020_1926) (public) | `setupv2`, trained on `cleany_plastic` (60 episodes), 100k steps, batch 8, colour augmentation |
-| ACT `metal` | not trained yet | |
+| ACT `metal` | Hub: [`cleany-ai/setupv2_act_metal_20261021_1855`](https://huggingface.co/cleany-ai/setupv2_act_metal_20261021_1855) (public) | `setupv2`, trained on `cleany_metal` (80 episodes), 100k steps, batch 8, colour augmentation |
 | YOLO metal/plastic | git: `models/yolo/yolo_cleany_best.pt`, Hub: [`cleany-ai/setupv2_yolo_20261020_2008`](https://huggingface.co/cleany-ai/setupv2_yolo_20261020_2008) (public) | `setupv2` front camera, trained on our own frames; see [YOLO detector](#yolo-detector) |
 | YOLO, old | git: `models/yolo/yolo_kaggle_best.pt` | Kaggle photos only, does not work on our camera; kept as the starting point for training |
 
