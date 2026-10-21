@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -e
+
+# Run the sorting pipeline: YOLO picks the material, the matching ACT model moves the item.
+# Ctrl+C stops it and eases the arm back to its start pose. See scripts/run/sort_pipeline.py.
+#
+# Usage: scripts/run/run_pipeline.sh [options] [sort_pipeline.py options...]
+#   scripts/run/run_pipeline.sh --dry-run --display        # no arm: front camera + YOLO only
+#   scripts/run/run_pipeline.sh --max-velocity 60 --display
+#
+# Options:
+#   --dry-run             No arm: front camera, YOLO and the state machine only; ACT runs are
+#                         simulated. Add --source <video|image> to use a file instead of the camera.
+#   --max-velocity DEG_S  Max joint speed in deg/s (default 90)
+#   --acceleration N      Servo acceleration 0-254 (default 40)
+#   --max-step DEG        Max joint change per control step in deg (default 10)
+#   Anything else goes to sort_pipeline.py (e.g. --display, --conf 0.6, --episode-time 30).
+#
+# Models (env overrides): PLASTIC_MODEL, METAL_MODEL (Hub repo id or local pretrained_model
+# folder), YOLO_MODEL. The defaults are the current models in the README.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_ROOT"
+
+source "$PROJECT_ROOT/scripts/config/hardware.sh"
+source "$PROJECT_ROOT/scripts/config/datasets.sh"
+require_venv
+# A normal ultralytics auto-install pulls an opencv that breaks the one lerobot uses
+export YOLO_AUTOINSTALL=false
+
+PLASTIC_MODEL="${PLASTIC_MODEL:-cleany-ai/setupv2_act_plastic_20261020_1926}"
+METAL_MODEL="${METAL_MODEL:-cleany-ai/setupv2_act_metal_20261021_1855}"
+YOLO_MODEL="${YOLO_MODEL:-models/yolo/yolo_cleany_best.pt}"
+
+parse_motion_flags "$@"
+DRY_RUN=false
+for arg in "${ARGS[@]}"; do
+    [ "$arg" = "--dry-run" ] && DRY_RUN=true
+done
+
+ROBOT_ARGS=()
+if [ "$DRY_RUN" = true ]; then
+    # Front camera unless --source was given
+    if [[ " ${ARGS[*]} " != *" --source "* ]]; then
+        require_devices FRONT_CAMERA
+        configure_cameras
+        ROBOT_ARGS=(--source "$FRONT_CAMERA")
+    fi
+else
+    require_devices FOLLOWER_PORT FRONT_CAMERA WRIST_CAMERA
+    configure_cameras
+    echo "Motion limits: ${SERVO_MAX_VELOCITY_DEG} deg/s, acceleration ${SERVO_ACCELERATION}, ${MAX_STEP_DEG} deg/step"
+    echo "Put the arm in its rest pose: that pose is where every ACT run starts and ends."
+    ROBOT_ARGS=(--robot-port "$FOLLOWER_PORT" --calibration-dir "$CALIB_DIR" --cameras "$ROBOT_CAMERAS"
+                --max-step "$MAX_STEP_DEG")
+fi
+
+python "$SCRIPT_DIR/sort_pipeline.py" \
+    --plastic-model "$PLASTIC_MODEL" --metal-model "$METAL_MODEL" --yolo "$YOLO_MODEL" \
+    --plastic-task "${MODEL_TASKS[plastic]}" --metal-task "${MODEL_TASKS[metal]}" \
+    "${ROBOT_ARGS[@]}" "${ARGS[@]}" \
+    2> >(filter_jpeg_warnings)

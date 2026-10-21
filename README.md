@@ -16,6 +16,10 @@
   - [Available models](#available-models)
   - [Get a model from the cloud](#get-a-model-from-the-cloud)
   - [Run it on the arm](#run-it-on-the-arm)
+- [Running the sorting pipeline](#running-the-sorting-pipeline)
+  - [Test without the arm](#test-without-the-arm)
+  - [Run on the arm](#run-on-the-arm)
+  - [How it decides](#how-it-decides)
 - [YOLO detector](#yolo-detector)
   - [Use it](#use-it)
   - [Retrain it](#retrain-it)
@@ -60,8 +64,9 @@ flowchart TD
   already chosen by picking the model. Each ACT finds the item from the camera images alone.
 - **The YOLO model needs an `other` class**, so "an item that is neither plastic nor metal"
   can be told apart from "the box is empty". The current YOLO knows only `metal` and
-  `plastic` (see [YOLO detector](#yolo-detector)); the `other` class and the pipeline runner
-  are not done yet.
+  `plastic` (see [YOLO detector](#yolo-detector)); the `other` class and the ESP32 drop
+  mechanism are not in the [pipeline](#running-the-sorting-pipeline) yet: the setup and the
+  box are not final.
 
 ## Scripts
 
@@ -80,6 +85,8 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
 |                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
 | `scripts/run/`         | `run_policy.sh`          | Run a trained ACT model (Hub repo or local folder) on the follower arm |
+|                        | `run_pipeline.sh`        | Sorting pipeline: YOLO picks the material, its ACT moves the item (`--dry-run` without the arm) |
+|                        | `sort_pipeline.py`       | The pipeline's state machine, started by `run_pipeline.sh`    |
 | `scripts/yolo/`        | `extract_frames.py`      | Take the first front-camera frame of every episode, pre-labelled by the current YOLO |
 |                        | `label_studio.sh`        | Local Label Studio for checking and fixing YOLO labels        |
 |                        | `extra_frames.py`        | More labelled frames per episode: the ones before the arm reaches the item |
@@ -346,6 +353,77 @@ into several episodes (`view.sh <dir> 1` shows the second one).
 The cameras are shown in Rerun as during teleoperation (`DISPLAY_DATA=false` turns it off).
 The speed limits are written to the servos' RAM when the arm connects, so they last until
 the arm is power-cycled or another script connects with its own limits.
+
+## Running the sorting pipeline
+
+`scripts/run/run_pipeline.sh` puts the models together as in [Model Pipeline](#model-pipeline):
+YOLO watches the front camera, and once it is sure about an item it runs the `metal` or
+`plastic` ACT, waits until the arm is back in its start pose and looks again. It uses the
+models from [Available models](#available-models) (downloaded from the Hub on the first run).
+
+Not in it yet: the ESP32 drop mechanism and the `other` class, since the box and the setup
+are not final. Items that are neither metal nor plastic are simply not picked.
+
+### Test without the arm
+
+Check what YOLO sees and what the pipeline would do, with only the front camera plugged in:
+
+```bash
+scripts/run/run_pipeline.sh --dry-run --display
+```
+
+Rerun shows the front image with the detections (grey boxes: the bins, whose contents are
+ignored); the terminal prints every decision, e.g. `locked cls=metal conf=0.91` and
+`act_simulated cls=metal model=...`. Nothing moves: the ACT step only waits 3 s. A recorded
+video or a photo works instead of the camera:
+
+```bash
+scripts/run/run_pipeline.sh --dry-run --source data/cleany_metal/videos/observation.images.front/chunk-000/file-000.mp4
+```
+
+### Run on the arm
+
+1. Plug in the follower arm and both cameras (no leader arm needed).
+2. Put the arm in its **rest pose**, the pose the recordings start and end in: the pipeline
+   takes the pose it finds at start as "home", and every ACT run starts and ends there.
+3. Put **one item** on the table (in the start zone of the recordings), with the bins in place.
+4. Start it and stay next to the arm; Ctrl+C stops it and eases the arm home:
+
+```bash
+scripts/run/run_pipeline.sh --max-velocity 60 --display
+```
+
+When the arm has put the item away, put the next one. Every run is logged to
+`logs/pipeline/<timestamp>.jsonl` (detections, which model ran, how each run ended).
+
+| Option | Default | Effect |
+| ------ | ------- | ------ |
+| `--dry-run` | off | No arm: front camera (or `--source <video\|image>`), YOLO and decisions only |
+| `--display` | off | Show the front image, detections and state in Rerun |
+| `--max-velocity DEG_S`, `--acceleration N`, `--max-step DEG` | 90, 40, 10 | Arm speed limits, as for `run_policy.sh` |
+| `--conf X` | 0.5 | Minimum YOLO confidence for a detection to count |
+| `--lock-frames N` | 5 | Frames in a row the same class must win before its ACT runs |
+| `--episode-time S` | 40 | Longest ACT run; the arm then goes home anyway |
+| `--home-tolerance-deg D` | 12 | How close to the start pose counts as "back home" |
+| `--max-attempts N` | 3 | Tries on the same item before it is skipped |
+| `--ignore-region X0,Y0,X1,Y1` | the two bins | Area of the 640×480 front image to ignore (repeatable, `none` for no area). Set it again if the bins move |
+| `--device cpu` | `cuda` if available | Run the models on the CPU |
+
+Other models: `PLASTIC_MODEL=<repo or folder> METAL_MODEL=... YOLO_MODEL=... scripts/run/run_pipeline.sh`.
+
+### How it decides
+
+1. **Detect.** YOLO runs on every front frame. Items whose centre is inside a bin are
+   ignored, so sorted items are not picked again. A class is locked when it is the most
+   confident detection (≥ `--conf`) in `--lock-frames` frames in a row.
+2. **Act.** The locked class's ACT drives the arm at 30 fps; YOLO is not consulted. The run
+   ends when the arm has left the start pose (any joint more than 20° away) and is back within
+   `--home-tolerance-deg` for half a second, or after `--episode-time` seconds.
+3. **Home.** The arm is eased back to the exact start pose over 3 s and waits 2 s.
+4. **Retry or skip.** If the same class shows up again at the same place, the item was not
+   moved and the ACT tries again. After `--max-attempts` tries that class is skipped until
+   it has been out of view for 3 s (e.g. you took the item away), so a stuck item does not
+   keep the arm busy forever.
 
 ## YOLO detector
 
