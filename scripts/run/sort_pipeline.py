@@ -6,13 +6,16 @@ Usage (normally through scripts/run/run_pipeline.sh, which fills in the hardware
     python sort_pipeline.py --dry-run --source <camera path|video|image> --yolo <best.pt> ...
 
 States (see "Model Pipeline" in the README):
-  DETECT   YOLO runs on every front-camera frame. A class is locked when it is the most
-           confident detection (>= --conf) in --lock-frames frames in a row. Detections whose
-           centre lies in an --ignore-region (the bins) are skipped. Nothing locked: keep waiting.
+  DETECT   YOLO runs on every front-camera frame. A class is locked when it has been the most
+           confident detection (>= --conf) in every frame for --lock-seconds without a break.
+           Detections whose centre lies in an --ignore-region (the bins) are skipped. Nothing
+           locked: keep waiting.
   ACT      The model of the locked class drives the arm. YOLO is not consulted. The run ends
-           when the arm has left its start pose (any joint > --leave-deg away) and is back
-           within --home-tolerance-deg for 0.5 s, or after --episode-time seconds.
-  HOME     The arm is eased back to the exact start pose, then waits --settle-s.
+           when the arm has left its start pose (any joint > --leave-deg away), is back within
+           --home-tolerance-deg and has not moved more than --still-deg for --home-still-s
+           seconds (the ACT keeps running meanwhile, so it can still try again), or after
+           --episode-time seconds.
+  HOME     The arm is eased back to the exact start pose.
   Then DETECT again. If the same class is locked again at the same place (box overlap > 0.3),
   the previous attempt failed; after --max-attempts attempts that class is ignored until it
   has not been seen for 3 s (e.g. someone removed the item), so a stuck item does not loop.
@@ -23,11 +26,16 @@ datasets start and end in. There is no ESP32 drop mechanism and no "other" class
 --dry-run runs without the arm: frames come from --source, YOLO and the state machine run as
 usual, and the ACT step only prints which model would run and waits --dry-run-act-s.
 Events are printed and written to logs/pipeline/<timestamp>.jsonl.
+
+--record-dir DIR saves the front and wrist cameras during the run and, after it ends, makes
+DIR/showcase.mp4 with the YOLO boxes and the running model (see pipeline_recording.py).
+Stop with Ctrl+C or by typing exit + Enter: the arm goes home, then the video is made.
 """
 
 import argparse
 import json
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -180,7 +188,7 @@ def max_deviation(pose: dict, home: dict) -> float:
     return max(abs(pose[k] - home[k]) for k in home if not k.startswith("gripper"))
 
 
-def ease_to(robot, target: dict, duration_s: float = 3.0, fps: int = 50):
+def ease_to(robot, target: dict, duration_s: float = 3.0, fps: int = 50, on_step=None):
     from lerobot.utils.robot_utils import precise_sleep
 
     start = joint_pose(robot.get_observation())
@@ -188,7 +196,18 @@ def ease_to(robot, target: dict, duration_s: float = 3.0, fps: int = 50):
     for i in range(1, steps + 1):
         t = i / steps
         robot.send_action({k: start[k] * (1 - t) + target[k] * t for k in target})
+        if on_step is not None:
+            on_step()
         precise_sleep(1 / fps)
+
+
+def watch_for_exit(stop: threading.Event):
+    """Typing exit (or stop / q) + Enter in the terminal ends the run like Ctrl+C."""
+    for line in sys.stdin:
+        if line.strip().lower() in ("exit", "stop", "q", "quit"):
+            print("Stopping: the arm goes home, then the run ends.", flush=True)
+            stop.set()
+            return
 
 
 class FrameSource:
@@ -234,14 +253,17 @@ def main():
     parser.add_argument("--metal-task", default="Put the metal item into the left hole")
     parser.add_argument("--yolo", required=True)
     parser.add_argument("--conf", type=float, default=0.5, help="min YOLO confidence to count a detection")
-    parser.add_argument("--lock-frames", type=int, default=5, help="frames in a row to lock a class")
+    parser.add_argument("--lock-seconds", type=float, default=5,
+                        help="seconds the same class must win every frame before its ACT runs")
     parser.add_argument("--ignore-region", action="append", default=None, metavar="X0,Y0,X1,Y1",
                         help="skip detections centred in this box of the 640x480 front image (repeatable; "
                              "default: the two bins). 'none' disables it")
     parser.add_argument("--episode-time", type=float, default=40, help="max seconds per ACT run")
     parser.add_argument("--leave-deg", type=float, default=20)
     parser.add_argument("--home-tolerance-deg", type=float, default=12)
-    parser.add_argument("--settle-s", type=float, default=2)
+    parser.add_argument("--home-still-s", type=float, default=5,
+                        help="seconds the arm must stay still at home before YOLO looks again")
+    parser.add_argument("--still-deg", type=float, default=3, help="joint movement that still counts as still")
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--device", default=None, help="cuda (default when available) or cpu")
@@ -253,6 +275,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="no arm: frames from --source, ACT runs are simulated")
     parser.add_argument("--source", help="dry run: camera device, video or image")
     parser.add_argument("--dry-run-act-s", type=float, default=3)
+    parser.add_argument("--record-dir", type=Path, help="record the cameras here and make showcase.mp4 at the end")
     args = parser.parse_args()
 
     import torch
@@ -303,12 +326,41 @@ def main():
         obs = robot.get_observation()
         return obs["front"], obs
 
-    streak_class, streak = None, 0
+    recorder = None
+    if args.record_dir is not None:
+        from pipeline_recording import Recorder, render
+
+        recorder = Recorder(args.record_dir, {"dry_run": args.dry_run, "yolo": args.yolo,
+                                              "plastic_model": args.plastic_model, "metal_model": args.metal_model,
+                                              "lock_seconds": args.lock_seconds, "log_file": str(log.path)})
+        log("recording", dir=str(args.record_dir))
+
+    def record(front, wrist, mode, detections=None, lock=None):
+        if recorder is not None and front is not None:
+            recorder.add(front, wrist, mode, detections, lock)
+
+    def record_cameras(mode):
+        """Record the cameras' latest frames where no observation is read (easing home)."""
+        if recorder is None:
+            return
+        try:
+            wrist = robot.cameras["wrist"].read_latest() if "wrist" in robot.cameras else None
+            record(robot.cameras["front"].read_latest(), wrist, mode)
+        except (RuntimeError, TimeoutError):
+            pass  # a missing frame in the video must never stop the arm going home
+
+    # Started after robot.connect(), which may ask on the terminal about the calibration
+    stop = threading.Event()
+    threading.Thread(target=watch_for_exit, args=(stop,), daemon=True).start()
+    print("Type exit + Enter (or Ctrl+C) to stop.", flush=True)
+
+    mode = "yolo"  # what drives the arm: 'yolo' (nothing, YOLO watches) or the ACT's class
+    streak_class, streak_since = None, 0.0
     last_run, failures = None, 0  # (class, box) of the item of the previous ACT run
     blocked = {}  # class -> time it was last seen while blocked
     try:
-        while True:
-            frame, _ = read_front()
+        while not stop.is_set():
+            frame, obs = read_front()
             if frame is None:
                 log("source_ended")
                 break
@@ -324,11 +376,15 @@ def main():
                     del blocked[cls]
                     log("unblocked", cls=cls)
             candidates = [d for d in detections if d["class"] not in blocked]
+            # The same class must win every frame for --lock-seconds; any other result restarts it
             top = candidates[0]["class"] if candidates else None
-            streak = streak + 1 if top is not None and top == streak_class else (1 if top else 0)
-            streak_class = top
-            display.show(frame, detections, f"DETECT {top or '-'} {streak}/{args.lock_frames}")
-            if top is None or streak < args.lock_frames:
+            if top != streak_class:
+                streak_class, streak_since = top, now
+            held = now - streak_since if top else 0.0
+            display.show(frame, detections, f"DETECT {top or '-'} {held:.1f}/{args.lock_seconds:g}s")
+            record(frame, obs.get("wrist") if obs else None, "yolo", detections,
+                   (top, round(held, 1)) if top else None)
+            if top is None or held < args.lock_seconds:
                 continue
 
             # Locked
@@ -339,48 +395,82 @@ def main():
             if failures > args.max_attempts:
                 blocked[cls] = now
                 log("blocked", cls=cls, reason=f"{args.max_attempts} attempts did not move the item")
-                last_run, failures, streak_class, streak = None, 0, None, 0
+                last_run, failures, streak_class = None, 0, None
                 continue
             last_run = (cls, item["box"])
             log("locked", cls=cls, conf=item["conf"], box=item["box"], attempt=failures)
+            mode = cls
 
             if robot is None:
                 log("act_simulated", cls=cls, model=policies[cls].path, seconds=args.dry_run_act_s)
-                time.sleep(args.dry_run_act_s)
+                end = time.monotonic() + args.dry_run_act_s
+                while time.monotonic() < end and not stop.is_set():
+                    frame = source.read()
+                    if frame is None:
+                        break
+                    display.show(frame, [], f"ACT {cls} (simulated)")
+                    record(frame, None, cls)
             else:
                 from lerobot.utils.robot_utils import precise_sleep
 
                 policy = policies[cls]
                 policy.reset()
-                started, left, back_frames, reason = time.monotonic(), False, 0, "timeout"
+                started, left, reason = time.monotonic(), False, "timeout"
+                still_pose, still_since = None, 0.0  # pose and time the arm came to rest at home
                 while time.monotonic() - started < args.episode_time:
+                    if stop.is_set():
+                        reason = "stopped"
+                        break
                     tick = time.perf_counter()
                     obs = robot.get_observation()
                     policy.step(robot, obs)
-                    deviation = max_deviation(joint_pose(obs), home)
+                    pose = joint_pose(obs)
+                    deviation = max_deviation(pose, home)
                     left = left or deviation > args.leave_deg
-                    back_frames = back_frames + 1 if left and deviation < args.home_tolerance_deg else 0
-                    display.show(obs["front"], [], f"ACT {cls} {time.monotonic() - started:.0f}s dev {deviation:.0f}°")
-                    if back_frames >= args.fps // 2:
+                    # Back home and still: the timer restarts whenever a joint moves > --still-deg
+                    if left and deviation < args.home_tolerance_deg:
+                        if still_pose is None or max_deviation(pose, still_pose) > args.still_deg:
+                            still_pose, still_since = pose, time.monotonic()
+                    else:
+                        still_pose = None
+                    still = time.monotonic() - still_since if still_pose is not None else 0.0
+                    state = f"ACT {cls} {time.monotonic() - started:.0f}s dev {deviation:.0f}°"
+                    if still_pose is not None:
+                        state += f" home {still:.1f}/{args.home_still_s:g}s"
+                    display.show(obs["front"], [], state)
+                    record(obs["front"], obs.get("wrist"), cls)
+                    if still >= args.home_still_s:
                         reason = "returned_home"
                         break
                     precise_sleep(max(0.0, 1 / args.fps - (time.perf_counter() - tick)))
                 log("act_done", cls=cls, reason=reason, seconds=round(time.monotonic() - started, 1))
-                ease_to(robot, home)
+                ease_to(robot, home, on_step=lambda: record_cameras(cls))
                 log("home")
-            time.sleep(args.settle_s)
-            streak_class, streak = None, 0
+            mode = "yolo"
+            streak_class = None
     except KeyboardInterrupt:
-        log("stopped_by_user")
+        log("stopped_by_user", how="ctrl+c")
     finally:
+        if stop.is_set():
+            log("stopped_by_user", how="exit")
         if robot is not None and robot.is_connected:
             try:
-                ease_to(robot, home)
+                ease_to(robot, home, on_step=lambda: record_cameras(mode))
             finally:
                 robot.disconnect()
         if source is not None:
             source.close()
+        if recorder is not None:
+            recorder.close()
+            log("recording_saved", dir=str(args.record_dir), frames=recorder.counts["front"],
+                dropped_frames=recorder.dropped)
         log("end", log_file=str(log.path))
+
+    if recorder is not None:
+        try:
+            render(args.record_dir)
+        except KeyboardInterrupt:
+            print(f"Video not made. Make it later with: python scripts/run/pipeline_recording.py {args.record_dir}")
 
 
 if __name__ == "__main__":
