@@ -203,8 +203,8 @@ and every run on the arm.
 
 | Member | Contribution | Responsible for |
 |---|---|---|
-| Yelyzaveta Bugir | TODO % | `scripts/yolo/`, `scripts/run/` (with Nazar), `results/`, `docs/`, models on the Hub |
-| Nazar Pasichnyk | TODO % | `scripts/dataset/`, `scripts/teleop/`, `scripts/tools/`, `scripts/train/`, `scripts/common/` (recording, training controls, model upload), `calibration/`, `electronics/` |
+| Yelyzaveta Bugir | 50% | `scripts/yolo/`, `scripts/run/` (with Nazar), `results/`, `docs/`, models on the Hub |
+| Nazar Pasichnyk | 50% | `scripts/dataset/`, `scripts/teleop/`, `scripts/tools/`, `scripts/train/`, `scripts/common/` (recording, training controls, model upload), `calibration/`, `electronics/` |
 
 ## License and citation
 
