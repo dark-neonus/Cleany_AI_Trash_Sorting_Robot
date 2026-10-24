@@ -23,7 +23,7 @@ from [`ucu-ai-course/project-template`](https://github.com/ucu-ai-course/project
 
 | Name | GitHub | Role |
 |---|---|---|
-| Yelyzaveta Bugir | TODO | YOLO (data, labelling, training, evaluation), ACT training and publishing, sorting pipeline, repository |
+| Yelyzaveta Bugir | [@lizabugirr](https://github.com/lizabugirr) | YOLO (data, labelling, training, evaluation), ACT training and publishing, sorting pipeline, repository |
 | Nazar Pasichnyk | [@dark-neonus](https://github.com/dark-neonus) | Setup and electronics, cameras, dataset recording tools, ACT training tools, pipeline visualisation |
 
 ## Problem and motivation
