@@ -1,0 +1,61 @@
+{
+  "yolo": {
+    "kaggle": {
+      "model": "yolo_base",
+      "val": {
+        "images": 20,
+        "mAP50": 0.005,
+        "mAP50_95": 0.002,
+        "mAP50_95_metal": 0.004,
+        "mAP50_95_plastic": 0.001
+      },
+      "test_photo": {
+        "images": 1,
+        "mAP50": 0.334,
+        "mAP50_95": 0.188,
+        "mAP50_95_metal": 0.194,
+        "mAP50_95_plastic": 0.182,
+        "at_conf_0.25": {
+          "items": 8,
+          "found_right_class": 0,
+          "found_wrong_class": 0,
+          "missed": 8,
+          "extra_detections": 0
+        }
+      }
+    },
+    "cleany": {
+      "model": "yolo",
+      "val": {
+        "images": 20,
+        "mAP50": 0.995,
+        "mAP50_95": 0.87,
+        "mAP50_95_metal": 0.951,
+        "mAP50_95_plastic": 0.789
+      },
+      "test_photo": {
+        "images": 1,
+        "mAP50": 0.995,
+        "mAP50_95": 0.721,
+        "mAP50_95_metal": 0.802,
+        "mAP50_95_plastic": 0.64,
+        "at_conf_0.25": {
+          "items": 8,
+          "found_right_class": 8,
+          "found_wrong_class": 0,
+          "missed": 0,
+          "extra_detections": 0
+        }
+      }
+    }
+  },
+  "env": {
+    "python": "3.12.14",
+    "os": "Linux 7.0.0-38-generic",
+    "git_commit": "57a6628",
+    "date": "2026-10-23",
+    "ultralytics": "8.4.178",
+    "torch": "2.11.0+cu128",
+    "lerobot": "0.6.1"
+  }
+}

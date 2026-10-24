@@ -1,0 +1,27 @@
+name: lint
+
+# Lint only: the tests import LeRobot, Ultralytics and PyTorch (several GB with CUDA), which is
+# too heavy for every push; run `pytest` locally before pushing (see README "Development").
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff==0.14.0
+
+      - name: ruff (syntax errors, undefined names, unused imports, import order)
+        run: ruff check scripts tests
+
+      - name: bash syntax of the shell scripts
+        run: for f in $(git ls-files 'scripts/*.sh'); do bash -n "$f" || exit 1; done

@@ -6,7 +6,7 @@ set -e
 # Usage: scripts/yolo/train.sh [extra ultralytics args...]
 #   scripts/yolo/train.sh                     # fine-tune the current model, 150 epochs
 #   scripts/yolo/train.sh epochs=5            # quick smoke test
-#   BASE=yolo/weights/yolo26n.pt scripts/yolo/train.sh epochs=300   # from the COCO base instead
+#   BASE=yolo26n.pt scripts/yolo/train.sh epochs=300   # from Ultralytics' COCO base instead
 #
 # Builds yolo/dataset_cleany/ from the labeled first frames in yolo/frames/ plus the extra
 # frames before the arm reaches the item (extra_frames.py, yolo/frames_extra/), then trains
@@ -15,7 +15,8 @@ set -e
 # Tried on 2026-10-20 and worse on an unseen photo: adding the Kaggle photos, and the bigger
 # yolo26s model (both added false or missed detections). Fine-tuning yolo26n it is.
 #
-# Env overrides: JOB_NAME, BASE (starting weights), EPOCHS, BATCH
+# Env overrides: JOB_NAME, BASE (starting weights; default: yolo_base in config/default.yaml),
+# EPOCHS, BATCH
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -27,7 +28,7 @@ require_venv
 export YOLO_AUTOINSTALL=false
 
 JOB_NAME="${JOB_NAME:-yolo_cleany_$(date +%Y%m%d_%H%M)}"
-BASE="${BASE:-models/yolo/yolo_kaggle_best.pt}"
+BASE="${BASE:-$(python "$PROJECT_ROOT/scripts/common/models.py" yolo_base)}"
 EPOCHS="${EPOCHS:-150}"
 BATCH="${BATCH:-8}"
 

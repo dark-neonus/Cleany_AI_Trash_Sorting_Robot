@@ -2,8 +2,8 @@
 
 Usage:
     python extract_frames.py [--datasets cleany_plastic cleany_metal] [--out yolo/frames]
-                             [--positions first] [--model models/yolo/yolo_cleany_best.pt]
-                             [--conf 0.25] [--device cpu] [--max-area 0.25] [--overwrite]
+                             [--positions first] [--model <.pt, default: yolo in config/default.yaml>]
+                             [--conf 0.25] [--device cpu] [--max-area 0.6] [--overwrite]
 
 Takes the first frame of every episode (the item on the table before the arm moves it; add
 --positions first last for the frame after it, with the item in its bin) and pre-labels it
@@ -28,6 +28,7 @@ document root (LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=<repo>).
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import cv2
@@ -76,13 +77,13 @@ def main():
     parser.add_argument("--out", default="yolo/frames")
     parser.add_argument("--positions", nargs="+", default=["first"], choices=["first", "last"])
     parser.add_argument("--overwrite", action="store_true", help="re-extract frames that already have labels")
-    parser.add_argument("--model", default="models/yolo/yolo_cleany_best.pt",
+    parser.add_argument("--model", default=None,
                         help="model for pre-labels; 'none' extracts frames only")
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--device", default="cpu", help="cpu keeps the GPU free for training")
-    parser.add_argument("--max-area", type=float, default=0.25,
-                        help="drop pre-label boxes covering more of the frame than this (the Kaggle "
-                             "model often boxes the whole table)")
+    parser.add_argument("--max-area", type=float, default=0.6,
+                        help="drop pre-label boxes covering more of the frame than this (the whole "
+                             "table is not an item)")
     args = parser.parse_args()
 
     out = PROJECT_ROOT / args.out
@@ -92,8 +93,14 @@ def main():
     (out / "label_studio_config.xml").write_text(LABEL_CONFIG)
 
     model = None
+    if args.model is None:
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
+        from models import model as configured_model
+
+        args.model = configured_model("yolo")
     if args.model != "none":
         from ultralytics import YOLO
+
         model = YOLO(str(PROJECT_ROOT / args.model))
         # Map the model's class names onto ours by name (the Kaggle model also has an unused "other")
         class_map = {i: CLASSES.index(n) for i, n in model.names.items() if n in CLASSES}

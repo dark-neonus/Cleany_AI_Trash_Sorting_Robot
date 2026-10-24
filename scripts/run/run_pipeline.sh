@@ -24,7 +24,7 @@ set -e
 #   Anything else goes to sort_pipeline.py (e.g. --display, --conf 0.6, --lock-seconds 3).
 #
 # Models (env overrides): PLASTIC_MODEL, METAL_MODEL (Hub repo id or local pretrained_model
-# folder), YOLO_MODEL. The defaults are the current models in the README.
+# folder), YOLO_MODEL (.pt file). The defaults come from config/default.yaml.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -36,9 +36,10 @@ require_venv
 # A normal ultralytics auto-install pulls an opencv that breaks the one lerobot uses
 export YOLO_AUTOINSTALL=false
 
-PLASTIC_MODEL="${PLASTIC_MODEL:-cleany-ai/setupv2_act_plastic_20261020_1926}"
-METAL_MODEL="${METAL_MODEL:-cleany-ai/setupv2_act_metal_20261021_1855}"
-YOLO_MODEL="${YOLO_MODEL:-models/yolo/yolo_cleany_best.pt}"
+MODELS="$PROJECT_ROOT/scripts/common/models.py"
+PLASTIC_MODEL="${PLASTIC_MODEL:-$(python "$MODELS" act_plastic)}"
+METAL_MODEL="${METAL_MODEL:-$(python "$MODELS" act_metal)}"
+YOLO_MODEL="${YOLO_MODEL:-$(python "$MODELS" yolo)}"  # downloaded from the Hub on first use
 
 parse_motion_flags "$@"
 DRY_RUN=false

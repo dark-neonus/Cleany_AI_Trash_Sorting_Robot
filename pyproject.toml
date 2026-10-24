@@ -1,0 +1,30 @@
+# Tool configuration only: the project is a set of scripts (scripts/), not an installed package.
+
+[project]
+name = "cleany"
+version = "0.1.0"
+description = "SO-101 robot arm that sorts metal and plastic trash with YOLO + ACT policies"
+requires-python = ">=3.12"
+license = "MIT"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["graphify-out", "outputs", "recordings", "yolo", "data", "logs"]
+
+[tool.ruff.lint]
+# Errors that break code (syntax, undefined names, unused imports/variables) and import order;
+# no style opinions, so existing code is not reformatted.
+select = ["E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+# The repo's style: lerobot imports in their own group after the other third-party ones
+known-first-party = ["models", "sort_pipeline", "evaluate", "lerobot_wide_fov", "conftest"]
+section-order = ["future", "standard-library", "third-party", "lerobot", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+lerobot = ["lerobot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

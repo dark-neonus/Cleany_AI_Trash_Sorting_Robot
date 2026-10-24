@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: >-
+  If you use this project, please cite it as below. If you use the recorded datasets, see
+  data/README.md (CC BY 4.0).
+title: "Cleany: AI trash sorting robot"
+version: 0.1.0
+date-released: "2026-10-23"
+type: software
+license: MIT
+repository-code: "https://github.com/dark-neonus/Cleany_AI_Trash_Sorting_Robot"
+authors:
+  - family-names: "Bugir"
+    given-names: "Yelyzaveta"
+  - family-names: "Pasichnyk"
+    given-names: "Nazar"
+keywords:
+  - robotics
+  - imitation learning
+  - ACT
+  - YOLO
+  - LeRobot
+  - SO-101

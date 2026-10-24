@@ -1,0 +1,24 @@
+# The models and data the scripts use by default. Change a model here (or override it with
+# the env var named in the script) instead of editing the scripts.
+#
+# Weights are not in git: an entry is either a Hugging Face model repo id (LeRobot downloads
+# it) or "<repo id>/<file>" for a single file that scripts/common/models.py downloads into the
+# Hugging Face cache. `python scripts/common/models.py <name>` prints what a script will use.
+# Training hyperparameters live with their script: scripts/train/train_act.sh (ACT),
+# scripts/yolo/train.sh (YOLO), scripts/config/augmentation.json.
+
+models:
+  # ACT policies, one per material (scripts/run/run_pipeline.sh, run_policy.sh examples)
+  act_plastic: cleany-ai/setupv2_act_plastic_20261020_1926
+  act_metal: cleany-ai/setupv2_act_metal_20261021_1855
+  # Metal/plastic detector used by the pipeline and for pre-labelling new frames
+  yolo: cleany-ai/setupv2_yolo_20261020_2008/best.pt
+  # Kaggle-only YOLO: the starting point scripts/yolo/train.sh fine-tunes
+  yolo_base: cleany-ai/yolo_kaggle_garbage_20261016_2356/best.pt
+
+datasets:
+  # LeRobot datasets: scripts/dataset/sync.sh (names from scripts/config/datasets.sh)
+  plastic: cleany-ai/cleany_plastic
+  metal: cleany-ai/cleany_metal
+  # Labelled front-camera frames for YOLO, plus the unseen test photo (test/)
+  yolo_frames: cleany-ai/cleany_yolo_frames

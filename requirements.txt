@@ -1,0 +1,19 @@
+# Versions the project was developed and tested with (Python 3.12.14, Ubuntu 26.04, CUDA 12.8).
+# scripts/setup/install_dependencies.sh installs the system packages and the latest versions of
+# these; this file pins the exact set that is known to work together (`make setup` + this file
+# reproduces our environment).
+#
+# PyTorch with CUDA comes from the PyTorch index:
+#   uv pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0
+torchvision==0.26.0
+lerobot[core_scripts,training,feetech]==0.6.1
+# Ultralytics pulls in opencv-python; the install script puts back the OpenCV build LeRobot uses
+ultralytics==8.4.178
+opencv-python-headless==4.13.0.92
+huggingface_hub==1.33.0
+rerun-sdk==0.33.1
+av==15.1.0
+numpy==2.2.6
+pandas==2.3.3
+pyyaml==6.0.3

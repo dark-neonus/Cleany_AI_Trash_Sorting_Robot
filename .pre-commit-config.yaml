@@ -1,0 +1,14 @@
+# Runs the same check as CI before every commit. Install once: .venv/bin/pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(scripts|tests)/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-added-large-files  # weights and data go to the Hub, not git
+        args: [--maxkb=2000]
