@@ -1,245 +1,183 @@
-# Cleany_AI_Trash_Sorting_Robot
+# 🤖 Cleany: AI trash sorting robot
 
-## Table of contents
+An SO-101 robot arm that looks at an item on the table, recognises whether it is **metal** or
+**plastic** with YOLO, and puts it into the matching bin with an ACT imitation-learning policy
+trained on our own teleoperated demonstrations. Built with [LeRobot](https://github.com/huggingface/lerobot)
+from [`ucu-ai-course/project-template`](https://github.com/ucu-ai-course/project-template).
 
-- [Purpose](#purpose)
-- [Model Pipeline](#model-pipeline)
-- [Scripts](#scripts)
-- [Cameras and recording performance](#cameras-and-recording-performance)
-- [Dataset collection](#dataset-collection)
-  - [Record](#record)
-  - [Review and manage](#review-and-manage)
-  - [Recommendations](#recommendations)
-  - [Training](#training)
-  - [Sharing trained models](#sharing-trained-models)
-- [Running a trained model](#running-a-trained-model)
-  - [Available models](#available-models)
-  - [Get a model from the cloud](#get-a-model-from-the-cloud)
-  - [Run it on the arm](#run-it-on-the-arm)
-- [Running the sorting pipeline](#running-the-sorting-pipeline)
-  - [Test without the arm](#test-without-the-arm)
-  - [Run on the arm](#run-on-the-arm)
-  - [How it decides](#how-it-decides)
-- [YOLO detector](#yolo-detector)
-  - [Use it](#use-it)
-  - [Retrain it](#retrain-it)
-- [Storing datasets in the cloud](#storing-datasets-in-the-cloud)
-  - [Recommended: private Hugging Face Hub dataset repos](#recommended-private-hugging-face-hub-dataset-repos)
-  - [One-time setup](#one-time-setup)
-  - [Sync commands](#sync-commands)
-  - [Team rules](#team-rules)
+![lint](https://github.com/dark-neonus/Cleany_AI_Trash_Sorting_Robot/actions/workflows/lint.yml/badge.svg)
+![license](https://img.shields.io/badge/license-MIT-blue.svg)
 
-## Purpose
+## Demo
 
-Sorting trash using lerobot so101 robot arm inside custom made box in which trash is dropped.
+> [!note]
+> The demo GIF of the full pipeline on the arm is not recorded yet: see
+> [docs/recording-a-demo.md](docs/recording-a-demo.md). Until then, the workspace and what the
+> detector sees:
 
-If robot detect metal it thrown it in the left hole, if plastic detected it is thrownin the right hole. If neither, signal is given to esp32 conntroller to open floor of trash receiving area and remaining(other) trash is being dropped into mixed bin.
+![The setup: SO-101 arm, the metal (left) and plastic (right) bins, front and wrist cameras](assets/setup_v2_workspace_labeled.png)
 
-## Model Pipeline
+![Old Kaggle-only YOLO (left) finds nothing on a photo it never saw; our YOLO (right) finds all 8 items with the right class](results/figures/yolo_test_photo.jpg)
+
+## Team
+
+| Name | GitHub | Role |
+|---|---|---|
+| Yelyzaveta Bugir | [@lizabugirr](https://github.com/lizabugirr) | YOLO (data, labelling, training, evaluation), ACT training and publishing, sorting pipeline, repository |
+| Nazar Pasichnyk | [@dark-neonus](https://github.com/dark-neonus) | Setup and electronics, cameras, dataset recording tools, ACT training tools, pipeline visualisation |
+
+## Problem and motivation
+
+Sorting household trash by material is repetitive work that recycling depends on, and the
+items are messy: crushed cans, transparent bottles, caps, odd plastic parts, each lying in a
+different pose. A fixed, hand-programmed pick motion does not cope with that variety, but a
+policy learned from a few dozen human demonstrations might. The project asks whether a cheap
+6-DoF arm (SO-101) plus a laptop GPU can learn to sort one item at a time into a
+metal and a plastic bin, with a vision model deciding which policy to run.
+
+## Data
+
+Recorded by us on the arm (no external data in the final models):
+
+| Dataset | Size | Used for |
+|---|---|---|
+| [`cleany-ai/cleany_plastic`](https://huggingface.co/datasets/cleany-ai/cleany_plastic) | 60 teleoperated episodes, 36 659 frames, 30 fps, 2 cameras | plastic ACT |
+| [`cleany-ai/cleany_metal`](https://huggingface.co/datasets/cleany-ai/cleany_metal) | 80 episodes, 43 030 frames | metal ACT |
+| [`cleany-ai/cleany_yolo_frames`](https://huggingface.co/datasets/cleany-ai/cleany_yolo_frames) (private) | 100 labelled front-camera frames + 1 unseen test photo | YOLO |
+
+License CC BY 4.0. Full data card (schema, splits, limitations, revisions): [data/README.md](data/README.md).
+
+> [!note] Data and weights are not in git
+> `data/` and `models/` hold only their README: the datasets (2.5 GB of video) and the weights
+> live on the Hugging Face Hub, versioned by commit, and the scripts download them.
+
+## Approach
 
 ```mermaid
 flowchart TD
-    A[Idle: YOLO on every front-camera frame] --> B{Same class, confidence ≥ threshold,<br/>N frames in a row?}
+    A[Idle: YOLO on every front-camera frame] --> B{Same class, confidence ≥ 0.5,<br/>for 5 s without a break?}
     B -->|No| A
     B -->|Yes: lock the class| C{Locked class}
 
     C -->|Plastic| D[Plastic ACT]
     C -->|Metal| E[Metal ACT]
-    C -->|Other| F[ESP32: open trash dropping mechanism]
+    C -.->|Other: planned| F[ESP32: open the drop mechanism]
 
-    D --> G[Wait a few seconds & return to beginning state<br/>Arm start position, trash dropping mechanism closed]
+    D --> G[Arm back in its start pose,<br/>look again]
     E --> G
-    F --> G
+    F -.-> G
 
     G --> A
 ```
 
-- **YOLO decides once, at the start.** While the arm is idle, YOLO runs on every frame of
-  the front camera. Single frames are unreliable while the item is still falling or
-  bouncing, so the class is locked only when the same class wins with confidence above a
-  threshold for N consecutive frames. Nothing detected means keep waiting.
-- **YOLO is not consulted while an ACT runs.** The arm hides the item during the grasp, so
-  the class could flip, and switching policies mid-grasp is worse than finishing.
-- **ACT models get no YOLO output.** Each material has its own ACT model, so the class is
-  already chosen by picking the model. Each ACT finds the item from the camera images alone.
-- **The YOLO model needs an `other` class**, so "an item that is neither plastic nor metal"
-  can be told apart from "the box is empty". The current YOLO knows only `metal` and
-  `plastic` (see [YOLO detector](#yolo-detector)); the `other` class and the ESP32 drop
-  mechanism are not in the [pipeline](#running-the-sorting-pipeline) yet: the setup and the
-  box are not final.
+- **YOLO decides once, at the start.** Single frames are unreliable while the item still
+  moves, so a class is locked only when it wins every frame for a few seconds. Items already in
+  a bin are ignored.
+- **One ACT policy per material.** The class is chosen by picking the model; each ACT finds the
+  item from the two camera images alone and is not given YOLO's box. YOLO is not consulted while
+  an ACT runs: the arm hides the item, and switching policies mid-grasp is worse than finishing.
+- **Retry, then skip.** If the item is still at the same place afterwards, the ACT tries again;
+  after 3 tries the item is skipped until someone moves it.
+- **Planned:** an `other` class and an ESP32-driven trap door that drops non-sortable items into
+  a mixed bin, once the final box is built.
 
-## Scripts
+Models: YOLO26n fine-tuned on our frames (baseline: the same network trained on Kaggle garbage
+photos), and two ACT policies (LeRobot 0.6.1, ResNet-18 backbone, action chunks of 100 steps),
+100 000 steps each with colour augmentation. Full log, including the rejected runs:
+[results/experiments.md](results/experiments.md).
 
-All scripts can be run from any directory; they `cd` to the project root themselves.
+## Results
 
-| Folder                 | Script                   | What it does                                                  |
-| ---------------------- | ------------------------ | ------------------------------------------------------------- |
-| `scripts/setup/`       | `install_dependencies.sh` | Install system packages, LeRobot and YOLO (Ultralytics) into `.venv` |
-| `scripts/calibration/` | `calibrate_leader.sh`, `calibrate_follower.sh` | Calibrate the arms into `calibration/`  |
-| `scripts/teleop/`      | `run_teleop.sh`          | Drive the follower with the leader arm, cameras shown in Rerun |
-| `scripts/dataset/`     | `record.sh`              | Record teleoperated episodes for one ACT model                |
-|                        | `view.sh`                | Browse a recorded episode in Rerun (no robot needed)          |
-|                        | `replay.sh`              | Replay a recorded episode on the follower arm                 |
-|                        | `delete_last_episode.sh` | Drop the last episode (e.g. a failed demo)                    |
-|                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
-| `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
-|                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
-| `scripts/run/`         | `run_policy.sh`          | Run a trained ACT model (Hub repo or local folder) on the follower arm |
-|                        | `run_pipeline.sh`        | Sorting pipeline: YOLO picks the material, its ACT moves the item (`--dry-run` without the arm) |
-|                        | `pipeline_recording.py`  | Records a pipeline run and makes its showcase video           |
-|                        | `sort_pipeline.py`       | The pipeline's state machine, started by `run_pipeline.sh`    |
-| `scripts/yolo/`        | `extract_frames.py`      | Take the first front-camera frame of every episode, pre-labelled by the current YOLO |
-|                        | `label_studio.sh`        | Local Label Studio for checking and fixing YOLO labels        |
-|                        | `extra_frames.py`        | More labelled frames per episode: the ones before the arm reaches the item |
-|                        | `prepare_dataset.py`     | Build the YOLO train/val dataset from the labelled frames     |
-|                        | `train.sh`               | Train the metal/plastic YOLO (runs the two scripts above first) |
-| `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
-|                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
-|                        | `start_frames.sh`        | One image with the first top-camera frame of every episode    |
-| `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |
-|                        | `camera_settings.sh`     | Fixed camera settings written by `tune_cameras.sh`            |
-| `scripts/common/`      | `lerobot_wide_fov.py`, `dataset_sync.py` | Helpers used by the scripts above   |
+**YOLO**, generated by `python scripts/yolo/evaluate.py` on 2026-10-23 (`make reproduce`):
+validation = 20 held-out episodes; test photo = 8 items shot with another camera on another
+table, never used for training.
 
-## Cameras and recording performance
+| Model | Val mAP50-95 | Test photo mAP50-95 | Test photo, items right at conf 0.25 |
+|---|---|---|---|
+| Baseline: YOLO26n trained on Kaggle photos only | 0.002 | 0.188 | 0 / 8 |
+| **YOLO26n fine-tuned on our frames (selected)** | **0.870** | **0.721** | **8 / 8** |
+| Same + Kaggle photos in training — *rejected* | 0.869 | 0.653 | 2 plastic items missed |
+| YOLO26s (bigger) — *rejected* | 0.858 | 0.655 | 2 extra wrong `metal` boxes |
 
-Both laptops must capture images that look the same and arrive with the same delay, or a
-model trained on data from one laptop behaves differently on the other. The scripts handle
-this automatically:
+![Confusion matrix of the selected YOLO on the validation frames](results/figures/yolo_confusion_matrix.png)
 
-- **Fixed camera settings.** Auto exposure and auto white balance change with the light, so
-  images (and frame timing) differ between sessions. `scripts/tools/tune_cameras.sh` finds
-  manual settings that match what auto mode picks under the current lighting and saves them to
-  `scripts/config/camera_settings.sh`; every script applies them before opening the cameras.
-  **Re-run it whenever the lighting or a camera position changes, and commit the file.**
-  Without the file, the cameras run in auto mode.
-- **30 fps in dim light.** Dynamic frame rate is off and mains is set to 50 Hz on both cameras
-  (the front C270 otherwise dropped to ~12 fps).
-- **Video encoding on the GPU.** Datasets are encoded with `h264_nvenc` (~3 ms of CPU per
-  frame) instead of LeRobot's default CPU AV1 encoder (~100 ms of CPU per frame, enough to
-  saturate a weak CPU and delay the cameras). `record.sh` test-encodes first and stops if
-  NVENC does not work. Keep `VIDEO_CODEC` the same for the whole team: episodes from both
-  laptops end up in the same video files.
-- **Display options.** To turn the Rerun viewer off completely (saves CPU on a weak laptop):
-  `DISPLAY_DATA=false scripts/dataset/record.sh plastic 10`. If the viewer shows no new data,
-  close stale viewers first with `pkill -x rerun`: LeRobot reuses a viewer that is already
-  running instead of starting a new one.
+> [!note] Why the baseline row matters
+> The validation numbers saturate (mAP50 = 0.995) because the same cans and bottles appear in
+> training and validation episodes. The baseline shows what our own data bought (0.002 → 0.870),
+> and the out-of-domain photo is what told the runs apart; one photo with 8 boxes is a small
+> test, so we chose on "every item right at the working threshold", not on 0.01 of mAP.
 
-## Dataset collection
+**ACT on the arm** (current pipeline, one item in the start zone, 10 trials per model): plastic
+**9/10**, metal **8/10** items put into the right bin. 10 trials is a small sample; larger runs and
+new items are next, see [results/experiments.md](results/experiments.md).
 
-One dataset per ACT model, picked by the model name (`plastic` or `metal`):
-
-| Model     | Local folder           | Hub repo                   | Task                                     |
-| --------- | ---------------------- | -------------------------- | ---------------------------------------- |
-| `plastic` | `data/cleany_plastic/` | `cleany-ai/cleany_plastic` | Put the plastic item into the right hole |
-| `metal`   | `data/cleany_metal/`   | `cleany-ai/cleany_metal`   | Put the metal item into the left hole    |
-
-**Once per machine:** run `scripts/setup/install_dependencies.sh`, then `.venv/bin/hf auth login`
-(see [One-time setup](#one-time-setup)). The arm calibration in `calibration/` is shared via git.
-
-### Record
+## Quick start
 
 ```bash
-pkill -x rerun; scripts/teleop/run_teleop.sh   # 1. check arm and both cameras, Ctrl+C to stop
-scripts/dataset/sync.sh pull plastic           # 2. get the shared copy (skip for the first recording)
-scripts/dataset/record.sh plastic 10           # 3. record 10 episodes (appends to the dataset)
-scripts/dataset/sync.sh push plastic           # 4. upload
+git clone https://github.com/dark-neonus/Cleany_AI_Trash_Sorting_Robot && cd Cleany_AI_Trash_Sorting_Robot
+make setup                    # system packages, .venv (Python 3.12, LeRobot, YOLO), dev tools; needs sudo
+.venv/bin/hf auth login       # account in the cleany-ai organization (the YOLO frames are private)
+make reproduce                # downloads frames + models, prints the YOLO results table above
 ```
 
-A **control panel** window opens next to Rerun. It shows the phase, the episode number and a
-countdown, and nothing is recorded until you press **Start**:
-
-1. **READY** (not recorded, no time limit): arm at the start position, item in the start zone.
-   Press **Start episode**.
-2. **RECORDING** (30 s countdown): grasp the item, drop it into its bin, return to the start
-   position. Press **End episode** as soon as the arm is back, or let the countdown finish.
-3. **RESET** (not recorded, no time limit): put the next item in place, then **Start episode**
-   for the next one, or **Discard last episode** if the one you just recorded went wrong.
-
-| Button         | Key (terminal focused) | Effect                                             |
-| -------------- | ---------------------- | -------------------------------------------------- |
-| Start episode  | **→**                  | Start recording the next episode                   |
-| End episode    | **→**                  | End the current episode now                        |
-| Discard        | **←**                  | Drop the current (or just recorded) episode, redo it |
-| Stop session   | **Esc**                | Stop; episodes recorded so far are kept            |
-
-Options: `record.sh --push plastic 10` uploads at the end; `EPISODE_TIME_S=20` changes the
-episode length; `DISPLAY_DATA=false` turns the viewer off; `RECORD_PANEL=false` disables the
-panel (plain LeRobot behaviour: episodes start automatically after a `RESET_TIME_S` reset).
-
-### Review and manage
+With the hardware (follower arm, front and wrist cameras) plugged in:
 
 ```bash
-scripts/dataset/view.sh plastic 9                          # watch episode 9 (counted from 0), no robot needed
-scripts/dataset/replay.sh --speed 0.5 --episode 9 plastic  # play it back on the real arm
-scripts/dataset/delete_last_episode.sh plastic             # drop the last episode
-scripts/dataset/sync.sh status                             # episode counts, local vs Hub
+scripts/run/run_pipeline.sh --recording false --dry-run --display    # camera + YOLO only, the arm does not move
+scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # the full pipeline; stay next to the arm
 ```
 
-To see the start positions of all episodes at once (to spot positions that are missing or
-over-represented), make one image per dataset from the first top-camera frame of every episode,
-labelled with the episode index:
+## Documentation
 
-```bash
-scripts/tools/start_frames.sh            # both datasets -> outputs/start_frames/plastic.jpg, metal.jpg
-scripts/tools/start_frames.sh metal      # just one
+| Guide | What it covers |
+|---|---|
+| [docs/scripts.md](docs/scripts.md) | Every script in `scripts/` |
+| [docs/cameras.md](docs/cameras.md) | Camera settings and recording performance |
+| [docs/dataset-collection.md](docs/dataset-collection.md) | Recording, reviewing and cleaning demonstrations |
+| [docs/training.md](docs/training.md) | Training ACT, resuming, sharing models |
+| [docs/running-models.md](docs/running-models.md) | Available models, downloading, running one ACT on the arm |
+| [docs/pipeline.md](docs/pipeline.md) | The sorting pipeline: dry run, on the arm, options |
+| [docs/yolo.md](docs/yolo.md) | Using and retraining the detector, labelling new frames |
+| [docs/cloud-storage.md](docs/cloud-storage.md) | Hugging Face Hub setup, dataset sync, team rules |
+| [electronics/ELECTRONICS.md](electronics/ELECTRONICS.md) | Hardware and power supply |
+
+## Repository structure
+
+```
+.
+├── scripts/              # all code, by task: setup/ calibration/ teleop/ dataset/ train/ run/ yolo/ tools/,
+│                         #   shared config/ (ports, cameras, datasets) and common/ (helpers)
+├── config/default.yaml   # which models and datasets the scripts use
+├── tests/                # pytest: pipeline decisions, YOLO data split, config
+├── data/                 # datasets NOT committed; data/README.md (data card) IS
+├── models/               # weights NOT committed; models/README.md (Hub instructions) IS
+├── results/              # metrics.json, experiments.md, figures/ — committed, small
+├── docs/                 # guides, CONTRIBUTING.md, proposal/, poster/, slides/
+├── calibration/          # arm calibration, shared by everyone using the same arms
+├── electronics/          # wiring and power
+├── assets/               # photos of the setup
+└── .github/workflows/    # lint.yml
 ```
 
-To delete other episodes, e.g. 3 and 7, then swap the result in:
+Generated and git-ignored: `outputs/` (training runs), `recordings/` (runs on the arm),
+`logs/` (pipeline events), `yolo/` (frames, YOLO datasets, Label Studio).
 
-```bash
-.venv/bin/lerobot-edit-dataset --repo_id=cleany-ai/cleany_plastic --root=data/cleany_plastic \
-  --new_root=data/cleany_plastic.edited --operation.type=delete_episodes --operation.episode_indices="[3, 7]"
-mv data/cleany_plastic data/cleany_plastic.old && mv data/cleany_plastic.edited data/cleany_plastic
-```
+## Reproducibility
 
-After deleting episodes, upload with `scripts/dataset/sync.sh push plastic --force` (the Hub
-copy has more episodes, so a normal push refuses).
+- **Models and data** are pinned by Hub repo and commit: `config/default.yaml` names the models,
+  [data/README.md](data/README.md) lists the dataset revisions.
+- **Versions**: Python 3.12.14; `requirements.txt` pins the packages (LeRobot 0.6.1,
+  PyTorch 2.11 + CUDA 12.8, Ultralytics 8.4.178). `results/metrics.json` records the versions,
+  OS and git commit each result was produced with.
+- **Seeds**: YOLO trains with Ultralytics' default seed 0 in deterministic mode; LeRobot ACT
+  training uses seed 1000 (recorded in each model's `train_config.json`).
+- **Hardware tested on**: Ubuntu 26.04, NVIDIA RTX 2050 (4 GB). `make reproduce` takes ~1 min
+  and runs on a CPU too; training ACT takes ~18 h per model on that GPU, YOLO ~7 min.
+- **What cannot be re-run from git alone**: anything on the arm. It depends on the physical
+  setup (bins, camera positions, lighting, calibration), which is why every model name carries
+  the setup name (`setupv2_…`).
 
-### Recommendations
-
-- **Same start and end pose** in every episode: the position the pipeline returns the arm to.
-- **Vary the items**: different objects, landing spots and orientations in the start zone.
-- **Keep the cameras fixed**: never move them between sessions; a moved camera makes earlier
-  episodes much less useful. Re-run `scripts/tools/tune_cameras.sh` only when the final
-  lighting or a camera changes for good.
-- **Vary the lighting a little**: for about a quarter of the episodes, move a lamp or switch the
-  room light, with the box light always on. This makes the models robust to light changes.
-- **Smooth, decisive moves**: hesitations are copied by the model; re-record (**←**) messy ones.
-- **Review before pushing**: watch a few episodes with `view.sh`, drop bad ones.
-- **Amount**: 50+ good episodes per model before the first serious training run.
-- **One person per model at a time**: pull before recording, push right after (see [Team rules](#team-rules)).
-
-### Training
-
-```bash
-scripts/train/train_act.sh plastic --steps=2000   # smoke test
-scripts/train/train_act.sh plastic                # full run (100k steps)
-```
-
-Checkpoints go to `outputs/train/act_<model>_<timestamp>/checkpoints/`, every 5000 steps
-(`SAVE_FREQ=2500` to save more often; each checkpoint is ~0.6 GB).
-
-**To stop early, type `exit` and press Enter** in the training terminal: the step in progress
-finishes, a checkpoint of exactly that step is saved (e.g. `checkpoints/054321`) and training
-ends. Ctrl+C instead stops immediately and loses everything since the last checkpoint.
-
-Every run starts from scratch in a new folder. To **continue** a stopped or finished run from
-its last checkpoint (same folder, same settings, step counter continues):
-
-```bash
-scripts/train/train_act.sh plastic --resume                    # latest act_plastic_* run
-scripts/train/train_act.sh plastic --resume outputs/train/act_plastic_20261020_1400
-STEPS=150000 scripts/train/train_act.sh plastic --resume       # train longer than planned
-```
-
-**Image augmentation is on by default**, so the models learn the item's position and shape
-rather than its colour (YOLO already decides the material). Each training frame gets 3 random
-changes out of: brightness and contrast (±25%), saturation (0.5–1.5×), hue (±0.15, which really
-changes object colours), sharpness, and grayscale (about 11% of frames). LeRobot's random image
-shift/rotation is left out, because ACT needs exact pixel positions and our cameras are fixed.
-The recorded dataset is not changed. The settings are in
-[scripts/config/augmentation.json](scripts/config/augmentation.json); to see each one on a
-recorded episode (written to `outputs/augmentation_preview/`):
+## Development
 
 ```bash
 scripts/tools/preview_augmentation.sh plastic 49
