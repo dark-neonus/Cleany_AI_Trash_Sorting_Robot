@@ -1,249 +1,342 @@
-% Midterm presentation. Build: cd docs/slides/midterm && latexmk -xelatex midterm.tex
-\documentclass[aspectratio=169,12pt]{beamer}
+% Midterm presentation.
+% Build: cd docs/slides/midterm && latexmk -xelatex -jobname=midterm_bugir_pasichnyk midterm.tex
+% Numbers come from results/metrics.json, results/experiments.md and docs/yolo.md.
+\documentclass[aspectratio=169,12pt,xcolor=table]{beamer}
 \usepackage{fontspec}
-\usepackage[ukrainian]{babel}
 \setsansfont{Lato}[BoldFont=Lato Bold]
 \setmainfont{Lato}[BoldFont=Lato Bold]
 \setmonofont{DejaVu Sans Mono}[Scale=0.8]
-\newfontfamily\symbolfont{DejaVu Sans}
+\newfontfamily\latoblack{Lato Black}
+\newfontfamily\latolight{Lato Light}
+\newfontfamily\fa{FontAwesome}[BoldFont=FontAwesome]
 \usepackage{booktabs}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning}
+\graphicspath{{figures/}{../../../assets/memes/}}
 
-% --- look: white slides, big thin centred titles, turquoise blocks ------------
-\definecolor{ink}{HTML}{0F1F1E}
-\definecolor{teal}{HTML}{0D9488}
-\definecolor{tealdark}{HTML}{0F766E}
-\definecolor{aqua}{HTML}{A7F3EB}
-\definecolor{aqualight}{HTML}{E6FBF8}
-\definecolor{muted}{HTML}{7A8A89}
-\definecolor{metal}{HTML}{3B82F6}
-\definecolor{plastic}{HTML}{F59E0B}
-\definecolor{warn}{HTML}{E5484D}
-\definecolor{good}{HTML}{0D9488}
-\setbeamercolor{normal text}{fg=ink,bg=white}
-\setbeamercolor{frametitle}{fg=ink}
-\setbeamercolor{structure}{fg=teal}
-\setbeamerfont{frametitle}{size=\LARGE}
-\setbeamertemplate{frametitle}{\vspace*{0.9em}\centering\insertframetitle\par}
+% --- palette: forest greens on warm paper, material accents -------------------
+\definecolor{ink}{HTML}{1A2B22}
+\definecolor{forest}{HTML}{1E4D36}
+\definecolor{fern}{HTML}{2F7A4D}
+\definecolor{sage}{HTML}{9CC5A1}
+\definecolor{mint}{HTML}{E4F1E1}
+\definecolor{paper}{HTML}{FBFAF5}
+\definecolor{sand}{HTML}{F1ECDD}
+\definecolor{muted}{HTML}{6E7D72}
+\definecolor{metal}{HTML}{3E73B0}
+\definecolor{plastic}{HTML}{E2A13A}
+\definecolor{warn}{HTML}{C65B3F}
+
+% --- icons: FontAwesome 4 glyphs straight from the system font ---------------
+\newcommand{\faicon}[1]{{\fa\symbol{"#1}}}
+\newcommand{\iLeaf}{\faicon{F06C}}
+\newcommand{\iRecycle}{\faicon{F1B8}}
+\newcommand{\iCamera}{\faicon{F030}}
+\newcommand{\iEye}{\faicon{F06E}}
+\newcommand{\iCogs}{\faicon{F085}}
+\newcommand{\iData}{\faicon{F1C0}}
+\newcommand{\iChart}{\faicon{F201}}
+\newcommand{\iCheck}{\faicon{F00C}}
+\newcommand{\iCross}{\faicon{F00D}}
+\newcommand{\iUsers}{\faicon{F0C0}}
+\newcommand{\iUser}{\faicon{F007}}
+\newcommand{\iFlask}{\faicon{F0C3}}
+\newcommand{\iRocket}{\faicon{F135}}
+\newcommand{\iLife}{\faicon{F1CD}}
+\newcommand{\iGithub}{\faicon{F09B}}
+\newcommand{\iQuestion}{\faicon{F059}}
+\newcommand{\iHand}{\faicon{F255}}
+\newcommand{\iCloud}{\faicon{F0C2}}
+\newcommand{\iRoad}{\faicon{F018}}
+\newcommand{\iBolt}{\faicon{F0E7}}
+\newcommand{\iCalendar}{\faicon{F073}}
+\newcommand{\iBullseye}{\faicon{F140}}
+\newcommand{\iTag}{\faicon{F02B}}
+\newcommand{\iChip}{\faicon{F2DB}}
+\newcommand{\iBulb}{\faicon{F0EB}}
+
+% --- beamer look ---------------------------------------------------------------
+\setbeamersize{text margin left=1.1cm, text margin right=1.1cm}
+\setbeamercolor{normal text}{fg=ink,bg=paper}
+\setbeamercolor{frametitle}{fg=forest}
+\setbeamercolor{structure}{fg=fern}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
 \setbeamertemplate{navigation symbols}{}
-\setbeamertemplate{itemize items}{\color{teal}\textbullet}
-\setbeamertemplate{footline}{\hfill{\color{muted}\scriptsize\insertframenumber}\hspace*{1.2em}\vspace*{0.7em}}
+\setbeamertemplate{itemize items}{\color{fern}\textbullet}
+\setbeamertemplate{background}{\begin{tikzpicture}
+  \useasboundingbox (0,0) rectangle (\paperwidth,\paperheight);
+  \fill[paper] (0,0) rectangle (\paperwidth,\paperheight);
+  \fill[fern] (0,\paperheight-3pt) rectangle (\paperwidth,\paperheight);
+  \node[text=sage, opacity=0.28, rotate=-25, font=\fontsize{64}{64}\selectfont]
+    at (\paperwidth-0.55cm,\paperheight-0.75cm) {\iLeaf};
+\end{tikzpicture}}
+\setbeamertemplate{frametitle}{%
+  \vspace*{0.6em}{\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\insertframetitle}\par
+  \nointerlineskip\vspace{5pt}{\color{fern}\rule{1.8em}{2pt}}\par\vspace{0.2em}}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox to\paperwidth{\hspace*{1.1cm}%
+    {\scriptsize\color{fern}\iRecycle}\hspace{0.4em}{\scriptsize\color{muted}Cleany \,·\, Midterm review}%
+    \hfill{\scriptsize\color{muted}\insertframenumber\,/\,\inserttotalframenumber}\hspace*{1.1cm}}%
+  \vspace*{0.6em}}
 \setlength{\leftmargini}{1.2em}
 \hyphenpenalty=10000 \exhyphenpenalty=10000
 
 \tikzset{
-  blk/.style={fill=teal, text=white, rounded corners=4pt, minimum height=9mm, inner xsep=8pt, font=\small\bfseries, align=center},
-  leaf/.style={fill=aqua, text=ink, rounded corners=4pt, minimum height=9mm, inner xsep=8pt, font=\small, align=center},
-  pale/.style={fill=aqualight, text=muted, rounded corners=4pt, minimum height=9mm, inner xsep=8pt, font=\small, align=center},
-  arr/.style={-{Stealth[length=2.4mm]}, line width=0.8pt, draw=ink},
+  blk/.style={fill=fern, text=white, rounded corners=5pt, minimum height=9mm, inner xsep=8pt, font=\small\bfseries, align=center},
+  leaf/.style={fill=mint, text=ink, rounded corners=5pt, minimum height=9mm, inner xsep=8pt, font=\small, align=center},
+  pale/.style={fill=sand, text=muted, rounded corners=5pt, minimum height=9mm, inner xsep=8pt, font=\small, align=center},
+  card/.style={fill=white, draw=sage, line width=0.6pt, rounded corners=6pt, inner sep=7pt, align=left, text=ink},
+  arr/.style={-{Stealth[length=2.4mm]}, line width=0.8pt, draw=forest},
 }
-\newcommand{\done}{{\color{good}\symbolfont ✓}}
-\newcommand{\notdone}{{\color{warn}\symbolfont ✗}}
-\newcommand{\bignum}[1]{{\fontsize{30}{32}\selectfont\bfseries\color{tealdark} #1}}
+% icon chip in front of a frame title
+\newcommand{\ticon}[1]{\tikz[baseline=-0.8ex]\node[fill=fern, text=white, rounded corners=4pt,
+  minimum size=1.35em, inner sep=0pt, font=\normalsize]{#1};\hspace{0.45em}}
+\newcommand{\done}{\tikz[baseline=-0.7ex]\node[circle, fill=fern, text=white, inner sep=0pt,
+  minimum size=1.05em, font=\scriptsize]{\iCheck};}
+\newcommand{\notdone}{\tikz[baseline=-0.7ex]\node[circle, fill=warn, text=white, inner sep=0pt,
+  minimum size=1.05em, font=\scriptsize]{\iCross};}
+\newcommand{\bignum}[1]{{\latoblack\fontsize{30}{32}\selectfont\color{fern} #1}}
+\newcommand{\muted}[1]{{\scriptsize\color{muted}#1}}
+% meme with an English caption under it (the images carry Ukrainian text)
+\newcommand{\meme}[2]{\begin{minipage}[t]{0.3\textwidth}\centering
+  \tikz\node[inner sep=0pt, draw=sage, line width=1pt, rounded corners=2pt]
+    {\includegraphics[height=0.56\textheight]{#1}};\\[0.35em]
+  {\footnotesize\itshape\color{muted}#2}\end{minipage}}
 
 \begin{document}
 
 % 1 ---------------------------------------------------------------------------
 {
 \setbeamertemplate{background}{\begin{tikzpicture}
-  \shade[top color=aqua, bottom color=white, shading angle=-30] (0,0) rectangle (\paperwidth,\paperheight);
+  \useasboundingbox (0,0) rectangle (\paperwidth,\paperheight);
+  \shade[left color=forest, right color=fern] (0,0) rectangle (\paperwidth,\paperheight);
+  \node[text=white, opacity=0.07, font=\fontsize{230}{230}\selectfont]
+    at (\paperwidth-3.2cm,0.42\paperheight) {\iRecycle};
+  \node[text=sage, opacity=0.35, rotate=-25, font=\fontsize{50}{50}\selectfont]
+    at (\paperwidth-1.1cm,\paperheight-1.0cm) {\iLeaf};
+  \fill[plastic] (1.1cm,1.25cm) rectangle ++(1.4cm,2.5pt);
+  \fill[metal] (2.5cm,1.25cm) rectangle ++(1.4cm,2.5pt);
+  \fill[sage] (3.9cm,1.25cm) rectangle ++(1.4cm,2.5pt);
 \end{tikzpicture}}
 \setbeamertemplate{footline}{}
 \begin{frame}
-  \centering
-  \vspace{2.2em}
-  {\fontsize{46}{50}\selectfont Cleany}\\[0.5em]
-  {\Large робот, що сортує сміття}\\[2.2em]
-  {\large Єлизавета Бугір \quad·\quad Назар Пасічник}\\[0.6em]
-  {\color{muted} Проміжний захист · 25 жовтня 2026}
+  \color{white}
+  \vspace{1.2em}
+  \tikz\node[fill=white, fill opacity=0.15, text opacity=1, text=white, rounded corners=8pt,
+    inner xsep=9pt, inner ysep=4pt, font=\scriptsize\bfseries]{\iCalendar\enspace MIDTERM REVIEW \,·\, 26 OCTOBER 2026};\\[1.1em]
+  {\latoblack\fontsize{50}{54}\selectfont Cleany}\\[0.35em]
+  {\latolight\Large A robot arm that learns to sort trash}\\[2.0em]
+  {\large\bfseries Yelyzaveta Bugir \quad·\quad Nazar Pasichnyk}\\[0.5em]
+  {\small\color{white!75!sage}\iGithub\enspace github.com/dark-neonus/Cleany\_AI\_Trash\_Sorting\_Robot}
 \end{frame}
 }
 
 % 2 ---------------------------------------------------------------------------
-\begin{frame}{Задача}
+\begin{frame}{\ticon{\iBullseye}The task}
   \centering
-  {\large Рука бачить предмет і кладе його в потрібний кошик}\\[0.6em]
-  \includegraphics[height=0.52\textheight]{figures/setup_clean.jpg}\quad
-  \includegraphics[height=0.52\textheight]{figures/front_view.jpg}\\[0.7em]
-  \small
-  \tikz[baseline=-0.6ex]\node[leaf, fill=metal!25]{метал $\to$ ліворуч}; \quad
-  \tikz[baseline=-0.6ex]\node[leaf, fill=plastic!30]{пластик $\to$ праворуч}; \quad
-  \tikz[baseline=-0.6ex]\node[pale]{інше $\to$ люк ESP32 (план)};
+  {\large The arm sees an item and puts it into the right bin}\\[0.45em]
+  \includegraphics[height=0.44\textheight]{setup_clean.jpg}\quad
+  \includegraphics[height=0.44\textheight]{front_view.jpg}\\[0.5em]
+  \tikz[baseline=-0.6ex]\node[leaf, fill=metal!22, font=\footnotesize, minimum height=7.5mm]{\textbf{metal} $\to$ left bin}; \enspace
+  \tikz[baseline=-0.6ex]\node[leaf, fill=plastic!30, font=\footnotesize, minimum height=7.5mm]{\textbf{plastic} $\to$ right bin}; \enspace
+  \tikz[baseline=-0.6ex]\node[pale, font=\footnotesize, minimum height=7.5mm]{other $\to$ ESP32 trap door (planned)};\\[0.45em]
+  \muted{\iHand\ SO-101 arm \quad\iCamera\ front + wrist camera \quad\iUser\ learned from our teleoperation demos}
 \end{frame}
 
 % 3 ---------------------------------------------------------------------------
-\begin{frame}{Pipeline зараз}
+\begin{frame}{\ticon{\iCogs}Current pipeline}
   \centering
-  \vspace{1.5em}
+  \vspace{0.2em}
   \begin{tikzpicture}[node distance=7mm and 8mm]
-    \node[leaf] (cam) {Камера};
-    \node[blk, right=of cam] (yolo) {YOLO};
-    \node[blk, right=of yolo] (lock) {той самий клас\\$\geq T$ секунд?};
-    \node[leaf, right=of lock, yshift=8mm, fill=metal!25] (am) {ACT метал};
-    \node[leaf, right=of lock, yshift=-8mm, fill=plastic!30] (ap) {ACT пластик};
-    \node[leaf, right=of am, yshift=-8mm] (home) {Додому};
+    \node[leaf] (cam) {\iCamera\ Camera};
+    \node[blk, right=of cam] (yolo) {YOLO26n};
+    \node[blk, right=of yolo] (lock) {same class\\for $\geq T$ s?};
+    \node[leaf, right=of lock, yshift=8mm, fill=metal!22] (am) {ACT metal};
+    \node[leaf, right=of lock, yshift=-8mm, fill=plastic!30] (ap) {ACT plastic};
+    \node[leaf, right=of am, yshift=-8mm] (home) {Home};
     \draw[arr] (cam) -- (yolo);
     \draw[arr] (yolo) -- (lock);
     \draw[arr] (lock) -- (am.west);
     \draw[arr] (lock) -- (ap.west);
     \draw[arr] (am.east) -- (home);
     \draw[arr] (ap.east) -- (home);
-    \draw[arr] (home.south) |- ++(0,-1.6) -| (cam.south);
-  \end{tikzpicture}
-  \vspace{2em}
+    \draw[arr] (home.south) |- ++(0,-1.1) -| (cam.south);
+  \end{tikzpicture}\\[0.4em]
+  \muted{$T = 3$ s, confidence $\geq 0.5$ \,·\, YOLO decides once \,·\, one ACT per material \,·\, up to 60s per ACT}
+  \vspace{0.6em}
 
-  \color{muted}$T$ — поріг часу YOLO, напр. 3 с\\[0.3em]YOLO вирішує один раз · окрема ACT на кожен матеріал
+  \begin{tikzpicture}[node distance=5mm, every node/.append style={font=\footnotesize}]
+    \node[card, text width=60mm] (y) {{\color{fern}\iEye}\enspace\textbf{Why YOLO26n}\\[0.2em]
+      nano model: learns from 160 frames, runs beside ACT on a 4 GB GPU};
+    \node[card, text width=60mm, right=of y] (a) {{\color{fern}\iHand}\enspace\textbf{Why ACT}\\[0.2em]
+      learns a task from 50--100 demos; action chunks smooth out noisy teleoperation};
+  \end{tikzpicture}
 \end{frame}
 
 % 4 ---------------------------------------------------------------------------
-\begin{frame}{Дані}
+\begin{frame}{\ticon{\iData}Data}
   \begin{columns}[c]
-    \begin{column}{0.3\textwidth}
+    \begin{column}{0.32\textwidth}
       \centering
-      \bignum{140}\\демонстрацій\\[1em]
-      \bignum{80k}\\кадрів, 30 fps\\[1em]
-      \bignum{100}\\розмічених кадрів\\[1em]
-      {\scriptsize\color{muted} усе записано нами\\Hugging Face Hub}
+      \bignum{140}\\demonstrations\\[-0.1em]\muted{60 plastic + 80 metal}\\[0.7em]
+      \bignum{80k}\\frames at 30 fps\\[0.5em]
+      \bignum{160}\\labelled YOLO frames\\[0.6em]
+      \muted{\iCloud\ all recorded by us\\on the Hugging Face Hub}
     \end{column}
-    \begin{column}{0.66\textwidth}
+    \begin{column}{0.64\textwidth}
       \centering
-      \includegraphics[height=0.8\textheight]{figures/frames_big.jpg}
+      \includegraphics[height=0.74\textheight]{frames_big.jpg}
     \end{column}
   \end{columns}
 \end{frame}
 
 % 5 ---------------------------------------------------------------------------
-\begin{frame}{Baseline і метрики}
+\begin{frame}{\ticon{\iChart}Baseline and metrics}
   \begin{columns}[c]
     \begin{column}{0.56\textwidth}
       \centering
+      \renewcommand{\arraystretch}{1.15}
       \begin{tabular}{@{}lcc@{}}
         \toprule
-        YOLO & val & тест \\
+        \textbf{YOLO} & \textbf{val} & \textbf{test} \\
         \midrule
-        Baseline (Kaggle) & 0.002 & 0/8 \\
-        \textbf{Наші кадри} & \textbf{0.870} & \textbf{8/8} \\
-        + Kaggle & 0.869 & 6/8 \\
-        Більша модель & 0.858 & 2 зайві \\
+        Baseline (Kaggle only) & 0.002 & 0/8 \\
+        \rowcolor{mint}\textbf{Our frames} & \textbf{0.870} & \textbf{8/8} \\
+        + Kaggle photos & 0.869 & 6/8 \\
+        Bigger model (26s) & 0.858 & 2 extra \\
         \bottomrule
-      \end{tabular}\\[0.5em]
-      {\scriptsize\color{muted} val: mAP\textsubscript{50-95}, 20 кадрів · тест: фото з іншої камери}
-      \vspace{1.2em}
+      \end{tabular}\\[0.4em]
+      \muted{val: mAP\textsubscript{50--95}, 20 frames \,·\, test: unseen phone photo, 8 items}
+      \vspace{0.7em}
 
       \small
-      \tikz[baseline=-0.6ex]\node[blk]{ACT на руці: пластик 9/10 · метал 8/10};\\[0.4em]
-      {\scriptsize\color{muted} 10 спроб на модель · 100k кроків кожна}
+      \tikz[baseline=-0.6ex]\node[blk]{\iHand\enspace ACT on the arm: plastic 9/10 \,·\, metal 8/10};\\[0.4em]
+      \muted{10 trials per model \,·\, 100k steps, $\sim$18 h each on an RTX 2050}
     \end{column}
     \begin{column}{0.42\textwidth}
       \centering
-      \includegraphics[height=0.74\textheight]{figures/yolo_test_ours.jpg}\\[0.1em]
-      {\scriptsize\color{muted} наша модель на новому фото · baseline: 0 з 8}
+      \includegraphics[height=0.66\textheight]{yolo_test_ours.jpg}\\[0.1em]
+      \muted{our model on the unseen photo}
     \end{column}
   \end{columns}
 \end{frame}
 
 % 6 ---------------------------------------------------------------------------
-\begin{frame}{Прогрес}
+\begin{frame}{\ticon{\iRoad}Progress against the proposal}
   \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \large
-      \done\ стенд і камери\\[0.15em]
-      \done\ 140 демонстрацій\\[0.15em]
-      \done\ YOLO на наших даних\\[0.15em]
-      \done\ 2 ACT-моделі\\[0.15em]
-      \done\ pipeline\\[0.15em]
-      \done\ на руці: 9/10 і 8/10
+    \begin{column}{0.44\textwidth}
+      {\small\bfseries\color{fern} DONE}\\[0.3em]
+      \done\ test bench and cameras\\[0.15em]
+      \done\ 140 demonstrations\\[0.15em]
+      \done\ YOLO trained on our data\\[0.15em]
+      \done\ 2 ACT models\\[0.15em]
+      \done\ end-to-end pipeline\\[0.15em]
+      \done\ on the arm: 9/10 and 8/10
     \end{column}
-    \begin{column}{0.48\textwidth}
-      \large
-      \notdone\ клас «інше» + ESP32\\
-      {\small\color{muted}\quad коробка ще не фінальна}\\[0.3em]
+    \begin{column}{0.52\textwidth}
+      {\small\bfseries\color{warn} NOT YET \,·\, WHY}\\[0.3em]
+      \notdone\ ``other'' class + ESP32 door\\
+      {\muted{\hspace{1.5em}the box is not final yet}}\\[0.1em]
+      \notdone\ paper and glass\\
+      {\muted{\hspace{1.5em}proposal had 5 classes; 2 end-to-end first}}\\[0.1em]
+      \notdone\ ACT vs Diffusion Policy\\
+      {\muted{\hspace{1.5em}planned by midterm, moved to November}}\\[0.1em]
       \notdone\ SmolVLA\\
-      {\small\color{muted}\quad не влазить у 4 ГБ GPU}
+      {\muted{\hspace{1.5em}pilot moved a can, data did not fit the task}}
     \end{column}
   \end{columns}
-  \vspace{0.6em}
-  \centering\footnotesize
-  \tikz[baseline=-0.6ex]\node[leaf]{\textbf{Назар}: стенд, камери, запис, тренування}; \quad
-  \tikz[baseline=-0.6ex]\node[leaf]{\textbf{Єлизавета}: YOLO, ACT, pipeline};
+  \vspace{0.3em}
+  \centering
+  \begin{tikzpicture}[node distance=4mm]
+    \node[leaf, text width=62mm, align=left, font=\scriptsize, minimum height=7mm] (n) {\iUser\enspace\textbf{Nazar}: bench, electronics, cameras,\\recording + training tools, pipeline visualisation};
+    \node[leaf, text width=62mm, align=left, font=\scriptsize, minimum height=7mm, right=of n] {\iUser\enspace\textbf{Yelyzaveta}: YOLO (data to evaluation),\\ACT training, sorting pipeline, repository};
+  \end{tikzpicture}
 \end{frame}
 
 % 7 ---------------------------------------------------------------------------
-\begin{frame}{Новий pipeline {\large\color{muted}(фіналізуємо)}}
+\begin{frame}{\ticon{\iBulb}New pipeline {\normalsize\color{muted}\mdseries (being finalised)}}
   \centering
-  \vspace{0.6em}
+  \vspace{0.5em}
   \begin{tikzpicture}[node distance=6mm and 5mm, scale=0.9, transform shape]
-    \node[leaf] (cam) {Камера};
+    \node[leaf] (cam) {\iCamera\ Camera};
     \node[blk, right=of cam] (yolo) {YOLO\\+ DINOv3};
-    \node[blk, right=of yolo, fill=tealdark] (pick) {Одна модель\\«взяти»};
-    \node[blk, right=of pick] (ok) {Захват\\вдався?};
-    \node[leaf, right=of ok, yshift=8mm, fill=metal!25] (pm) {скрипт $\to$ метал};
-    \node[leaf, right=of ok, yshift=-8mm, fill=plastic!30] (pp) {скрипт $\to$ пластик};
+    \node[blk, right=of yolo, fill=forest] (pick) {one ``pick''\\model};
+    \node[blk, right=of pick] (ok) {grasp\\succeeded?};
+    \node[leaf, right=of ok, yshift=8mm, fill=metal!22] (pm) {script $\to$ metal};
+    \node[leaf, right=of ok, yshift=-8mm, fill=plastic!30] (pp) {script $\to$ plastic};
     \draw[arr] (cam) -- (yolo);
     \draw[arr] (yolo) -- (pick);
     \draw[arr] (pick) -- (ok);
     \draw[arr] (ok) -- (pm.west);
     \draw[arr] (ok) -- (pp.west);
-    \draw[arr] (ok.south) -- ++(0,-0.9) -| node[pos=0.25, below, font=\scriptsize, text=muted] {ні — ще спроба} (pick.south);
+    \draw[arr] (ok.south) -- ++(0,-0.9) -| node[pos=0.25, below, font=\scriptsize, text=muted] {no: try again} (pick.south);
   \end{tikzpicture}
   \vspace{1em}
 
   \begin{tikzpicture}[node distance=4mm, every node/.append style={font=\footnotesize}]
-    \node[pale, text width=40mm, text=ink] (a) {\textbf{1 модель, 2× даних}\\140 епізодів до\\моменту «взяли»};
-    \node[pale, text width=40mm, text=ink, right=of a] (b) {\textbf{«Покласти» без ML}\\пози над кошиками\\+ відкрити клешню};
-    \node[pale, text width=40mm, text=ink, right=of b] (c) {\textbf{Захват — серво}\\позиція клешні\\+ навантаження};
+    \node[card, text width=38mm] (a) {{\color{fern}\iData}\enspace\textbf{1 model, 2$\times$ data}\\all 140 episodes,\\cut at the grasp};
+    \node[card, text width=38mm, right=of a] (b) {{\color{fern}\iCogs}\enspace\textbf{Placing without ML}\\fixed poses over the bins\\+ open the gripper};
+    \node[card, text width=38mm, right=of b] (c) {{\color{fern}\iChip}\enspace\textbf{Grasp check}\\gripper servo\\position + load};
   \end{tikzpicture}
 \end{frame}
 
 % 8 ---------------------------------------------------------------------------
-\begin{frame}{План і експерименти}
+\begin{frame}{\ticon{\iFlask}Plan and experiments}
   \centering
-  \vspace{0.8em}
+  \vspace{0.3em}
   \begin{tikzpicture}[node distance=4mm]
-    \node[blk, text width=27mm] (a) {Датасет\\«взяти»};
+    \node[blk, text width=27mm] (a) {``Pick''\\dataset};
     \node[blk, text width=27mm, right=of a] (b) {ACT vs\\Diffusion};
     \node[blk, text width=27mm, right=of b] (c) {YOLO vs\\+ DINOv3};
-    \node[blk, text width=27mm, right=of c] (d) {Вся\\система};
-    \node[leaf, text width=27mm, below=4mm of a, font=\scriptsize] {140 епізодів\\+ нові предмети};
-    \node[leaf, text width=27mm, below=4mm of b, font=\scriptsize] {успіх захвату,\\20 спроб на модель};
-    \node[leaf, text width=27mm, below=4mm of c, font=\scriptsize] {точність на\\нових предметах};
-    \node[leaf, text width=27mm, below=4mm of d, font=\scriptsize] {30 штук підряд:\\точність і час};
-    \node[above=2mm of a, font=\scriptsize, text=muted] {листопад};
-    \node[above=2mm of d, font=\scriptsize, text=muted] {грудень};
+    \node[blk, text width=27mm, right=of c, fill=forest] (d) {Full\\system};
+    \node[leaf, text width=27mm, below=4mm of a, font=\scriptsize] {140 episodes\\+ new items};
+    \node[leaf, text width=27mm, below=4mm of b, font=\scriptsize] {grasp success,\\20 trials per model};
+    \node[leaf, text width=27mm, below=4mm of c, font=\scriptsize] {accuracy on\\unseen items};
+    \node[leaf, text width=27mm, below=4mm of d, font=\scriptsize] {30 items in a row:\\accuracy and time};
+    \draw[line width=1.2pt, sage] ([yshift=5mm]a.north west) -- ([yshift=5mm]d.north east);
+    \foreach \n in {a,b,c,d} \fill[fern] ([yshift=5mm]\n.north) circle (2pt);
+    \node[above=6mm of a, font=\scriptsize\bfseries, text=fern] {\iCalendar\ NOVEMBER};
+    \node[above=6mm of d, font=\scriptsize\bfseries, text=fern] {\iCalendar\ DECEMBER};
   \end{tikzpicture}
-  \vspace{1.6em}
+  \vspace{1.0em}
 
-  {\color{muted}baseline — поточні дві ACT\\[0.3em]результати $\to$ \texttt{results/experiments.md}}
+  {\small\color{muted}Baseline: the current two ACTs (9/10, 8/10)\\[0.3em]
+  every run, kept or rejected $\to$ \texttt{results/experiments.md}}
 \end{frame}
 
 % 9 ---------------------------------------------------------------------------
-\begin{frame}{Що, якщо…}
-  \vspace{0.8em}
+\begin{frame}{\ticon{\iLife}What if\ldots}
+  \vspace{0.6em}
   \begin{columns}[T]
     \begin{column}{0.47\textwidth}
-      \centering
-      \tikz\node[blk, fill=warn]{План Б};\\[0.8em]
-      \raggedright
-      Одна модель не бере $\to$\\
-      назад до двох ACT (9/10, 8/10)\\[0.5em]
-      DINOv3 не допоможе $\to$\\
-      YOLO + дорозмітка\\[0.5em]
-      Без люка $\to$ «інше» в бік
+      \tikz\node[blk, fill=warn]{\iLife\enspace Plan B};\\[0.8em]
+      One model cannot pick $\to$\\
+      {\color{muted}back to the two ACTs (9/10, 8/10)}\\[0.5em]
+      DINOv3 does not help $\to$\\
+      {\color{muted}YOLO + more labelled frames}\\[0.5em]
+      No trap door $\to$\\
+      {\color{muted}the arm puts ``other'' aside}
     \end{column}
     \begin{column}{0.47\textwidth}
-      \centering
-      \tikz\node[blk]{Якщо вийде};\\[0.8em]
-      \raggedright
-      Клас «інше» через DINOv3\\[0.5em]
-      Купа предметів\\[0.5em]
-      Скло, папір, брудне сміття\\[0.5em]
-      Без ноутбука: Jetson
+      \tikz\node[blk]{\iRocket\enspace If it works};\\[0.8em]
+      ``Other'' class via DINOv3\\[0.5em]
+      A pile of items, not one at a time\\[0.5em]
+      Glass, paper, dirty trash\\[0.5em]
+      No laptop: run on a Jetson
     \end{column}
   \end{columns}
   \vfill
-  \centering\scriptsize\color{muted}
-  github.com/dark-neonus/Cleany\_AI\_Trash\_Sorting\_Robot
+  \centering\muted{\iGithub\enspace github.com/dark-neonus/Cleany\_AI\_Trash\_Sorting\_Robot}
+\end{frame}
+
+% 10 --------------------------------------------------------------------------
+\begin{frame}{\ticon{\iQuestion}Questions?}
+  \centering
+  \vspace{0.2em}
+  \meme{01_doing_bad_job.png}{``I'm doing my job badly.\\What could happen?''}\hfill
+  \meme{02_turned_off.png}{\ldots unplugged.}\hfill
+  \meme{03_rage_bait.png}{Low IQ or Rage Bait?}\\[0.2em]
+  {\small\color{fern}\iRecycle\enspace Thank you! \enspace\iLeaf}
 \end{frame}
 
 \end{document}
