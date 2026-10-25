@@ -54,6 +54,7 @@
 \newcommand{\iTag}{\faicon{F02B}}
 \newcommand{\iChip}{\faicon{F2DB}}
 \newcommand{\iBulb}{\faicon{F0EB}}
+\newcommand{\iCube}{\faicon{F1B2}}
 
 % --- beamer look ---------------------------------------------------------------
 \setbeamersize{text margin left=1.1cm, text margin right=1.1cm}
@@ -100,7 +101,7 @@
 % meme with an English caption under it (the images carry Ukrainian text)
 \newcommand{\meme}[2]{\begin{minipage}[t]{0.3\textwidth}\centering
   \tikz\node[inner sep=0pt, draw=sage, line width=1pt, rounded corners=2pt]
-    {\includegraphics[height=0.56\textheight]{#1}};\\[0.35em]
+    {\includegraphics[height=0.47\textheight]{#1}};\\[0.35em]
   {\footnotesize\itshape\color{muted}#2}\end{minipage}}
 
 \begin{document}
@@ -281,10 +282,32 @@
 \end{frame}
 
 % 8 ---------------------------------------------------------------------------
-\begin{frame}{\ticon{\iFlask}Plan and experiments}
+\begin{frame}{\ticon{\iCube}Final setup {\normalsize\color{muted}\mdseries (CAD, real one in progress)}}
+  \begin{columns}[c]
+    \begin{column}{0.36\textwidth}
+      \centering
+      \begin{tikzpicture}
+        \node[inner sep=0pt] (img) {\includegraphics[height=0.74\textheight]{final_setup_cad.jpg}};
+        \draw[sage, line width=1pt, rounded corners=6pt] (img.south west) rectangle (img.north east);
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.62\textwidth}
+      {\large One closed box, the same scene}\\[0.6em]
+      \begin{tikzpicture}[node distance=3mm and 3mm, every node/.append style={font=\scriptsize}]
+        \node[card, text width=38mm] (l) {{\color{fern}\iBulb}\enspace\textbf{Fixed lighting}\\built-in light: no dependence on the room or time of day};
+        \node[card, text width=38mm, right=of l] (c) {{\color{fern}\iCube}\enspace\textbf{Closed environment}\\frame, walls and doors keep the room out of view};
+        \node[card, text width=38mm, below=of l] (d) {{\color{fern}\iRecycle}\enspace\textbf{Mixed-trash drop}\\mechanism for items that are not sorted into a bin};
+        \node[card, text width=38mm, below=of c] (k) {{\color{fern}\iCamera}\enspace\textbf{Well-fixed cameras}\\rigid mounts: the view does not shift between sessions};
+      \end{tikzpicture}\\[0.5em]
+      \muted{Why: a model only works in the setup it was recorded in,\\so a fixed box makes data, models and results repeatable}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% 9 ---------------------------------------------------------------------------
+\begin{frame}{\ticon{\iFlask}Plan, experiments and plan B}
   \centering
-  \vspace{0.3em}
-  \begin{tikzpicture}[node distance=4mm]
+  \begin{tikzpicture}[node distance=3mm and 4mm, scale=0.85, transform shape]
     \node[blk, text width=27mm] (a) {``Pick''\\dataset};
     \node[blk, text width=27mm, right=of a] (b) {ACT vs\\Diffusion};
     \node[blk, text width=27mm, right=of b] (c) {YOLO vs\\+ DINOv3};
@@ -297,36 +320,20 @@
     \foreach \n in {a,b,c,d} \fill[fern] ([yshift=5mm]\n.north) circle (2pt);
     \node[above=6mm of a, font=\scriptsize\bfseries, text=fern] {\iCalendar\ NOVEMBER};
     \node[above=6mm of d, font=\scriptsize\bfseries, text=fern] {\iCalendar\ DECEMBER};
+  \end{tikzpicture}\\[0.2em]
+  \muted{Baseline: the current two ACTs (9/10, 8/10) \,·\, every run, kept or rejected $\to$ \texttt{results/experiments.md}}
+  \vspace{0.4em}
+
+  \begin{tikzpicture}[node distance=4mm, every node/.append style={font=\scriptsize}]
+    \node[card, text width=62mm, draw=warn!60, inner sep=5pt] (b) {{\color{warn}\iLife}\enspace\textbf{Plan B}\\[0.15em]
+      one model cannot pick $\to$ {\color{muted}back to the two ACTs}\\
+      DINOv3 does not help $\to$ {\color{muted}YOLO + more labels}\\
+      no trap door $\to$ {\color{muted}the arm puts ``other'' aside}};
+    \node[card, text width=62mm, inner sep=5pt, right=of b] {{\color{fern}\iRocket}\enspace\textbf{If it works}\\[0.15em]
+      ``other'' class via DINOv3 \,·\, a pile of items\\
+      glass, paper, dirty trash\\
+      no laptop: run on a Jetson};
   \end{tikzpicture}
-  \vspace{1.0em}
-
-  {\small\color{muted}Baseline: the current two ACTs (9/10, 8/10)\\[0.3em]
-  every run, kept or rejected $\to$ \texttt{results/experiments.md}}
-\end{frame}
-
-% 9 ---------------------------------------------------------------------------
-\begin{frame}{\ticon{\iLife}What if\ldots}
-  \vspace{0.6em}
-  \begin{columns}[T]
-    \begin{column}{0.47\textwidth}
-      \tikz\node[blk, fill=warn]{\iLife\enspace Plan B};\\[0.8em]
-      One model cannot pick $\to$\\
-      {\color{muted}back to the two ACTs (9/10, 8/10)}\\[0.5em]
-      DINOv3 does not help $\to$\\
-      {\color{muted}YOLO + more labelled frames}\\[0.5em]
-      No trap door $\to$\\
-      {\color{muted}the arm puts ``other'' aside}
-    \end{column}
-    \begin{column}{0.47\textwidth}
-      \tikz\node[blk]{\iRocket\enspace If it works};\\[0.8em]
-      ``Other'' class via DINOv3\\[0.5em]
-      A pile of items, not one at a time\\[0.5em]
-      Glass, paper, dirty trash\\[0.5em]
-      No laptop: run on a Jetson
-    \end{column}
-  \end{columns}
-  \vfill
-  \centering\muted{\iGithub\enspace github.com/dark-neonus/Cleany\_AI\_Trash\_Sorting\_Robot}
 \end{frame}
 
 % 10 --------------------------------------------------------------------------
@@ -335,8 +342,12 @@
   \vspace{0.2em}
   \meme{01_doing_bad_job.png}{``I'm doing my job badly.\\What could happen?''}\hfill
   \meme{02_turned_off.png}{\ldots unplugged.}\hfill
-  \meme{03_rage_bait.png}{Low IQ or Rage Bait?}\\[0.2em]
-  {\small\color{fern}\iRecycle\enspace Thank you! \enspace\iLeaf}
+  \meme{03_rage_bait.png}{Low IQ or Rage Bait?}\par
+  \vspace{1.1em}
+  \tikz\node[fill=mint, rounded corners=9pt, inner xsep=12pt, inner ysep=5pt]
+    {{\small\bfseries\color{fern}\iRecycle\enspace Thank you!}\qquad
+     {\scriptsize\color{muted}\iGithub\enspace github.com/dark-neonus/Cleany\_AI\_Trash\_Sorting\_Robot}};
+  \vspace{0.3em}
 \end{frame}
 
 \end{document}
