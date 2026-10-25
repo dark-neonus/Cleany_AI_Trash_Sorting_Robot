@@ -21,7 +21,7 @@ set -e
 #   --max-velocity DEG_S  Max joint speed in deg/s (default 90)
 #   --acceleration N      Servo acceleration 0-254 (default 40)
 #   --max-step DEG        Max joint change per control step in deg (default 10)
-#   Anything else goes to sort_pipeline.py (e.g. --display, --conf 0.6, --lock-seconds 3).
+#   Anything else goes to sort_pipeline.py (e.g. --display, --conf 0.6, --lock-seconds 2).
 #
 # Models (env overrides): PLASTIC_MODEL, METAL_MODEL (Hub repo id or local pretrained_model
 # folder), YOLO_MODEL. The defaults are the current models in the README.

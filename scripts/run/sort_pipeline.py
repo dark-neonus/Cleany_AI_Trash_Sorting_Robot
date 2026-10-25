@@ -11,11 +11,14 @@ States (see "Model Pipeline" in the README):
            Detections whose centre lies in an --ignore-region (the bins) are skipped. Nothing
            locked: keep waiting.
   ACT      The model of the locked class drives the arm. YOLO is not consulted. The run ends
-           when the arm has left its start pose (any joint > --leave-deg away), is back within
-           --home-tolerance-deg and has not moved more than --still-deg for --home-still-s
-           seconds (the ACT keeps running meanwhile, so it can still try again), or after
+           when the arm has left its start pose (any joint > --leave-deg away) and has been back
+           within --home-tolerance-deg for --home-still-s seconds without a break (small
+           twitches inside that range are fine; the gripper is not checked, so it may be in any
+           position, e.g. blocked by an item; the ACT keeps running meanwhile), or after
            --episode-time seconds.
-  HOME     The arm is eased back to the exact start pose.
+  HOME     The arm is eased back to the exact start pose, then opens the gripper for
+           --release-s seconds and closes it again, so an item still held (e.g. after a
+           timeout) is let go.
   Then DETECT again. If the same class is locked again at the same place (box overlap > 0.3),
   the previous attempt failed; after --max-attempts attempts that class is ignored until it
   has not been seen for 3 s (e.g. someone removed the item), so a stuck item does not loop.
@@ -201,6 +204,17 @@ def ease_to(robot, target: dict, duration_s: float = 3.0, fps: int = 50, on_step
         precise_sleep(1 / fps)
 
 
+def release_gripper(robot, home: dict, args, on_step=None):
+    """Open the gripper for --release-s seconds, then close it to its start position, so an item
+    still held after a run (e.g. a timeout) is dropped before YOLO looks again."""
+    if args.release_s <= 0:
+        return
+    opened = {**home, "gripper.pos": args.gripper_open}
+    ease_to(robot, opened, duration_s=0.5, on_step=on_step)
+    ease_to(robot, opened, duration_s=args.release_s, on_step=on_step)  # hold it open
+    ease_to(robot, home, duration_s=0.5, on_step=on_step)
+
+
 def watch_for_exit(stop: threading.Event):
     """Typing exit (or stop / q) + Enter in the terminal ends the run like Ctrl+C."""
     for line in sys.stdin:
@@ -253,17 +267,18 @@ def main():
     parser.add_argument("--metal-task", default="Put the metal item into the left hole")
     parser.add_argument("--yolo", required=True)
     parser.add_argument("--conf", type=float, default=0.5, help="min YOLO confidence to count a detection")
-    parser.add_argument("--lock-seconds", type=float, default=5,
+    parser.add_argument("--lock-seconds", type=float, default=3,
                         help="seconds the same class must win every frame before its ACT runs")
     parser.add_argument("--ignore-region", action="append", default=None, metavar="X0,Y0,X1,Y1",
                         help="skip detections centred in this box of the 640x480 front image (repeatable; "
                              "default: the two bins). 'none' disables it")
-    parser.add_argument("--episode-time", type=float, default=40, help="max seconds per ACT run")
+    parser.add_argument("--episode-time", type=float, default=60, help="max seconds per ACT run (0: no limit)")
     parser.add_argument("--leave-deg", type=float, default=20)
     parser.add_argument("--home-tolerance-deg", type=float, default=12)
-    parser.add_argument("--home-still-s", type=float, default=5,
-                        help="seconds the arm must stay still at home before YOLO looks again")
-    parser.add_argument("--still-deg", type=float, default=3, help="joint movement that still counts as still")
+    parser.add_argument("--home-still-s", type=float, default=3,
+                        help="seconds the arm must stay near its start pose before YOLO looks again")
+    parser.add_argument("--release-s", type=float, default=2, help="seconds the gripper stays open after a run (0: off)")
+    parser.add_argument("--gripper-open", type=float, default=70, help="gripper position when opened (0-100)")
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--device", default=None, help="cuda (default when available) or cpu")
@@ -416,8 +431,8 @@ def main():
                 policy = policies[cls]
                 policy.reset()
                 started, left, reason = time.monotonic(), False, "timeout"
-                still_pose, still_since = None, 0.0  # pose and time the arm came to rest at home
-                while time.monotonic() - started < args.episode_time:
+                home_since = None  # time the arm came back near its start pose
+                while not args.episode_time or time.monotonic() - started < args.episode_time:
                     if stop.is_set():
                         reason = "stopped"
                         break
@@ -427,25 +442,26 @@ def main():
                     pose = joint_pose(obs)
                     deviation = max_deviation(pose, home)
                     left = left or deviation > args.leave_deg
-                    # Back home and still: the timer restarts whenever a joint moves > --still-deg
+                    # Back near home: twitching is fine, leaving the tolerance restarts the timer
                     if left and deviation < args.home_tolerance_deg:
-                        if still_pose is None or max_deviation(pose, still_pose) > args.still_deg:
-                            still_pose, still_since = pose, time.monotonic()
+                        home_since = home_since or time.monotonic()
                     else:
-                        still_pose = None
-                    still = time.monotonic() - still_since if still_pose is not None else 0.0
+                        home_since = None
+                    at_home = time.monotonic() - home_since if home_since is not None else 0.0
                     state = f"ACT {cls} {time.monotonic() - started:.0f}s dev {deviation:.0f}°"
-                    if still_pose is not None:
-                        state += f" home {still:.1f}/{args.home_still_s:g}s"
+                    if home_since is not None:
+                        state += f" home {at_home:.1f}/{args.home_still_s:g}s"
                     display.show(obs["front"], [], state)
                     record(obs["front"], obs.get("wrist"), cls)
-                    if still >= args.home_still_s:
+                    if at_home >= args.home_still_s:
                         reason = "returned_home"
                         break
                     precise_sleep(max(0.0, 1 / args.fps - (time.perf_counter() - tick)))
                 log("act_done", cls=cls, reason=reason, seconds=round(time.monotonic() - started, 1))
                 ease_to(robot, home, on_step=lambda: record_cameras(cls))
                 log("home")
+                mode = "yolo"
+                release_gripper(robot, home, args, on_step=lambda: record_cameras("yolo"))
             mode = "yolo"
             streak_class = None
     except KeyboardInterrupt:
@@ -456,6 +472,7 @@ def main():
         if robot is not None and robot.is_connected:
             try:
                 ease_to(robot, home, on_step=lambda: record_cameras(mode))
+                release_gripper(robot, home, args, on_step=lambda: record_cameras(mode))
             finally:
                 robot.disconnect()
         if source is not None:

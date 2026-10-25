@@ -416,10 +416,11 @@ video again, e.g. if it was interrupted: `python scripts/run/pipeline_recording.
 | `--display` | off | Show the front image, detections and state in Rerun |
 | `--max-velocity DEG_S`, `--acceleration N`, `--max-step DEG` | 90, 40, 10 | Arm speed limits, as for `run_policy.sh` |
 | `--conf X` | 0.5 | Minimum YOLO confidence for a detection to count |
-| `--lock-seconds S` | 5 | Seconds the same class must win every frame before its ACT runs |
-| `--episode-time S` | 40 | Longest ACT run; the arm then goes home anyway |
+| `--lock-seconds S` | 3 | Seconds the same class must win every frame before its ACT runs |
+| `--episode-time S` | 60 | Longest ACT run; the arm then goes home anyway (`0`: no limit) |
 | `--home-tolerance-deg D` | 12 | How close to the start pose counts as "back home" |
-| `--home-still-s S`, `--still-deg D` | 5, 3 | How long the arm must stay at home, moving less than D degrees, before YOLO looks again |
+| `--home-still-s S` | 3 | How long the arm must stay near the start pose (twitches are fine) before YOLO looks again |
+| `--release-s S`, `--gripper-open P` | 2, 70 | After each run the gripper opens to P (0-100) for S seconds, then closes (`--release-s 0`: off) |
 | `--max-attempts N` | 3 | Tries on the same item before it is skipped |
 | `--ignore-region X0,Y0,X1,Y1` | the two bins | Area of the 640×480 front image to ignore (repeatable, `none` for no area). Set it again if the bins move |
 | `--device cpu` | `cuda` if available | Run the models on the CPU |
@@ -430,14 +431,15 @@ Other models: `PLASTIC_MODEL=<repo or folder> METAL_MODEL=... YOLO_MODEL=... scr
 
 1. **Detect.** YOLO runs on every front frame. Items whose centre is inside a bin are
    ignored, so sorted items are not picked again. A class is locked when it is the most
-   confident detection (≥ `--conf`) in every frame for `--lock-seconds` (5 s); any other
+   confident detection (≥ `--conf`) in every frame for `--lock-seconds` (3 s); any other
    result in between starts the count again.
 2. **Act.** The locked class's ACT drives the arm at 30 fps; YOLO is not consulted. The run
-   ends when the arm has left the start pose (any joint more than 20° away), is back within
-   `--home-tolerance-deg` and has stayed there without moving for 5 s (`--home-still-s`), or
-   after `--episode-time` seconds. The ACT keeps running during those 5 s, so it can still
-   try again.
-3. **Home.** The arm is eased back to the exact start pose over 3 s, then YOLO takes over.
+   ends when the arm has left the start pose (any joint more than 20° away) and has stayed
+   within `--home-tolerance-deg` of it for 3 s in a row (`--home-still-s`; small twitches are
+   fine; the gripper is not checked, so it may be in any position, e.g. blocked by an item), or after `--episode-time` (60 s). The ACT keeps running during those 3 s.
+3. **Home.** The arm is eased back to the exact start pose over 3 s. Then the gripper opens
+   for 2 s and closes again, so an item still held (e.g. after a timeout) is dropped, and
+   YOLO takes over. This also happens when the pipeline is stopped.
 4. **Retry or skip.** If the same class shows up again at the same place, the item was not
    moved and the ACT tries again. After `--max-attempts` tries that class is skipped until
    it has been out of view for 3 s (e.g. you took the item away), so a stuck item does not
