@@ -14,18 +14,21 @@
 
 - Servos: 6x Feetech STS3215-C001 12V Servo
 - Wrist camera: generic UVC camera on an Alpha Imaging Tech. (AIT) chip, reported as "SEMIC Camera"
-- Controll Board: Feetech FE-URT-2 Servo Debug Programmer, USB Type-C to TTL/RS485 Bus Adapter with CH343P
+- Control Board: Feetech FE-URT-2 Servo Debug Programmer, USB Type-C to TTL/RS485 Bus Adapter with CH343P
 
 ### Operational Box
 
 - Ambient camera: Logitech Webcam C270 (USB `046d:0825`, 720p UVC)
 - Light Source: 1m of LED strip Ecolight 5050 14.4W/m IP20 12V 4000K (60 LED/m, 860 lm/m)
 - USB Hub: USB Hub Dynamode USB-C/A 8-in-1 1xUSB-C + 1xUSB 3.0 + 3xUSB 2.0 + 3.5mm audio + SD/TF silver (BYL-2218TU)
+- Fuse: F1, 5×20mm cylindrical fast-blow 10A 250V (F10A) in an inline or panel fuse holder, on the Venom 12V output
 
 ### Trash Drop Mechanism
 
 - Servos: 4x RDS3115 7.2V 180 deg
-- Servo controller: ESP32-S3 Super Mini 
+- Servo controller: ESP32-C3 SuperMini
+- Current sensor: ACS712 30A module (66 mV/A), on the 6.5V servo supply
+- Passives: R1 10kΩ, R2 15kΩ (ADC divider), C1 100nF (ADC filter), C2 1000–2200µF 16V (servo bus)
 
 ## Data Connections
 
@@ -54,34 +57,86 @@ flowchart LR
 | From                     | Port   | To      | Port   |
 | ------------------------ | ------ | ------- | ------ |
 | Ambient Camera           | USB    | USB Hub | Type-A |
-| Leader Arm Controll Board | Type-C | USB Hub | Type-A |
+| Leader Arm Control Board | Type-C | USB Hub | Type-A |
 
 ```mermaid
 flowchart LR
     ACAM[Ambient Camera] -->|USB → Type-A| HUB[USB Hub]
-    LEAD[Leader Arm Controll Board] -.->|Type-C → Type-A| HUB
+    LEAD[Leader Arm Control Board] -.->|Type-C → Type-A| HUB
 ```
 
-> Leader Arm is outside of scope of this box and used only for training, so one type a port reserved for it on USB Hub, but it have its independed power supply(but with similar ground)
+> The Leader Arm is outside the scope of this box and is used only for training. One Type-A port on the USB Hub is reserved for it, but it has its own independent power supply (with a shared ground).
 
 ### Trash Drop Mechanism
 
-| From                | Port   | To                  | Port   |
-| ------------------- | ------ | ------------------- | ------ |
-| ESP32-S3 Super Mini | Type-C | USB Hub             | Type-C |
-| Servo 1             | 3 pin  | ESP32-S3 Super Mini | GPIO   |
-| Servo 2             | 3 pin  | ESP32-S3 Super Mini | GPIO   |
-| Servo 3             | 3 pin  | ESP32-S3 Super Mini | GPIO   |
-| Servo 4             | 3 pin  | ESP32-S3 Super Mini | GPIO   |
+| From                 | Port              | To                   | Port                     |
+| -------------------- | ----------------- | -------------------- | ------------------------ |
+| ESP32-C3 SuperMini   | Type-C            | USB Hub              | Type-C                   |
+| ESP32-C3 SuperMini   | GPIO5 (PWM)       | Servo 1              | signal (orange)          |
+| ESP32-C3 SuperMini   | GPIO6 (PWM)       | Servo 2              | signal (orange)          |
+| ESP32-C3 SuperMini   | GPIO7 (PWM)       | Servo 3              | signal (orange)          |
+| ESP32-C3 SuperMini   | GPIO10 (PWM)      | Servo 4              | signal (orange)          |
+| ACS712               | OUT (via R1/R2)   | ESP32-C3 SuperMini   | GPIO3 (ADC1_CH3)         |
+
+Only the signal wire of each servo goes to the ESP32. The red (+) and brown (−) wires go to the 6.5V servo bus (see [Power Supply](#trash-drop-mechanism-3)).
 
 ```mermaid
 flowchart LR
-    ESP[ESP32-S3 Super Mini] -->|Type-C → Type-C| HUB[USB Hub]
-    D1[Servo 1] -->|3 pin| ESP
-    D2[Servo 2] -->|3 pin| ESP
-    D3[Servo 3] -->|3 pin| ESP
-    D4[Servo 4] -->|3 pin| ESP
+    ESP[ESP32-C3 SuperMini] -->|Type-C → Type-C| HUB[USB Hub]
+    ESP -->|GPIO5 PWM| D1[Servo 1]
+    ESP -->|GPIO6 PWM| D2[Servo 2]
+    ESP -->|GPIO7 PWM| D3[Servo 3]
+    ESP -->|GPIO10 PWM| D4[Servo 4]
+    ACS[ACS712 30A] -->|OUT → R1/R2 divider → GPIO3| ESP
 ```
+
+#### ESP32-C3 SuperMini Pinout
+
+![ESP32-C3 SuperMini wiring for the trash drop mechanism](esp32c3_drop_wiring.svg)
+
+| ESP32-C3 pin | Role            | Connects to                                   | Notes |
+| ------------ | --------------- | --------------------------------------------- | ----- |
+| GPIO5        | PWM (LEDC ch 0) | Servo 1 signal                                 | |
+| GPIO6        | PWM (LEDC ch 1) | Servo 2 signal                                 | |
+| GPIO7        | PWM (LEDC ch 2) | Servo 3 signal                                 | |
+| GPIO10       | PWM (LEDC ch 3) | Servo 4 signal                                 | |
+| GPIO3        | ADC1_CH3        | ACS712 OUT through R1 10k; R2 15k and C1 100nF to GND | ADC sees 0.6 × ACS712 OUT |
+| 5V           | power out       | ACS712 VCC                                     | USB 5V from the hub |
+| GND          | ground          | ACS712 GND, R2, C1, XL4015 OUT− (common GND)   | |
+| 3V3, GPIO0, GPIO1, GPIO4 | free | —                                     | GPIO4 is a spare ADC1 input |
+| GPIO2, GPIO8, GPIO9 | do not use | —                                      | strapping pins; GPIO8 is the onboard LED, GPIO9 is the BOOT button |
+| GPIO20, GPIO21 | do not use    | —                                              | UART0 RX/TX: boot messages would twitch the servos |
+
+Pin choice:
+
+- Servos use GPIO5, 6, 7 and 10 because they are on one header and are not strapping or UART pins, so the servos don't twitch on boot or reset.
+- The ADC must be on GPIO0–GPIO4 (ADC1). ADC2 (GPIO5) is unreliable on the C3. GPIO2 is a strapping pin, so GPIO3 is used.
+- The drawing shows the board from the component side with USB-C up. Clone boards sometimes swap the headers, so wire by the silkscreen labels.
+
+PWM settings: 50 Hz, 500–2500 µs pulse for 0–180°, 14-bit LEDC resolution (the C3 LEDC supports up to 14 bits at 50 Hz). The 3.3V signal is enough for the RDS3115 at 6.5V. Optional: a 220–330Ω series resistor on each signal wire protects the GPIO if a servo connector is plugged in wrong.
+
+#### Current Sensing (ACS712 30A)
+
+The ACS712 sits in series in the 6.5V line, between XL4015 OUT+ (to IP+) and the servo bus (from IP−). It measures the total current of all 4 drop servos.
+
+| Quantity                   | Value                                                   |
+| -------------------------- | ------------------------------------------------------- |
+| ACS712 OUT at 0A           | VCC / 2 ≈ 2.5V                                          |
+| Sensitivity                | 66 mV/A at the ACS712 OUT, 39.6 mV/A at GPIO3 (× 0.6)   |
+| GPIO3 at 0A / 4.5A (CC limit) | ~1.50V / ~1.68V                                      |
+| GPIO3 at the ACS712 output limit (5V) | 3.0V, below the 3.3V GPIO maximum            |
+| ADC attenuation            | 11/12 dB (Arduino default), 0–2.5V calibrated range     |
+
+The R1/R2 divider is required. The ACS712 runs on 5V and its output can reach 4.5–5V, which would damage the 3.3V GPIO directly.
+
+Firmware notes:
+
+- Read with `analogReadMilliVolts(3)` and average 16–32 samples (the 30A version is noisy at currents this low: ~0.1–0.2A).
+- The ACS712 zero point and sensitivity both scale with its VCC (ratiometric). The SuperMini 5V pin is USB VBUS behind a diode, so it is ~4.6–4.8V, not 5.0V, and the 66 mV/A and 39.6 mV/A figures above drop with it. Measure the zero at boot while the servos are not moving, then use `I = (mV − mV_zero) / (0.0264 × mV_zero)`. Since the zero is VCC / 2 × divider ratio, this formula corrects for the real VCC and cancels the R1/R2 tolerance.
+- Check the 5V pin with a multimeter with everything plugged into the hub: the ACS712 needs at least 4.5V.
+- Overload: if the averaged current stays above the threshold for longer than ~200 ms, command the mechanism to open. Start with ~2.5A (about one stalled RDS3115) and tune it from logged currents during normal moves.
+- After an overload, ignore the sensor for ~500 ms while the mechanism opens, since the opening move also draws current.
+- The XL4015 current limit (CC 4.5A) stays as the hardware backstop if the firmware hangs.
 
 ### All Data Connections
 
@@ -100,14 +155,16 @@ flowchart LR
     end
 
     subgraph DROP[Trash Drop Mechanism]
-        ESP[ESP32-S3 Super Mini]
-        D1[Servo 1] -->|3 pin| ESP
-        D2[Servo 2] -->|3 pin| ESP
-        D3[Servo 3] -->|3 pin| ESP
-        D4[Servo 4] -->|3 pin| ESP
+        ESP[ESP32-C3 SuperMini]
+        ACS[ACS712 30A]
+        ESP -->|GPIO5| D1[Servo 1]
+        ESP -->|GPIO6| D2[Servo 2]
+        ESP -->|GPIO7| D3[Servo 3]
+        ESP -->|GPIO10| D4[Servo 4]
+        ACS -->|GPIO3 ADC| ESP
     end
 
-    LEAD[Leader Arm Controll Board]
+    LEAD[Leader Arm Control Board]
 
     HUB -->|upstream| HOST
     URT -->|Type-C → Type-A| HUB
@@ -141,18 +198,19 @@ Values marked *est.* are typical values for this class of device (no datasheet a
 
 ### Trash Drop Mechanism
 
-| Item                | Qty | Voltage           | Current (each)                              | Power (each)                 | Power (total)                  |
-| ------------------- | --- | ----------------- | ------------------------------------------- | ---------------------------- | ------------------------------ |
-| RDS3115             | 4   | 6.5V (XL4015)     | 0.1A no-load / 2.5–3A stall (at 6V)         | 0.6W no-load / 15–18W stall (at 6V) | 2.4W no-load / 60–72W all stalled |
-| ESP32-S3 Super Mini | 1   | 5V USB            | ~0.1A typ., up to ~0.35A with Wi-Fi TX *est.* | ~0.5W typ. / ~1.75W peak   | ~0.5–1.75W                     |
+| Item               | Qty | Voltage           | Current (each)                              | Power (each)                 | Power (total)                  |
+| ------------------ | --- | ----------------- | ------------------------------------------- | ---------------------------- | ------------------------------ |
+| RDS3115            | 4   | 6.5V (XL4015)     | 0.1A no-load / 2.5–3A stall (at 6V)         | 0.6W no-load / 15–18W stall (at 6V) | 2.4W no-load / 60–72W all stalled |
+| ESP32-C3 SuperMini | 1   | 5V USB            | ~0.03–0.08A typ., up to ~0.35A with Wi-Fi TX *est.* | ~0.15–0.4W typ. / ~1.75W peak | ~0.15–1.75W           |
+| ACS712 30A module  | 1   | 5V (ESP32 5V pin) | ~0.013A (incl. power LED) *est.*            | ~0.07W                       | ~0.07W                         |
 
 ### Summary per Rail
 
 | Rail          | Consumers                                     | Typical  | Peak (worst case)       |
 | ------------- | --------------------------------------------- | -------- | ----------------------- |
-| 12V           | 6x STS3215, 1m LED strip                       | ~2.3A / 27W | 17.4A / 209W         |
+| 12V           | 6x STS3215, 1m LED strip, XL4015 input         | ~2.6A / 31W | 20.1A / 241W, limited by the Venom OCP (~10.5–15A) and F1 |
 | 6.5V (XL4015) | 4x RDS3115                                     | ~0.4A    | 10–12A, limited to 4.5A by XL4015 CC |
-| 5V USB (hub)  | FE-URT-2, Wrist Camera, C270, ESP32-S3, hub    | ~0.6A / 3W | ~1.4A / 7W            |
+| 5V USB (hub)  | FE-URT-2, Wrist Camera, C270, ESP32-C3, ACS712, hub | ~0.6A / 3W | ~1.4A / 7W       |
 
 > The USB hub is bus-powered, so all 5V USB devices share the current of a single host port: 0.9A on USB 3.0 Type-A, 1.5–3A on Type-C. The Leader Arm board also plugs into this hub, but only for data.
 
@@ -162,9 +220,9 @@ Values marked *est.* are typical values for this class of device (no datasheet a
 
 | Module | Input | Output | Rated current | Settings | Feeds |
 | ------ | ----- | ------ | ------------- | -------- | ----- |
-| Venom VST-120-12 Standart IP20 | 220V AC | 12V DC | 10A (120W) | V.ADJ at 12.0V | FE-URT-2 power input (6x STS3215), LED strip, XL4015 |
-| XL4015 CC/CV step-down module | 12V DC (from Venom) | 6.5V DC | 5A peak, ~3A continuous | CV: 6.5V, CC: ~4.5A | 4x RDS3115 |
-| USB Hub BYL-2218TU (bus-powered) | 5V from host PC USB-C | 5V | host port limit (1.5–3A on USB-C) | — | FE-URT-2 logic, Wrist Camera, C270, ESP32-S3 |
+| Venom VST-120-12 Standard IP20 | 220V AC | 12V DC | 10A (120W) | V.ADJ at 12.0V | F1 → FE-URT-2 power input (6x STS3215), LED strip, XL4015 |
+| XL4015 CC/CV step-down module | 12V DC (from Venom) | 6.5V DC | 5A peak, ~3A continuous | CV: 6.5V, CC: ~4.5A | ACS712 → 4x RDS3115 |
+| USB Hub BYL-2218TU (bus-powered) | 5V from host PC USB-C | 5V | host port limit (1.5–3A on USB-C) | — | FE-URT-2 logic, Wrist Camera, C270, ESP32-C3 (→ ACS712) |
 
 12V budget on the Venom (10A):
 
@@ -177,14 +235,25 @@ Values marked *est.* are typical values for this class of device (no datasheet a
 
 > The XL4015 current limit (CC) keeps the drop servos from overloading the Venom when they stall: 4.5A × 6.5V ÷ 0.9 ÷ 12V ≈ 2.7A drawn from 12V.
 
-Setup and wiring notes:
+### Fuse F1
+
+5×20mm cylindrical fast-blow, **10A** (marked `F10A` / `F10AL250V`), in series with the Venom +V output, as close to the terminal as possible, before the 12V split.
+
+- 10A matches the Venom rating and the ≥1.5mm² main wire. The realistic peak (~8.9A) is short and below the rating, and the typical load (~2.6A) is well below the 75% continuous derating (7.5A).
+- A smaller fuse (6.3A or 8A) would be cut close by the arm's peaks during fast moves and could blow during normal operation.
+- In a hard short the Venom's own overcurrent protection usually trips first (hiccup mode). F1 is the backup for a failed PSU protection and protects the wiring from fire.
+- The 250V AC rating is fine for 12V DC. Use a holder rated for ≥10A.
+- Optional branch fuses for finer protection: 4A on the XL4015 input, 2A on the LED strip.
+
+### Setup and wiring notes
 
 - Set the Venom output to 12.0V with its V.ADJ trimmer before connecting loads.
 - Set the XL4015 before connecting servos: with no load, turn CV to 6.5V (multimeter on the output); then put the multimeter in 10A mode directly across the output and turn CC to ~4.5A.
-- 10A fuse on the Venom 12V output. Wire: ≥1.5mm² from the Venom to the 12V split, ≥1mm² to the FE-URT-2 and the XL4015, 0.5mm² to the LED strip.
+- Wire: ≥1.5mm² from the Venom through F1 to the 12V split, ≥1mm² to the FE-URT-2 and the XL4015, 0.5mm² to the LED strip. ≥1mm² for the 6.5V path through the ACS712 to the servo split.
 - 2200µF 16–25V capacitor across 12V/GND at the FE-URT-2 power input.
-- 1000–2200µF 16V capacitor across 6.5V/GND at the RDS3115 power split.
-- XL4015 output GND must be tied to the ESP32-S3 GND (common ground for the servo signals).
+- C2 1000–2200µF 16V capacitor across 6.5V/GND at the RDS3115 power split (after the ACS712).
+- Common ground: XL4015 OUT− is the star point for the servo grounds, ESP32-C3 GND and ACS712 GND. Without it the servo PWM signals have no reference.
+- Keep the ACS712 analog wire (OUT → R1 → GPIO3) short and away from the servo power wires. Put R1, R2 and C1 next to the ESP32.
 - The Venom has exposed 220V screw terminals (IP20): cover them and mount the unit away from the trash sorting area (dust).
 
 ### LeRobot SO-101 (Follower Arm)
@@ -193,13 +262,13 @@ Setup and wiring notes:
 | ---------- | ------- | ---------------------------------------------------------- |
 | USB Hub    | 5V      | FE-URT-2 (logic)                                           |
 | USB Hub    | 5V      | Wrist Camera                                               |
-| Venom VST-120-12 | 12V | FE-URT-2 power input → Servo 1 → Servo 2 → Servo 3 → Servo 4 → Servo 5 → Servo 6 (via bus) |
+| Venom VST-120-12 (via F1) | 12V | FE-URT-2 power input → Servo 1 → Servo 2 → Servo 3 → Servo 4 → Servo 5 → Servo 6 (via bus) |
 
 ```mermaid
 flowchart LR
     HUB[USB Hub 5V] --> URT[FE-URT-2]
     HUB --> WCAM[Wrist Camera]
-    PSU12[Venom VST-120-12<br/>12V 10A] -->|12V| URT
+    PSU12[Venom VST-120-12<br/>12V 10A] --> F1[F1 10A fast] -->|12V| URT
     URT -->|12V bus| S1[Servo 1] --> S2[Servo 2] --> S3[Servo 3] --> S4[Servo 4] --> S5[Servo 5] --> S6[Servo 6]
 ```
 
@@ -207,34 +276,35 @@ flowchart LR
 
 | Source     | Voltage | Consumer       |
 | ---------- | ------- | -------------- |
-| Venom VST-120-12 | 12V | Light Source (1m LED strip) |
+| Venom VST-120-12 (via F1) | 12V | Light Source (1m LED strip) |
 | USB Hub    | 5V      | Ambient Camera |
 
 ```mermaid
 flowchart LR
-    PSU12[Venom VST-120-12<br/>12V 10A] -->|12V| LED[Light Source<br/>1m LED Strip]
+    PSU12[Venom VST-120-12<br/>12V 10A] --> F1[F1 10A fast] -->|12V| LED[Light Source<br/>1m LED Strip]
     HUB[USB Hub 5V] --> ACAM[Ambient Camera]
 ```
 
 ### Trash Drop Mechanism
 
-| Source           | Voltage    | Consumer            |
-| ---------------- | ---------- | ------------------- |
-| USB Hub          | 5V         | ESP32-S3 Super Mini |
-| Venom VST-120-12 | 12V        | XL4015 input        |
-| XL4015           | 6.5V       | Servo 1             |
-| XL4015           | 6.5V       | Servo 2             |
-| XL4015           | 6.5V       | Servo 3             |
-| XL4015           | 6.5V       | Servo 4             |
+| Source              | Voltage    | Consumer            |
+| ------------------- | ---------- | ------------------- |
+| USB Hub             | 5V         | ESP32-C3 SuperMini  |
+| ESP32-C3 5V pin     | 5V         | ACS712 VCC          |
+| Venom VST-120-12 (via F1) | 12V  | XL4015 input        |
+| XL4015              | 6.5V       | ACS712 IP+          |
+| ACS712 IP−          | 6.5V       | Servo 1–4 (red wire), C2 |
 
 ```mermaid
 flowchart LR
-    HUB[USB Hub 5V] --> ESP[ESP32-S3 Super Mini]
-    PSU12[Venom VST-120-12<br/>12V 10A] -->|12V| BUCK[XL4015<br/>6.5V, CC 4.5A]
-    BUCK -->|6.5V| D1[Servo 1]
-    BUCK -->|6.5V| D2[Servo 2]
-    BUCK -->|6.5V| D3[Servo 3]
-    BUCK -->|6.5V| D4[Servo 4]
+    HUB[USB Hub 5V] --> ESP[ESP32-C3 SuperMini]
+    ESP -->|5V pin| ACS
+    PSU12[Venom VST-120-12<br/>12V 10A] --> F1[F1 10A fast] -->|12V| BUCK[XL4015<br/>6.5V, CC 4.5A]
+    BUCK -->|6.5V → IP+| ACS[ACS712 30A]
+    ACS -->|IP− → 6.5V| D1[Servo 1]
+    ACS -->|6.5V| D2[Servo 2]
+    ACS -->|6.5V| D3[Servo 3]
+    ACS -->|6.5V| D4[Servo 4]
     BUCK -.->|GND| ESP
 ```
 
@@ -244,12 +314,14 @@ flowchart LR
 flowchart LR
     MAINS[220V AC]
     PSU12[Venom VST-120-12<br/>12V 10A]
+    F1[F1 10A fast-blow]
     BUCK[XL4015<br/>6.5V, CC 4.5A]
     HOST[Host PC USB-C port]
     HUB[USB Hub 5V, bus-powered]
 
     MAINS --> PSU12
-    PSU12 -->|12V| BUCK
+    PSU12 -->|12V| F1
+    F1 -->|12V| BUCK
     HOST -->|5V| HUB
 
     subgraph ARM[LeRobot SO-101 Follower Arm]
@@ -264,7 +336,8 @@ flowchart LR
     end
 
     subgraph DROP[Trash Drop Mechanism]
-        ESP[ESP32-S3 Super Mini]
+        ESP[ESP32-C3 SuperMini]
+        ACS[ACS712 30A]
         D1[Servo 1]
         D2[Servo 2]
         D3[Servo 3]
@@ -275,12 +348,14 @@ flowchart LR
     HUB -->|5V| WCAM
     HUB -->|5V| ACAM
     HUB -->|5V| ESP
-    PSU12 -->|12V| URT
+    ESP -->|5V| ACS
+    F1 -->|12V| URT
     URT -->|12V bus| S1
-    PSU12 -->|12V| LED
-    BUCK -->|6.5V| D1
-    BUCK -->|6.5V| D2
-    BUCK -->|6.5V| D3
-    BUCK -->|6.5V| D4
+    F1 -->|12V| LED
+    BUCK -->|6.5V| ACS
+    ACS -->|6.5V| D1
+    ACS -->|6.5V| D2
+    ACS -->|6.5V| D3
+    ACS -->|6.5V| D4
     BUCK -.->|GND| ESP
 ```
