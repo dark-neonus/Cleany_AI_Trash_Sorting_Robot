@@ -19,6 +19,12 @@ DropController.overload_seen (drop_panel.py):
 
 send_action returns the requested action while released (callers such as lerobot-record
 expect a full action); nothing was sent to the motors then.
+
+Zero calibration: the drop board's current sensor is powered from USB 5V, so its zero moves
+with USB load (about 0.3 A when both cameras start). Once the follower and its cameras are
+connected, a ZERO is sent (DROP_ZERO_ON_CONNECT=false skips it): the doors open and close
+once and the board measures the zero with the doors closed. It also clears a false overload
+flag that the cameras starting may have caused during the connect.
 """
 
 import os
@@ -34,6 +40,8 @@ RESUME_S = float(os.environ.get("OVERLOAD_RESUME_S", "2"))
 
 _original_send_action = SOFollower.send_action
 _original_disconnect = SOFollower.disconnect
+_original_connect = SOFollower.connect
+ZERO_ON_CONNECT = os.environ.get("DROP_ZERO_ON_CONNECT", "true") != "false"
 
 
 @dataclass
@@ -118,7 +126,16 @@ def _disconnect(self, *args, **kwargs):
     return _original_disconnect(self, *args, **kwargs)
 
 
+def _connect(self, *args, **kwargs):
+    result = _original_connect(self, *args, **kwargs)
+    if ZERO_ON_CONNECT:  # the cameras are streaming now
+        print("[overload] robot connected: calibrating the drop current zero (the doors open and close once)")
+        get_controller().calibrate_zero()
+    return result
+
+
 def install() -> None:
     SOFollower.send_action = _send_action
     SOFollower.disconnect = _disconnect
+    SOFollower.connect = _connect
     get_controller()  # connect to the drop board now

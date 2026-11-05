@@ -6,11 +6,17 @@
 //   CLOSE      close smoothly and stay closed
 //   STOP       freeze the servos where they are now
 //   RESET_OVERLOAD  after an overload: clear the flag, close smoothly, resume
-//   READ       "R I=<mA> MAX=<mA|-> OVL=<0|1> S=<state> FR=<deg> FL=<deg> BR=<deg> BL=<deg>"
+//   ZERO       calibrate the current sensor: open, wait DROP_OPEN_MS, close, let the
+//              current settle, then measure the zero with the doors closed. Also
+//              clears an overload flag (the baseline it was judged against is gone).
+//   READ       "R I=<mA> MAX=<mA|-> OVL=<0|1> SENS=<0|1> CAL=<0|1> ZERO=<mV> S=<state> FR=<deg> ..."
 //                I    filtered servo current
 //                MAX  current that triggers an overload right now; "-" while
 //                     detection is off (held open, stopped, during OPEN, overloaded)
 //                OVL  1 while the overload flag is set
+//                SENS 0 while the current sensor is faulty (see below)
+//                CAL  1 while a ZERO cycle runs (overload detection is off)
+//                ZERO the zero in use, in mV at the ADC pin
 //                S    OPEN, CLOSED, OPENING, CLOSING, STOPPED, PARTIAL or OFF
 // Other commands reply "OK <command>" or "ERR <reason>". Nothing else is sent,
 // except one "READY ..." line after boot.
@@ -26,6 +32,15 @@
 // READING_SAMPLES samples (~2 ms) become one reading, and the filtered current
 // is the mean of the last FILTER_WINDOW readings (~20 ms, one servo PWM period,
 // so the servos' 50 Hz current pulses average out).
+//
+// Sensor check: the zero measured at boot must be plausible (ZERO_MIN_MV ..
+// ZERO_MAX_MV) and steady, else it is measured again (up to
+// ZERO_BOOT_TIMEOUT_MS, before the servos attach). A filtered current beyond
+// SENSOR_FAULT_A (more than the XL4015 can deliver) for SENSOR_FAULT_MS also
+// counts as a fault. While faulty, overload detection is off, READ says
+// SENS=0, and the zero is measured again every ZERO_RETRY_MS while no servo
+// moves (with the servos holding, so it may include their small holding
+// current).
 //
 // Overload: if the filtered current stays above the limit for
 // OVERLOAD_CONFIRM_MS, the doors open at full speed and the overload flag is
@@ -44,7 +59,10 @@
 //   - Tuning angles outside each servo's close..open range (+ LIMIT_MARGIN_DEG)
 //     are rejected.
 //
-// On boot runs a smooth OPEN, waits 2 s and CLOSEs; any motion command cancels it.
+// On boot runs the ZERO cycle (open, 2 s, close, measure the zero); any motion
+// command cancels it. The ACS712 is powered from USB 5V, so its zero moves
+// with USB load (about 0.3 A when both cameras start): the PC sends ZERO once
+// the robot and its cameras are connected.
 
 #include <Arduino.h>
 #include <driver/adc.h>
@@ -222,15 +240,25 @@ enum Mode {
 };
 Mode mode = MODE_AUTO;
 
-enum DropStage { DROP_IDLE, DROP_OPENING, DROP_WAITING };
+enum DropStage { DROP_IDLE, DROP_OPENING, DROP_WAITING, DROP_CLOSING, DROP_SETTLING };
 DropStage dropStage = DROP_IDLE;
+bool dropCalibrate = false;  // this sequence ends with a zero measurement
 uint32_t dropWaitStartMs = 0;
 const uint32_t DROP_OPEN_MS = 2000;
+const uint32_t ZERO_SETTLE_MS = 2000;  // after the close, for the servo current to settle
 
-void startDrop() {
+void measureZeroAfterDrop();  // current sensor section
+
+void startDrop(bool calibrate = false) {
   mode = MODE_AUTO;
+  dropCalibrate = calibrate;
   moveOpenClose(true);
   dropStage = DROP_OPENING;
+}
+
+void cancelDrop() {
+  dropStage = DROP_IDLE;
+  dropCalibrate = false;
 }
 
 void updateDrop() {
@@ -244,7 +272,19 @@ void updateDrop() {
     case DROP_WAITING:
       if (millis() - dropWaitStartMs >= DROP_OPEN_MS) {
         moveOpenClose(false);
-        dropStage = DROP_IDLE;
+        dropStage = dropCalibrate ? DROP_CLOSING : DROP_IDLE;
+      }
+      break;
+    case DROP_CLOSING:
+      if (!anyServoMoving()) {
+        dropStage = DROP_SETTLING;
+        dropWaitStartMs = millis();
+      }
+      break;
+    case DROP_SETTLING:
+      if (millis() - dropWaitStartMs >= ZERO_SETTLE_MS) {
+        measureZeroAfterDrop();  // blocks ~250 ms
+        cancelDrop();
       }
       break;
     case DROP_IDLE:
@@ -270,8 +310,23 @@ const float SENSITIVITY_PER_ZERO_MV = 0.0264f;
 const float CURRENT_SIGN = -1;
 
 esp_adc_cal_characteristics_t adcChars;
+// The zero is VCC / 2 * DIVIDER_RATIO: 1290-1650 mV for VCC 4.3-5.5V; seen 1500-1525.
+const float ZERO_MIN_MV = 1300;
+const float ZERO_MAX_MV = 1700;
+const float ZERO_MAX_SPREAD_MV = 4;  // max-min of 10 ms means (~0.1 A): must be steady
+const uint32_t ZERO_BOOT_TIMEOUT_MS = 5000;
+const uint32_t ZERO_RETRY_MS = 2000;
+const float SENSOR_FAULT_A = 6;
+const uint32_t SENSOR_FAULT_MS = 100;
+
 float currentZeroMv = 0;
+float lastZeroMv = 0;    // last measurement, valid or not
+float lastSpreadMv = 0;
 uint32_t adcRateHz = 0;  // measured during the zero calibration
+bool sensorOk = false;
+bool sensorHigh = false;
+uint32_t sensorHighSinceMs = 0;
+uint32_t lastZeroAttemptMs = 0;
 
 uint32_t readingSum = 0;
 uint32_t readingCount = 0;
@@ -340,24 +395,75 @@ float mvToAmps(float pinMv) {
   return CURRENT_SIGN * (pinMv - currentZeroMv) / (SENSITIVITY_PER_ZERO_MV * currentZeroMv);
 }
 
-void calibrateCurrentZero() {
-  // Servos have no PWM yet, so they draw (almost) nothing.
+void resetCurrentFilter();
+
+// Measures the zero for 250 ms (blocking). Keeps it and returns true only if it
+// is plausible and steady.
+bool calibrateCurrentZero() {
   const uint32_t durationMs = 250;
+  const uint32_t blockMs = 10;
   uint64_t sum = 0;
   uint32_t count = 0;
+  uint32_t blockSum = 0, blockCount = 0;
+  float blockMin = 1e9, blockMax = -1e9;
   drainAdc([](uint16_t) {});  // drop samples from before this call
-  uint32_t start = millis();
+  uint32_t start = millis(), blockStart = start;
   while (millis() - start < durationMs) {
     drainAdc([&](uint16_t raw) {
       sum += raw;
       count++;
+      blockSum += raw;
+      blockCount++;
     });
+    if (millis() - blockStart >= blockMs && blockCount > 0) {
+      float mean = (float)blockSum / blockCount;
+      blockMin = min(blockMin, mean);
+      blockMax = max(blockMax, mean);
+      blockSum = blockCount = 0;
+      blockStart = millis();
+    }
   }
-  currentZeroMv = rawToMv((float)sum / max<uint32_t>(count, 1));
   adcRateHz = count * 1000 / durationMs;
+  lastZeroAttemptMs = millis();
+  if (count == 0) return false;
+  lastZeroMv = rawToMv((float)sum / count);
+  lastSpreadMv = blockMin <= blockMax ? rawToMv(blockMax) - rawToMv(blockMin) : 0;
+  if (lastZeroMv < ZERO_MIN_MV || lastZeroMv > ZERO_MAX_MV || lastSpreadMv > ZERO_MAX_SPREAD_MV) {
+    return false;
+  }
+  currentZeroMv = lastZeroMv;
+  resetCurrentFilter();
+  return true;
 }
 
+void measureZeroAfterDrop() { sensorOk = calibrateCurrentZero(); }
+
 void checkOverload();
+
+void resetCurrentFilter() {
+  readingSum = readingCount = 0;
+  windowSum = 0;
+  windowFill = windowIndex = 0;
+  currentAmps = 0;
+  sensorHigh = false;
+}
+
+// A filtered current beyond SENSOR_FAULT_A cannot be real: the zero is wrong
+// or the sensor is disconnected.
+void checkSensor() {
+  if (!sensorOk || fabsf(currentAmps) <= SENSOR_FAULT_A) {
+    sensorHigh = false;
+    return;
+  }
+  uint32_t now = millis();
+  if (!sensorHigh) {
+    sensorHigh = true;
+    sensorHighSinceMs = now;
+  } else if (now - sensorHighSinceMs >= SENSOR_FAULT_MS) {
+    sensorOk = false;
+    lastZeroAttemptMs = now;  // first retry after ZERO_RETRY_MS
+  }
+}
 
 void pollCurrent() {
   drainAdc([](uint16_t raw) {
@@ -374,6 +480,7 @@ void pollCurrent() {
     windowIndex = (windowIndex + 1) % FILTER_WINDOW;
     currentAmps = windowSum / windowFill;
 
+    checkSensor();
     checkOverload();
   });
 }
@@ -393,11 +500,13 @@ uint32_t overloadSinceMs = 0;
 
 void latchOverload() {
   mode = MODE_OVERLOAD;
-  dropStage = DROP_IDLE;
+  cancelDrop();
   moveOpenClose(true, true);
 }
 
-bool overloadArmed() { return mode == MODE_AUTO && dropStage == DROP_IDLE && anyServoAttached(); }
+bool overloadArmed() {
+  return sensorOk && mode == MODE_AUTO && dropStage == DROP_IDLE && anyServoAttached();
+}
 
 float overloadLimit() {
   bool settling = anyServoMoving() || millis() - lastMotionMs < OVERLOAD_SETTLE_MS;
@@ -447,9 +556,10 @@ const char *doorState() {
 void replyRead() {
   char maxStr[8] = "-";
   if (overloadArmed()) snprintf(maxStr, sizeof maxStr, "%d", (int)lroundf(overloadLimit() * 1000));
-  char buf[112];
-  int len = snprintf(buf, sizeof buf, "R I=%d MAX=%s OVL=%d S=%s", (int)lroundf(currentAmps * 1000),
-                     maxStr, mode == MODE_OVERLOAD, doorState());
+  char buf[128];
+  int len = snprintf(buf, sizeof buf, "R I=%d MAX=%s OVL=%d SENS=%d CAL=%d ZERO=%d S=%s",
+                     (int)lroundf(currentAmps * 1000), maxStr, mode == MODE_OVERLOAD, sensorOk,
+                     dropCalibrate, (int)lroundf(currentZeroMv), doorState());
   for (Servo &s : servos) {
     len += snprintf(buf + len, sizeof buf - len, " %s=%d", s.id, (int)lroundf(s.pos));
   }
@@ -513,7 +623,7 @@ bool handleTuning(const String &id, const String &arg) {
     targets[i] = angle;
   }
   mode = MODE_MANUAL;
-  dropStage = DROP_IDLE;
+  cancelDrop();
   moveServos(targets);
   Serial.printf("OK %s %ld\n", g ? g->id : single->id, angle);
   return true;
@@ -533,7 +643,9 @@ void handleCommand(String line) {
     replyRead();
     return;
   }
-  if (cmd == "RESET_OVERLOAD") {
+  if (cmd == "ZERO") {
+    startDrop(true);  // also leaves MODE_OVERLOAD: the baseline is being re-measured
+  } else if (cmd == "RESET_OVERLOAD") {
     if (mode != MODE_OVERLOAD) {
       Serial.println("ERR not overloaded");
       return;
@@ -547,21 +659,21 @@ void handleCommand(String line) {
     startDrop();
   } else if (cmd == "OPEN_HOLD") {
     mode = MODE_HOLD_OPEN;
-    dropStage = DROP_IDLE;
+    cancelDrop();
     moveOpenClose(true);
   } else if (cmd == "CLOSE") {
     mode = MODE_AUTO;
-    dropStage = DROP_IDLE;
+    cancelDrop();
     moveOpenClose(false);
   } else if (cmd == "STOP") {
     mode = MODE_STOPPED;
-    dropStage = DROP_IDLE;
+    cancelDrop();
     stopServos();
 #if DEBUG_COMMANDS
   } else if (cmd == "OFF") {
     for (Servo &s : servos) servoDetach(s);
     mode = MODE_STOPPED;
-    dropStage = DROP_IDLE;
+    cancelDrop();
   } else if (handleTuning(cmd, arg)) {
     return;  // replied already
 #endif
@@ -614,18 +726,23 @@ void setup() {
 
   adcStart();
   delay(300);  // let the ACS712 and the 5V settle before measuring its zero
-  calibrateCurrentZero();
+  // Servos have no PWM yet, so they draw (almost) nothing.
+  uint32_t zeroStart = millis();
+  while (!(sensorOk = calibrateCurrentZero()) && millis() - zeroStart < ZERO_BOOT_TIMEOUT_MS) {
+    delay(200);
+  }
 
-  Serial.printf("READY zero=%.1fmV adc=%luHz start=%s debug=%d\n", currentZeroMv,
-                (unsigned long)adcRateHz, restored ? "restored" : "close", DEBUG_COMMANDS);
+  Serial.printf("READY zero=%.1fmV spread=%.1fmV sensor=%s adc=%luHz start=%s debug=%d\n",
+                lastZeroMv, lastSpreadMv, sensorOk ? "ok" : "FAULT", (unsigned long)adcRateHz,
+                restored ? "restored" : "close", DEBUG_COMMANDS);
 
   for (Servo &s : servos) {
     servoAttach(s);
     delay(ATTACH_STAGGER_MS);
   }
 
-  // Startup self-test: open, 2 s, close.
-  startDrop();
+  // Startup: open, 2 s, close, then measure the zero with the doors closed.
+  startDrop(true);
 }
 
 void loop() {
@@ -639,4 +756,9 @@ void loop() {
     updateServos();
   }
   updateDrop();
+
+  // Sensor fault: measure the zero again while nothing moves.
+  if (!sensorOk && !anyServoMoving() && millis() - lastZeroAttemptMs >= ZERO_RETRY_MS) {
+    sensorOk = calibrateCurrentZero();
+  }
 }

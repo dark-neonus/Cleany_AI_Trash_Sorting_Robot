@@ -43,6 +43,8 @@ class DropStatus:
     max_ma: int | None = None  # None: overload detection is off
     state: str = "?"
     overload: bool = False  # the board's flag
+    sensor_ok: bool = True  # False: current sensor fault, overload detection off
+    calibrating: bool = False  # a ZERO cycle runs (the doors open and close by themselves)
     angles: dict[str, int] = field(default_factory=dict)
     message: str = ""
 
@@ -57,7 +59,7 @@ def find_port() -> str | None:
 
 
 def parse_read(line: str) -> dict | None:
-    """'R I=13 MAX=100 OVL=0 S=CLOSED FR=15 ...' -> fields, or None for other lines."""
+    """'R I=13 MAX=100 OVL=0 SENS=1 CAL=0 ZERO=1514 S=CLOSED FR=15 ...' -> fields, or None."""
     if not line.startswith("R "):
         return None
     fields = dict(part.split("=", 1) for part in line[2:].split() if "=" in part)
@@ -67,7 +69,9 @@ def parse_read(line: str) -> dict | None:
             "max_ma": None if fields["MAX"] == "-" else int(fields["MAX"]),
             "state": fields.pop("S"),
             "overload": fields["OVL"] == "1",
-            "angles": {k: int(v) for k, v in fields.items() if k not in ("MAX", "OVL")},
+            "sensor_ok": fields.get("SENS", "1") == "1",
+            "calibrating": fields.get("CAL", "0") == "1",
+            "angles": {k: int(v) for k, v in fields.items() if k not in ("MAX", "OVL", "SENS", "CAL", "ZERO")},
         }
     except (KeyError, ValueError):
         return None
@@ -85,6 +89,10 @@ class DropController:
     def send(self, command: str) -> None:
         with self._lock:
             self._commands.append(command)
+
+    def calibrate_zero(self) -> None:
+        """Ask the board for a ZERO cycle (it opens and closes the doors, then re-zeroes the sensor)."""
+        self.send("ZERO")
 
     def reset_overload(self) -> None:
         """RESET OVERLOAD button: the board closes the doors; the arm is released once it confirms."""
@@ -127,6 +135,11 @@ class DropController:
                                              message=self.status.message)
                     if read["overload"]:
                         self.overload_seen = True
+                elif line == "OK ZERO":
+                    # The board drops its overload flag for a ZERO cycle: the baseline it was judged
+                    # against is being re-measured. Only the connect hook and the button send it.
+                    self.overload_seen = False
+                    self.status.message = ""
                 elif line in ("OK RESET_OVERLOAD", "ERR not overloaded") and self._reset_pressed:
                     # The board is closing the doors (or was not overloaded): release the arm.
                     self._reset_pressed = False
@@ -166,13 +179,20 @@ def add_drop_section(parent: tk.Misc, controller: DropController) -> tk.Frame:
     reset_button = tk.Button(frame, text="RESET OVERLOAD", width=38, font=("Sans", 11, "bold"),
                              command=controller.reset_overload)
     reset_button.grid(row=5, column=0, columnspan=2, padx=4, pady=4)
+    zero_button = tk.Button(frame, text="CALIBRATE CURRENT ZERO", width=38, command=controller.calibrate_zero)
+    zero_button.grid(row=7, column=0, columnspan=2, padx=4, pady=4)
 
     def refresh() -> None:
         status = controller.status
         if status.connected and status.current_ma is not None:
             state_label.config(text=status.state, fg=STATE_COLORS.get(status.state, "#000000"))
             limit = f"{status.max_ma / 1000:.3f} A" if status.max_ma is not None else "off"
-            current_label.config(text=f"Current: {status.current_ma / 1000:.3f} / {limit}")
+            if status.calibrating:
+                current_label.config(text="Calibrating the current zero…", fg="#1565c0")
+            elif status.sensor_ok:
+                current_label.config(text=f"Current: {status.current_ma / 1000:.3f} / {limit}", fg="#000000")
+            else:
+                current_label.config(text="Current sensor FAULT: overload detection off", fg="#b71c1c")
             angles = "  ".join(f"{name} {deg}°" for name, deg in status.angles.items())
             detail_label.config(text=f"{angles}\n{status.message}".rstrip())
         else:
@@ -186,8 +206,11 @@ def add_drop_section(parent: tk.Misc, controller: DropController) -> tk.Frame:
                                        "by hand, then press RESET OVERLOAD.")
         else:
             overload_label.config(text="")
-        for button in buttons:  # the board refuses these while overloaded
-            button.config(state=tk.NORMAL if status.connected and not overloaded else tk.DISABLED)
+        idle = status.connected and not overloaded and not status.calibrating
+        for button in buttons:  # the board refuses these while overloaded; STOP always works
+            button.config(state=tk.NORMAL if idle else tk.DISABLED)
+        buttons[1].config(state=tk.NORMAL if status.connected and not overloaded else tk.DISABLED)
+        zero_button.config(state=tk.NORMAL if idle else tk.DISABLED)
         reset_button.config(state=tk.NORMAL if status.connected and overloaded else tk.DISABLED)
         frame.after(100, refresh)
 
