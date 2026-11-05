@@ -1,14 +1,16 @@
 // Trash drop mechanism: 4x RDS3115 servos + ACS712 30A current sensor.
 //
 // Serial protocol (115200, one command per line, one reply line per command):
-//   OPEN       drop: open at full speed, stay open DROP_OPEN_MS, close smoothly
+//   OPEN       drop: open smoothly, stay open DROP_OPEN_MS, close smoothly
 //   OPEN_HOLD  open smoothly and stay open
 //   CLOSE      close smoothly and stay closed
 //   STOP       freeze the servos where they are now
-//   READ       "R I=<mA> MAX=<mA|-> S=<state> FR=<deg> FL=<deg> BR=<deg> BL=<deg>"
+//   RESET_OVERLOAD  after an overload: clear the flag, close smoothly, resume
+//   READ       "R I=<mA> MAX=<mA|-> OVL=<0|1> S=<state> FR=<deg> FL=<deg> BR=<deg> BL=<deg>"
 //                I    filtered servo current
-//                MAX  current that triggers a drop right now; "-" while overload
-//                     detection is off (held open, stopped, during a drop)
+//                MAX  current that triggers an overload right now; "-" while
+//                     detection is off (held open, stopped, during OPEN, overloaded)
+//                OVL  1 while the overload flag is set
 //                S    OPEN, CLOSED, OPENING, CLOSING, STOPPED, PARTIAL or OFF
 // Other commands reply "OK <command>" or "ERR <reason>". Nothing else is sent,
 // except one "READY ..." line after boot.
@@ -16,8 +18,8 @@
 // Built with DEBUG_COMMANDS=1 (env esp32c3_supermini_debug) it also accepts the
 // tuning commands: "<FR|FL|BR|BL|LEFT|RIGHT|ALL> <angle>" and OFF (servos limp).
 //
-// Moves are eased ramps at SERVO_SPEED_DEG_PER_S, except the drop opening,
-// which jumps at the servos' full speed. Servos moved by one command start and
+// Moves are eased ramps at SERVO_SPEED_DEG_PER_S, except the opening on an
+// overload, which jumps at the servos' full speed. Servos moved by one command start and
 // finish together.
 //
 // Current: the ADC samples GPIO3 by DMA at the C3's maximum rate. Every
@@ -26,10 +28,14 @@
 // so the servos' 50 Hz current pulses average out).
 //
 // Overload: if the filtered current stays above the limit for
-// OVERLOAD_CONFIRM_MS, the doors drop (same as OPEN). The limit is
+// OVERLOAD_CONFIRM_MS, the doors open at full speed and the overload flag is
+// set (OVL=1 in READ). They stay open and the firmware moves no servo and
+// refuses every command except READ and RESET_OVERLOAD until RESET_OVERLOAD
+// arrives; that clears the flag, closes the doors smoothly and goes back to
+// normal. If the cause is still there it triggers again. The limit is
 // OVERLOAD_HOLD_A while the servos are still and OVERLOAD_MOVING_A while they
-// move or settle. Detection is off while the doors are held open, stopped or
-// tuned by hand.
+// move or settle. Detection is off while the doors are held open, stopped,
+// tuned by hand or during an OPEN (drop) cycle.
 //
 // Safety:
 //   - The first PWM a servo gets is its close angle (or, after a reset that
@@ -66,14 +72,18 @@ struct Servo {
   uint32_t moveDurationMs;
 };
 
+// Two doors (left, right), each driven by a front and a back servo that face
+// each other, so servos on diagonal corners (FR/BL and FL/BR) turn the same
+// way and share angles. The angles belong to the physical servo, so if a
+// servo is moved to another pin, move its angles with it.
 // Tune closeAngle / openAngle per servo with the debug build's "<ID> <angle>",
 // then copy the values here.
 Servo servos[] = {
     // id   pin ch  close open
-    {"FR", 5, 0, 15, 80, false},   // front right
-    {"FL", 6, 1, 100, 35, false},  // front left
-    {"BR", 7, 2, 100, 35, false},  // back right
-    {"BL", 10, 3, 15, 82, false},  // back left
+    {"FR", 5, 0, 100, 35, false},  // front right
+    {"FL", 6, 1, 15, 80, false},   // front left
+    {"BR", 7, 2, 15, 80, false},   // back right
+    {"BL", 10, 3, 100, 35, false}, // back left
 };
 const size_t SERVO_COUNT = sizeof(servos) / sizeof(servos[0]);
 
@@ -208,6 +218,7 @@ enum Mode {
   MODE_HOLD_OPEN,  // OPEN_HOLD
   MODE_STOPPED,    // STOP or OFF
   MODE_MANUAL,     // debug tuning commands
+  MODE_OVERLOAD,   // overload flag set: doors open, no motion until RESET_OVERLOAD
 };
 Mode mode = MODE_AUTO;
 
@@ -216,9 +227,9 @@ DropStage dropStage = DROP_IDLE;
 uint32_t dropWaitStartMs = 0;
 const uint32_t DROP_OPEN_MS = 2000;
 
-void startDrop(bool fast) {
+void startDrop() {
   mode = MODE_AUTO;
-  moveOpenClose(true, fast);
+  moveOpenClose(true);
   dropStage = DROP_OPENING;
 }
 
@@ -371,13 +382,20 @@ void pollCurrent() {
 
 // Measured: empty closed doors hold at ~0.01-0.05 A, loaded ones at 0.14-0.18 A;
 // moves draw up to ~0.5 A and the current settles ~1 s after a move ends.
-const float OVERLOAD_HOLD_A = 0.10;
-const float OVERLOAD_MOVING_A = 0.70;
+// Both limits are 1.5x the first values (0.10 / 0.70 A), which triggered falsely.
+const float OVERLOAD_HOLD_A = 0.15;
+const float OVERLOAD_MOVING_A = 1.05;
 const uint32_t OVERLOAD_SETTLE_MS = 1200;  // after a move, still use the moving limit
 const uint32_t OVERLOAD_CONFIRM_MS = 30;   // current must stay above the limit this long
 
 bool overloadHigh = false;
 uint32_t overloadSinceMs = 0;
+
+void latchOverload() {
+  mode = MODE_OVERLOAD;
+  dropStage = DROP_IDLE;
+  moveOpenClose(true, true);
+}
 
 bool overloadArmed() { return mode == MODE_AUTO && dropStage == DROP_IDLE && anyServoAttached(); }
 
@@ -397,7 +415,7 @@ void checkOverload() {
     overloadSinceMs = now;
   } else if (now - overloadSinceMs >= OVERLOAD_CONFIRM_MS) {
     overloadHigh = false;
-    startDrop(true);
+    latchOverload();
   }
 }
 
@@ -429,9 +447,9 @@ const char *doorState() {
 void replyRead() {
   char maxStr[8] = "-";
   if (overloadArmed()) snprintf(maxStr, sizeof maxStr, "%d", (int)lroundf(overloadLimit() * 1000));
-  char buf[96];
-  int len = snprintf(buf, sizeof buf, "R I=%d MAX=%s S=%s", (int)lroundf(currentAmps * 1000),
-                     maxStr, doorState());
+  char buf[112];
+  int len = snprintf(buf, sizeof buf, "R I=%d MAX=%s OVL=%d S=%s", (int)lroundf(currentAmps * 1000),
+                     maxStr, mode == MODE_OVERLOAD, doorState());
   for (Servo &s : servos) {
     len += snprintf(buf + len, sizeof buf - len, " %s=%d", s.id, (int)lroundf(s.pos));
   }
@@ -515,8 +533,18 @@ void handleCommand(String line) {
     replyRead();
     return;
   }
-  if (cmd == "OPEN") {
-    startDrop(true);
+  if (cmd == "RESET_OVERLOAD") {
+    if (mode != MODE_OVERLOAD) {
+      Serial.println("ERR not overloaded");
+      return;
+    }
+    mode = MODE_AUTO;
+    moveOpenClose(false);  // smooth close; detection re-arms
+  } else if (mode == MODE_OVERLOAD) {
+    Serial.println("ERR overload: send RESET_OVERLOAD");
+    return;
+  } else if (cmd == "OPEN") {
+    startDrop();
   } else if (cmd == "OPEN_HOLD") {
     mode = MODE_HOLD_OPEN;
     dropStage = DROP_IDLE;
@@ -596,8 +624,8 @@ void setup() {
     delay(ATTACH_STAGGER_MS);
   }
 
-  // Startup self-test: smooth open, 2 s, close.
-  startDrop(false);
+  // Startup self-test: open, 2 s, close.
+  startDrop();
 }
 
 void loop() {

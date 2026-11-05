@@ -23,7 +23,7 @@ import threading
 import time
 import tkinter as tk
 
-from drop_panel import DropController, add_drop_section
+from drop_panel import DropController, add_drop_section, get_controller
 
 from lerobot.utils.keyboard_input import apply_recording_control
 
@@ -153,7 +153,7 @@ def _run_panel(state: PanelState, title: str, drop: DropController | None) -> No
 def install(record_module, title: str = "Cleany recorder") -> None:
     """Wrap lerobot_record's keyboard listener, record loop and announcements, then open the panel."""
     state = PanelState(_num_episodes_from_argv())
-    drop = DropController() if os.environ.get("DROP_PANEL", "true") != "false" else None
+    drop = get_controller() if os.environ.get("DROP_PANEL", "true") != "false" else None
 
     original_init_listener = record_module.init_keyboard_listener
     original_record_loop = record_module.record_loop

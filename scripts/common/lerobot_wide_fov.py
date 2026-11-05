@@ -15,7 +15,8 @@ Cameras not listed are captured as usual.
 Follower servo motion limits can be set with SERVO_ACCELERATION and
 SERVO_MAX_VELOCITY_DEG, and replay playback speed with REPLAY_SPEED (see below).
 Servo torque is switched on one servo at a time, TORQUE_STAGGER_S apart (default 0.5).
-The trash drop panel (drop_panel.py) is shown for every command; DROP_PANEL=false hides it.
+The trash drop panel (drop_panel.py) is shown for every command, and on a drop overload the
+follower is stopped and released (arm_overload_guard.py); DROP_PANEL=false turns both off.
 """
 
 import importlib
@@ -144,13 +145,18 @@ if __name__ == "__main__":
     module = importlib.import_module(COMMANDS[command])
     if command == "replay" and REPLAY_SPEED is not None:
         _slow_down_replay(module)
+    drop_enabled = os.environ.get("DROP_PANEL", "true") != "false"
+    if drop_enabled:
+        import arm_overload_guard
+
+        arm_overload_guard.install()  # stop the follower when the trash drop reports an overload
     # Control panel window with countdown and End/Discard/Stop buttons (see record_panel.py).
     if command == "record" and os.environ.get("RECORD_PANEL", "true") != "false":
         import record_panel
 
         record_panel.install(module, title=os.environ.get("RECORD_PANEL_TITLE", "Cleany recorder"))
     # Trash drop controls: inside the recording panel when it is shown, else in their own window.
-    elif os.environ.get("DROP_PANEL", "true") != "false":
+    elif drop_enabled:
         import drop_panel
 
         drop_panel.start_drop_panel()

@@ -2,13 +2,20 @@
 
 DropController keeps the serial connection in a background thread: it polls READ every
 POLL_S and sends the button commands. add_drop_section() adds the panel section (door
-state, current / drop threshold, servo angles, OPEN / OPEN and HOLD / CLOSE and HOLD / STOP
-buttons) to a tkinter window; run_drop_panel() opens a window with only that section.
+state, current / drop threshold, overload flag, servo angles, OPEN / OPEN and HOLD /
+CLOSE and HOLD / STOP / RESET OVERLOAD buttons) to a tkinter window; run_drop_panel()
+opens a window with only that section.
 
-lerobot_wide_fov.py shows it in the recording panel and in its own window for teleoperation,
-rollout and replay (DROP_PANEL=false turns it off). The port is DROP_PORT if set, otherwise
-the first USB device with Espressif's vendor ID (the C3's native USB). Opening the port
-leaves DTR/RTS as the kernel sets them, so the C3 is not reset.
+Overload: the firmware opens the doors, sets its overload flag and refuses motion until
+RESET_OVERLOAD. DropController.overload_seen is set when a READ reports the flag and stays
+set until the RESET OVERLOAD button was pressed and the board confirmed it, so a board
+reboot alone never releases it. arm_overload_guard.py stops the follower while it is set.
+
+lerobot_wide_fov.py shows the panel in the recording panel and in its own window for
+teleoperation, rollout and replay (DROP_PANEL=false turns the panel and the arm guard off).
+The port is DROP_PORT if set, otherwise the first USB device with Espressif's vendor ID
+(the C3's native USB). Opening the port may reset the C3 (its startup test then moves the
+doors).
 """
 
 import os
@@ -35,6 +42,7 @@ class DropStatus:
     current_ma: int | None = None
     max_ma: int | None = None  # None: overload detection is off
     state: str = "?"
+    overload: bool = False  # the board's flag
     angles: dict[str, int] = field(default_factory=dict)
     message: str = ""
 
@@ -49,7 +57,7 @@ def find_port() -> str | None:
 
 
 def parse_read(line: str) -> dict | None:
-    """'R I=13 MAX=100 S=CLOSED FR=15 ...' -> fields, or None for other lines."""
+    """'R I=13 MAX=100 OVL=0 S=CLOSED FR=15 ...' -> fields, or None for other lines."""
     if not line.startswith("R "):
         return None
     fields = dict(part.split("=", 1) for part in line[2:].split() if "=" in part)
@@ -58,7 +66,8 @@ def parse_read(line: str) -> dict | None:
             "current_ma": int(fields.pop("I")),
             "max_ma": None if fields["MAX"] == "-" else int(fields["MAX"]),
             "state": fields.pop("S"),
-            "angles": {k: int(v) for k, v in fields.items() if k != "MAX"},
+            "overload": fields["OVL"] == "1",
+            "angles": {k: int(v) for k, v in fields.items() if k not in ("MAX", "OVL")},
         }
     except (KeyError, ValueError):
         return None
@@ -67,6 +76,8 @@ def parse_read(line: str) -> dict | None:
 class DropController:
     def __init__(self):
         self.status = DropStatus()
+        self.overload_seen = False  # see the module docstring
+        self._reset_pressed = False
         self._commands: list[str] = []
         self._lock = threading.Lock()
         threading.Thread(target=self._run, name="drop_controller", daemon=True).start()
@@ -74,6 +85,11 @@ class DropController:
     def send(self, command: str) -> None:
         with self._lock:
             self._commands.append(command)
+
+    def reset_overload(self) -> None:
+        """RESET OVERLOAD button: the board closes the doors; the arm is released once it confirms."""
+        self._reset_pressed = True
+        self.send("RESET_OVERLOAD")
 
     def _run(self) -> None:
         while True:
@@ -109,6 +125,13 @@ class DropController:
                 if read:
                     self.status = DropStatus(connected=True, port=ser.port, **read,
                                              message=self.status.message)
+                    if read["overload"]:
+                        self.overload_seen = True
+                elif line in ("OK RESET_OVERLOAD", "ERR not overloaded") and self._reset_pressed:
+                    # The board is closing the doors (or was not overloaded): release the arm.
+                    self._reset_pressed = False
+                    self.overload_seen = False
+                    self.status.message = ""
                 elif line.startswith("ERR "):
                     self.status.message = line[4:]
                 elif line.startswith("OK "):
@@ -123,6 +146,8 @@ def add_drop_section(parent: tk.Misc, controller: DropController) -> tk.Frame:
 
     state_label = tk.Label(frame, font=("Sans", 16, "bold"))
     state_label.grid(row=0, column=0, columnspan=2, sticky="w")
+    overload_label = tk.Label(frame, font=("Sans", 10, "bold"), fg="#b71c1c", justify="left")
+    overload_label.grid(row=6, column=0, columnspan=2, sticky="w")
     current_label = tk.Label(frame, font=("Sans", 12))
     current_label.grid(row=1, column=0, columnspan=2, sticky="w")
     detail_label = tk.Label(frame, font=("Sans", 9), fg="#666666", justify="left")
@@ -138,6 +163,9 @@ def add_drop_section(parent: tk.Misc, controller: DropController) -> tk.Frame:
     ]
     for i, button in enumerate(buttons):
         button.grid(row=3 + i // 2, column=i % 2, padx=4, pady=4)
+    reset_button = tk.Button(frame, text="RESET OVERLOAD", width=38, font=("Sans", 11, "bold"),
+                             command=controller.reset_overload)
+    reset_button.grid(row=5, column=0, columnspan=2, padx=4, pady=4)
 
     def refresh() -> None:
         status = controller.status
@@ -151,8 +179,16 @@ def add_drop_section(parent: tk.Misc, controller: DropController) -> tk.Frame:
             state_label.config(text="Not connected", fg=STATE_COLORS["OFF"])
             current_label.config(text="Current: –")
             detail_label.config(text=status.message or "Connecting…")
-        for button in buttons:
-            button.config(state=tk.NORMAL if status.connected else tk.DISABLED)
+        overloaded = controller.overload_seen
+        if overloaded:
+            state_label.config(text="OVERLOAD", fg=STATE_COLORS["STOPPED"])
+            overload_label.config(text="Doors opened, arm stopped.\nMove the arm to its start pose "
+                                       "by hand, then press RESET OVERLOAD.")
+        else:
+            overload_label.config(text="")
+        for button in buttons:  # the board refuses these while overloaded
+            button.config(state=tk.NORMAL if status.connected and not overloaded else tk.DISABLED)
+        reset_button.config(state=tk.NORMAL if status.connected and overloaded else tk.DISABLED)
         frame.after(100, refresh)
 
     refresh()
@@ -171,9 +207,20 @@ def run_drop_panel(controller: DropController, title: str = "Cleany trash drop")
     root.mainloop()
 
 
+_controller: DropController | None = None
+
+
+def get_controller() -> DropController:
+    """The one controller of this process (the panels and the arm guard share it)."""
+    global _controller
+    if _controller is None:
+        _controller = DropController()
+    return _controller
+
+
 def start_drop_panel(title: str = "Cleany trash drop") -> DropController:
     """Start the controller and its window in a background thread."""
-    controller = DropController()
+    controller = get_controller()
 
     def run() -> None:
         try:
@@ -187,4 +234,4 @@ def start_drop_panel(title: str = "Cleany trash drop") -> DropController:
 
 if __name__ == "__main__":
     # Standalone: python scripts/common/drop_panel.py
-    run_drop_panel(DropController())
+    run_drop_panel(get_controller())

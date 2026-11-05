@@ -28,7 +28,7 @@
 - Servos: 4x RDS3115 7.2V 180 deg
 - Servo controller: ESP32-C3 SuperMini
 - Current sensor: ACS712 30A module (66 mV/A), on the 6.5V servo supply
-- Passives: R1 10kΩ, R2 15kΩ (ADC divider), C1 100nF (ADC filter), C2 1000–2200µF 16V (servo bus)
+- Passives: R1 10kΩ, R2 15kΩ (ADC divider), C1 100nF (ADC filter), C2 1000–2200µF 16V (servo bus), R3–R6 6.8kΩ (servo signal pull-downs, required)
 
 ## Data Connections
 
@@ -96,10 +96,10 @@ flowchart LR
 
 | ESP32-C3 pin | Role            | Connects to                                   | Notes |
 | ------------ | --------------- | --------------------------------------------- | ----- |
-| GPIO5        | PWM (LEDC ch 0) | Servo 1 signal                                 | |
-| GPIO6        | PWM (LEDC ch 1) | Servo 2 signal                                 | |
-| GPIO7        | PWM (LEDC ch 2) | Servo 3 signal                                 | |
-| GPIO10       | PWM (LEDC ch 3) | Servo 4 signal                                 | |
+| GPIO5        | PWM (LEDC ch 0) | Servo 1 signal                                 | R3 6.8k pull-down to GND |
+| GPIO6        | PWM (LEDC ch 1) | Servo 2 signal                                 | R4 6.8k pull-down to GND |
+| GPIO7        | PWM (LEDC ch 2) | Servo 3 signal                                 | R5 6.8k pull-down to GND |
+| GPIO10       | PWM (LEDC ch 3) | Servo 4 signal                                 | R6 6.8k pull-down to GND |
 | GPIO3        | ADC1_CH3        | ACS712 OUT through R1 10k; R2 15k and C1 100nF to GND | ADC sees 0.6 × ACS712 OUT |
 | 5V           | power out       | ACS712 VCC                                     | USB 5V from the hub |
 | GND          | ground          | ACS712 GND, R2, C1, XL4015 OUT− (common GND)   | |
@@ -109,11 +109,29 @@ flowchart LR
 
 Pin choice:
 
-- Servos use GPIO5, 6, 7 and 10 because they are on one header and are not strapping or UART pins, so the servos don't twitch on boot or reset.
+- Servos use GPIO5, 6, 7 and 10 because they are on one header and are not strapping or UART pins, so boot messages and strapping don't put pulses on them. The pins still float while the chip resets, so every signal line needs a pull-down (see Servo Signal Pull-downs below).
 - The ADC must be on GPIO0–GPIO4 (ADC1). ADC2 (GPIO5) is unreliable on the C3. GPIO2 is a strapping pin, so GPIO3 is used.
 - The drawing shows the board from the component side with USB-C up. Clone boards sometimes swap the headers, so wire by the silkscreen labels.
 
-PWM settings: 50 Hz, 500–2500 µs pulse for 0–180°, 14-bit LEDC resolution (the C3 LEDC supports up to 14 bits at 50 Hz). The 3.3V signal is enough for the RDS3115 at 6.5V. Optional: a 220–330Ω series resistor on each signal wire protects the GPIO if a servo connector is plugged in wrong.
+PWM settings: 50 Hz, 500–2500 µs pulse for 0–180°, 14-bit LEDC resolution (the C3 LEDC supports up to 14 bits at 50 Hz). The 3.3V signal is enough for the RDS3115 at 6.5V. Optional: a 220–330Ω series resistor on each signal wire protects the GPIO if a servo connector is plugged in wrong. Put it between the pull-down and the servo, so it doesn't form a divider with the pull-down.
+
+#### Servo Signal Pull-downs (R3–R6, required)
+
+| Resistor | From                   | To  |
+| -------- | ---------------------- | --- |
+| R3       | Servo 1 signal (GPIO5)  | GND |
+| R4       | Servo 2 signal (GPIO6)  | GND |
+| R5       | Servo 3 signal (GPIO7)  | GND |
+| R6       | Servo 4 signal (GPIO10) | GND |
+
+All 6.8kΩ, 0.125W or larger, any tolerance.
+
+While the ESP32-C3 resets (power-on, the reset button, replugging USB, flashing, opening the serial port) its GPIOs float for a few hundred milliseconds. A floating servo signal picks up noise that the servo reads as pulses, so the servo moves on its own, and when the doors are in the way they can break. A resistor from each signal line to GND holds the line low until the firmware starts the PWM.
+
+- Fit them at the ESP32 end of each signal wire, before the optional series resistor.
+- Any value from 4.7kΩ to 10kΩ works. 6.8kΩ costs 3.3V / 6.8kΩ = 0.5mA per pin while the signal is high, and the output stays at 3.3V. Don't go below about 2.2kΩ.
+- Power the ESP32 (USB) before the 6.5V rail when you can, so the servos never see a floating signal.
+- The pull-downs only cover resets. The firmware still runs its startup open and close each time the board starts.
 
 #### Current Sensing (ACS712 30A)
 
@@ -253,6 +271,7 @@ Values marked *est.* are typical values for this class of device (no datasheet a
 - 2200µF 16–25V capacitor across 12V/GND at the FE-URT-2 power input.
 - C2 1000–2200µF 16V capacitor across 6.5V/GND at the RDS3115 power split (after the ACS712).
 - Common ground: XL4015 OUT− is the star point for the servo grounds, ESP32-C3 GND and ACS712 GND. Without it the servo PWM signals have no reference.
+- Fit R3–R6 (servo signal pull-downs) before powering the servos.
 - Keep the ACS712 analog wire (OUT → R1 → GPIO3) short and away from the servo power wires. Put R1, R2 and C1 next to the ESP32.
 - The Venom has exposed 220V screw terminals (IP20): cover them and mount the unit away from the trash sorting area (dust).
 
