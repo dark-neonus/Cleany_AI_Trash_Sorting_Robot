@@ -9,16 +9,21 @@ get plain lerobot behaviour). It wraps lerobot_record functions without changing
     nothing is recorded (READY), and the reset after an episode has no time limit either.
   - log_say: the "Recording episode N" announcement is held back until Start is pressed.
 
+The trash drop section (drop_panel.py) is added below the buttons unless DROP_PANEL=false.
+
 Flow per episode: READY/RESET (wait, not recorded) -> Start -> RECORDING (countdown) -> RESET.
 LeRobot saves an episode only after the reset that follows it, so Discard during the reset
 drops the episode that was just recorded. After the last episode there is no reset.
 """
 
+import os
 import re
 import sys
 import threading
 import time
 import tkinter as tk
+
+from drop_panel import DropController, add_drop_section
 
 from lerobot.utils.keyboard_input import apply_recording_control
 
@@ -54,7 +59,7 @@ def _num_episodes_from_argv() -> int | None:
     return None
 
 
-def _run_panel(state: PanelState, title: str) -> None:
+def _run_panel(state: PanelState, title: str, drop: DropController | None) -> None:
     root = tk.Tk()
     root.title(title)
     root.attributes("-topmost", True)
@@ -90,6 +95,8 @@ def _run_panel(state: PanelState, title: str) -> None:
     stop_button.grid(row=1, column=1, padx=4, pady=4)
     tk.Label(root, text="Keys in the terminal: → start / end, ← discard, Esc stop",
              font=("Sans", 9), fg="#666666").pack(padx=16, pady=(0, 10))
+    if drop is not None:
+        add_drop_section(root, drop)
 
     def refresh() -> None:
         phase, duration = state.phase, state.phase_duration
@@ -146,6 +153,7 @@ def _run_panel(state: PanelState, title: str) -> None:
 def install(record_module, title: str = "Cleany recorder") -> None:
     """Wrap lerobot_record's keyboard listener, record loop and announcements, then open the panel."""
     state = PanelState(_num_episodes_from_argv())
+    drop = DropController() if os.environ.get("DROP_PANEL", "true") != "false" else None
 
     original_init_listener = record_module.init_keyboard_listener
     original_record_loop = record_module.record_loop
@@ -211,7 +219,7 @@ def install(record_module, title: str = "Cleany recorder") -> None:
 
     def run() -> None:
         try:
-            _run_panel(state, title)
+            _run_panel(state, title, drop)
         except tk.TclError as error:  # no display: keep recording with the keys only
             print(f"Recording panel unavailable ({error}); use the keyboard controls.")
 
