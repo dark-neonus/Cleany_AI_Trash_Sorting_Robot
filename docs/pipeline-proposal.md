@@ -324,7 +324,7 @@ policy closes the last centimetres.
 **Recording** (needs a change in the tool, since demos now start at hover instead of home):
 
 - Script the follower to the hover pose and only hand control to the leader once the leader
-  arm matches it. The blending code in [arm_overload_guard.py](../scripts/common/arm_overload_guard.py)
+  arm matches it. The blending code in [arm_estop.py](../scripts/common/arm_estop.py)
   already does something similar on resume.
 - End the episode when the item is lifted, and exclude the idle start, since another SO-101
   project found that pauses at the start made the policy stall.
@@ -352,22 +352,15 @@ is too few to separate these models: 8/10 is compatible with anything from about
 
 ## Risks to check first
 
-1. **The arm or a heavy item may trigger the door overload.** While holding, the firmware
-   threshold is `OVERLOAD_HOLD_A = 0.15 A` for just 30 ms. If it trips, the doors snap open, the
-   item falls to mixed, and the arm guard ramps the arm's torque off until someone presses RESET.
-   Fingers pressing on the closed doors, or a full bottle landing from the chute, could plausibly
-   exceed it. **Test both before recording**, because it decides whether demos can touch the
-   tray at all. If it trips, the limit needs raising or the hold-time check needs a grace window
-   while the arm is grasping. The ESP32 resets when its port opens and moves the doors, so plan
-   for that when running the test.
-2. **Connecting runs a door cycle.** A `ZERO` is sent after connecting and opens the doors, so
-   anything on the tray at startup falls into the mixed bin.
-3. **Items in the door gap or against the tray walls** may be physically ungraspable. The door
+1. **The ESP32 resets when its port opens** and runs a door cycle (open, 2 s, close), so
+   anything on the tray at startup falls into the mixed bin. There is no overload detection on
+   the doors; every panel has a red emergency stop button that releases the follower's torque.
+2. **Items in the door gap or against the tray walls** may be physically ungraspable. The door
    fallback covers these. Measure how often it happens, because a high rate lowers the sorting
    rate without showing up as a model failure.
-4. **Gripper limits.** Some items are wider than the gripper opening or too smooth to hold.
+3. **Gripper limits.** Some items are wider than the gripper opening or too smooth to hold.
    These fail the grasp check and go to the door, which is acceptable if counted as a metric.
-5. **The front camera position in the box is not in the repo yet.** The target-image design
+4. **The front camera position in the box is not in the repo yet.** The target-image design
    assumes it sees the whole tray and is rigidly mounted. Any later camera move invalidates the
    dataset, as it always has.
 
@@ -375,7 +368,7 @@ is too few to separate these models: 8/10 is compatible with anything from about
 
 Each step works on its own and leaves the system runnable.
 
-1. **Box checks:** hover photo, door overload tests, named poses captured.
+1. **Box checks:** hover photo, named poses captured.
 2. **Math skeleton:** state machine with fixed moves and the door, using a scripted fake grasp.
    This can be tested without any model.
 3. **Perception:** background trigger, settle gate, one-class YOLO, DINOv3 classifier with

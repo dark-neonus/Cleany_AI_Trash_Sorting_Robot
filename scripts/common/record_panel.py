@@ -9,7 +9,8 @@ get plain lerobot behaviour). It wraps lerobot_record functions without changing
     nothing is recorded (READY), and the reset after an episode has no time limit either.
   - log_say: the "Recording episode N" announcement is held back until Start is pressed.
 
-The trash drop section (drop_panel.py) is added below the buttons unless DROP_PANEL=false.
+The red emergency stop button (estop.py) is at the top; the trash drop section (drop_panel.py)
+is added below the buttons unless DROP_PANEL=false.
 
 Flow per episode: READY/RESET (wait, not recorded) -> Start -> RECORDING (countdown) -> RESET.
 LeRobot saves an episode only after the reset that follows it, so Discard during the reset
@@ -23,6 +24,7 @@ import threading
 import time
 import tkinter as tk
 
+from estop import add_estop_button
 from screenshot import add_screenshot_button
 from drop_panel import DropController, add_drop_section, get_controller
 
@@ -66,6 +68,7 @@ def _run_panel(state: PanelState, title: str, drop: DropController | None) -> No
     root.attributes("-topmost", True)
     root.resizable(False, False)
     root.protocol("WM_DELETE_WINDOW", root.iconify)  # closing the panel must not stop recording
+    add_estop_button(root)
 
     phase_label = tk.Label(root, font=("Sans", 16, "bold"))
     phase_label.pack(padx=16, pady=(12, 0), anchor="w")

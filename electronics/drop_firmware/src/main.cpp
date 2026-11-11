@@ -5,17 +5,13 @@
 //   OPEN_HOLD  open smoothly and stay open
 //   CLOSE      close smoothly and stay closed
 //   STOP       freeze the servos where they are now
-//   RESET_OVERLOAD  after an overload: clear the flag, close smoothly, resume
 //   ZERO       calibrate the current sensor: open, wait DROP_OPEN_MS, close, let the
-//              current settle, then measure the zero with the doors closed. Also
-//              clears an overload flag (the baseline it was judged against is gone).
-//   READ       "R I=<mA> MAX=<mA|-> OVL=<0|1> SENS=<0|1> CAL=<0|1> ZERO=<mV> S=<state> FR=<deg> ..."
-//                I    filtered servo current
-//                MAX  current that triggers an overload right now; "-" while
-//                     detection is off (held open, stopped, during OPEN, overloaded)
-//                OVL  1 while the overload flag is set
+//              current settle, then measure the zero with the doors closed.
+//   READ       "R I=<mA> SENS=<0|1> CAL=<0|1> ZERO=<mV> S=<state> FR=<deg> ..."
+//                I    servo current, ~250 ms average (informational only; it also
+//                     senses the rest of the system on the same supply)
 //                SENS 0 while the current sensor is faulty (see below)
-//                CAL  1 while a ZERO cycle runs (overload detection is off)
+//                CAL  1 while a ZERO cycle runs
 //                ZERO the zero in use, in mV at the ADC pin
 //                S    OPEN, CLOSED, OPENING, CLOSING, STOPPED, PARTIAL or OFF
 // Other commands reply "OK <command>" or "ERR <reason>". Nothing else is sent,
@@ -24,33 +20,23 @@
 // Built with DEBUG_COMMANDS=1 (env esp32c3_supermini_debug) it also accepts the
 // tuning commands: "<FR|FL|BR|BL|LEFT|RIGHT|ALL> <angle>" and OFF (servos limp).
 //
-// Moves are eased ramps at SERVO_SPEED_DEG_PER_S, except the opening on an
-// overload, which jumps at the servos' full speed. Servos moved by one command start and
-// finish together.
+// Moves are eased ramps at SERVO_SPEED_DEG_PER_S. Servos moved by one command
+// start and finish together.
 //
 // Current: the ADC samples GPIO3 by DMA at the C3's maximum rate. Every
-// READING_SAMPLES samples (~2 ms) become one reading, and the filtered current
-// is the mean of the last FILTER_WINDOW readings (~20 ms, one servo PWM period,
-// so the servos' 50 Hz current pulses average out).
+// READING_SAMPLES samples (~2 ms) become one reading. READ reports the mean of the last
+// ~250 ms (10 mA steps) minus a slowly tracked baseline drift (see driftA). The current is
+// only informational: there is no overload detection (the sensor sees the whole supply, and
+// its baseline wanders by ~0.1 A, more than the loads worth detecting).
 //
 // Sensor check: the zero measured at boot must be plausible (ZERO_MIN_MV ..
 // ZERO_MAX_MV) and steady, else it is measured again (up to
 // ZERO_BOOT_TIMEOUT_MS, before the servos attach). A filtered current beyond
 // SENSOR_FAULT_A (more than the XL4015 can deliver) for SENSOR_FAULT_MS also
-// counts as a fault. While faulty, overload detection is off, READ says
+// counts as a fault. While faulty READ says
 // SENS=0, and the zero is measured again every ZERO_RETRY_MS while no servo
 // moves (with the servos holding, so it may include their small holding
 // current).
-//
-// Overload: if the filtered current stays above the limit for
-// OVERLOAD_CONFIRM_MS, the doors open at full speed and the overload flag is
-// set (OVL=1 in READ). They stay open and the firmware moves no servo and
-// refuses every command except READ and RESET_OVERLOAD until RESET_OVERLOAD
-// arrives; that clears the flag, closes the doors smoothly and goes back to
-// normal. If the cause is still there it triggers again. The limit is
-// OVERLOAD_HOLD_A while the servos are still and OVERLOAD_MOVING_A while they
-// move or settle. Detection is off while the doors are held open, stopped,
-// tuned by hand or during an OPEN (drop) cycle.
 //
 // Safety:
 //   - The first PWM a servo gets is its close angle (or, after a reset that
@@ -168,9 +154,8 @@ bool anyServoAttached() {
 }
 
 // Moves the servos that have a non-NAN target; they all take the time the
-// longest move needs, so they finish together. fast skips the ramp: the
-// servos get the target at once and move at their own full speed.
-void moveServos(const float targets[], bool fast = false) {
+// longest move needs, so they finish together.
+void moveServos(const float targets[]) {
   float maxDelta = 0;
   for (size_t i = 0; i < SERVO_COUNT; i++) {
     if (!isnan(targets[i])) maxDelta = max(maxDelta, fabsf(targets[i] - servos[i].pos));
@@ -184,25 +169,16 @@ void moveServos(const float targets[], bool fast = false) {
     s.moveFrom = s.pos;
     s.moveTo = targets[i];
     s.moveStartMs = now;
-    if (fast) {
-      // Write now instead of on the next update tick: every ms counts here.
-      s.pos = s.moveTo;
-      s.moveDurationMs = 0;
-      savedPos[i] = s.pos;
-      servoOutput(s);
-      lastMotionMs = now;
-    } else {
-      s.moveDurationMs = duration;
-    }
+    s.moveDurationMs = duration;
   }
 }
 
-void moveOpenClose(bool open, bool fast = false) {
+void moveOpenClose(bool open) {
   float targets[SERVO_COUNT];
   for (size_t i = 0; i < SERVO_COUNT; i++) {
     targets[i] = open ? servos[i].openAngle : servos[i].closeAngle;
   }
-  moveServos(targets, fast);
+  moveServos(targets);
 }
 
 void stopServos() {
@@ -232,11 +208,10 @@ void updateServos() {
 // ---- Modes and the drop sequence -------------------------------------------
 
 enum Mode {
-  MODE_AUTO,       // closed or closing; overload detection on
+  MODE_AUTO,       // closed or closing
   MODE_HOLD_OPEN,  // OPEN_HOLD
   MODE_STOPPED,    // STOP or OFF
   MODE_MANUAL,     // debug tuning commands
-  MODE_OVERLOAD,   // overload flag set: doors open, no motion until RESET_OVERLOAD
 };
 Mode mode = MODE_AUTO;
 
@@ -245,7 +220,7 @@ DropStage dropStage = DROP_IDLE;
 bool dropCalibrate = false;  // this sequence ends with a zero measurement
 uint32_t dropWaitStartMs = 0;
 const uint32_t DROP_OPEN_MS = 2000;
-const uint32_t ZERO_SETTLE_MS = 2000;  // after the close, for the servo current to settle
+const uint32_t ZERO_SETTLE_MS = 3500;  // after the close, for the servo current to settle
 
 void measureZeroAfterDrop();  // current sensor section
 
@@ -298,7 +273,10 @@ const adc1_channel_t CURRENT_CHANNEL = ADC1_CHANNEL_3;  // GPIO3
 const uint32_t ADC_SAMPLE_HZ = SOC_ADC_SAMPLE_FREQ_THRES_HIGH;  // 83333, the C3 maximum
 const uint32_t ADC_FRAME_BYTES = 256;  // 64 samples per DMA interrupt
 const uint32_t READING_SAMPLES = ADC_SAMPLE_HZ / 500;  // one reading per ~2 ms
-const int FILTER_WINDOW = 10;  // readings in the moving average (~20 ms)
+// Two moving averages of the 2 ms readings: FAST (~20 ms, one servo PWM period) for the
+// sensor fault check, SHOW (~250 ms) for READ.
+const int FAST_WINDOW = 10;
+const int SHOW_WINDOW = 125;
 // ACS712 OUT reaches GPIO3 through the R1 10k / R2 15k divider.
 const float DIVIDER_RATIO = 15.0f / (10.0f + 15.0f);
 // Sensitivity is 66 mV/A at VCC = 5V, i.e. 0.0132 * VCC per amp. At the
@@ -330,11 +308,35 @@ uint32_t lastZeroAttemptMs = 0;
 
 uint32_t readingSum = 0;
 uint32_t readingCount = 0;
-float window[FILTER_WINDOW];
-float windowSum = 0;
-int windowFill = 0;
-int windowIndex = 0;
-float currentAmps = 0;  // filtered
+template <int N>
+struct MovingAverage {
+  float buf[N];
+  float sum = 0;
+  int fill = 0, index = 0;
+  void add(float v) {
+    if (fill == N) sum -= buf[index];
+    else fill++;
+    buf[index] = v;
+    sum += v;
+    index = (index + 1) % N;
+  }
+  float mean() const { return fill ? sum / fill : 0; }
+  bool full() const { return fill == N; }
+  void clear() { sum = 0; fill = index = 0; }
+};
+MovingAverage<FAST_WINDOW> fastAvg;
+MovingAverage<SHOW_WINDOW> showAvg;
+float currentAmps = 0;  // fast average, raw: only for the sensor fault check
+
+// The sensor's baseline wanders by up to ~0.1 A with the servo state (measured: -15 mA before a
+// move, -120 mA with the doors held open, -55 mA a few seconds after closing). While the doors
+// are still and the current is near the baseline, driftA follows it slowly (within DRIFT_MAX_A
+// of the measured zero), so READ shows ~0 at rest.
+const float DRIFT_MAX_A = 0.08;
+const float DRIFT_WINDOW_A = 0.10;     // only follow while the reading is this close to driftA
+const float DRIFT_RATE = 0.0005;       // per 2 ms reading: time constant ~4 s
+const uint32_t DRIFT_QUIET_MS = 3000;  // doors still this long before tracking
+float driftA = 0;
 
 void adcStart() {
   adc_digi_init_config_t init = {};
@@ -400,7 +402,7 @@ void resetCurrentFilter();
 // Measures the zero for 250 ms (blocking). Keeps it and returns true only if it
 // is plausible and steady.
 bool calibrateCurrentZero() {
-  const uint32_t durationMs = 250;
+  const uint32_t durationMs = 600;
   const uint32_t blockMs = 10;
   uint64_t sum = 0;
   uint32_t count = 0;
@@ -438,13 +440,12 @@ bool calibrateCurrentZero() {
 
 void measureZeroAfterDrop() { sensorOk = calibrateCurrentZero(); }
 
-void checkOverload();
-
 void resetCurrentFilter() {
   readingSum = readingCount = 0;
-  windowSum = 0;
-  windowFill = windowIndex = 0;
+  fastAvg.clear();
+  showAvg.clear();
   currentAmps = 0;
+  driftA = 0;
   sensorHigh = false;
 }
 
@@ -465,6 +466,33 @@ void checkSensor() {
   }
 }
 
+#if DEBUG_COMMANDS
+// Temporary trace of the raw 2 ms readings (mA) for tuning.
+const int TRACE_MAX = 6000;
+int16_t traceBuf[TRACE_MAX];
+int traceLen = 0, traceSent = 0;
+bool traceCapturing = false;
+void traceDump() {
+  if (traceCapturing || traceSent >= traceLen || Serial.availableForWrite() < 200) return;
+  char buf[160];
+  int len = snprintf(buf, sizeof buf, "TR %d", traceSent);
+  for (int i = 0; i < 20 && traceSent < traceLen; i++) {
+    len += snprintf(buf + len, sizeof buf - len, " %d", traceBuf[traceSent++]);
+  }
+  len += snprintf(buf + len, sizeof buf - len, "\n");
+  Serial.write((const uint8_t *)buf, len);
+  if (traceSent >= traceLen) Serial.write((const uint8_t *)"TREND\n", 6);
+}
+#endif
+
+void trackDrift() {
+  if (!sensorOk || mode != MODE_AUTO || dropStage != DROP_IDLE || !showAvg.full()) return;
+  if (anyServoMoving() || millis() - lastMotionMs < DRIFT_QUIET_MS) return;
+  float error = showAvg.mean() - driftA;
+  if (fabsf(error) > DRIFT_WINDOW_A) return;
+  driftA = constrain(driftA + error * DRIFT_RATE, -DRIFT_MAX_A, DRIFT_MAX_A);
+}
+
 void pollCurrent() {
   drainAdc([](uint16_t raw) {
     readingSum += raw;
@@ -472,60 +500,20 @@ void pollCurrent() {
     float reading = mvToAmps(rawToMv((float)readingSum / readingCount));
     readingSum = 0;
     readingCount = 0;
+#if DEBUG_COMMANDS
+    if (traceCapturing) {
+      traceBuf[traceLen++] = (int16_t)lroundf(reading * 1000);
+      if (traceLen >= TRACE_MAX) traceCapturing = false;
+    }
+#endif
 
-    if (windowFill == FILTER_WINDOW) windowSum -= window[windowIndex];
-    else windowFill++;
-    window[windowIndex] = reading;
-    windowSum += reading;
-    windowIndex = (windowIndex + 1) % FILTER_WINDOW;
-    currentAmps = windowSum / windowFill;
+    fastAvg.add(reading);
+    showAvg.add(reading);
+    currentAmps = fastAvg.mean();
 
+    trackDrift();
     checkSensor();
-    checkOverload();
   });
-}
-
-// ---- Overload --------------------------------------------------------------
-
-// Measured: empty closed doors hold at ~0.01-0.05 A, loaded ones at 0.14-0.18 A;
-// moves draw up to ~0.5 A and the current settles ~1 s after a move ends.
-// Both limits are 1.5x the first values (0.10 / 0.70 A), which triggered falsely.
-const float OVERLOAD_HOLD_A = 0.15;
-const float OVERLOAD_MOVING_A = 1.05;
-const uint32_t OVERLOAD_SETTLE_MS = 1200;  // after a move, still use the moving limit
-const uint32_t OVERLOAD_CONFIRM_MS = 30;   // current must stay above the limit this long
-
-bool overloadHigh = false;
-uint32_t overloadSinceMs = 0;
-
-void latchOverload() {
-  mode = MODE_OVERLOAD;
-  cancelDrop();
-  moveOpenClose(true, true);
-}
-
-bool overloadArmed() {
-  return sensorOk && mode == MODE_AUTO && dropStage == DROP_IDLE && anyServoAttached();
-}
-
-float overloadLimit() {
-  bool settling = anyServoMoving() || millis() - lastMotionMs < OVERLOAD_SETTLE_MS;
-  return settling ? OVERLOAD_MOVING_A : OVERLOAD_HOLD_A;
-}
-
-void checkOverload() {
-  if (!overloadArmed() || currentAmps <= overloadLimit()) {
-    overloadHigh = false;
-    return;
-  }
-  uint32_t now = millis();
-  if (!overloadHigh) {
-    overloadHigh = true;
-    overloadSinceMs = now;
-  } else if (now - overloadSinceMs >= OVERLOAD_CONFIRM_MS) {
-    overloadHigh = false;
-    latchOverload();
-  }
 }
 
 // ---- READ ------------------------------------------------------------------
@@ -554,11 +542,9 @@ const char *doorState() {
 // One snprintf of integers and one write into the USB CDC buffer; the USB
 // peripheral sends it from there.
 void replyRead() {
-  char maxStr[8] = "-";
-  if (overloadArmed()) snprintf(maxStr, sizeof maxStr, "%d", (int)lroundf(overloadLimit() * 1000));
   char buf[128];
-  int len = snprintf(buf, sizeof buf, "R I=%d MAX=%s OVL=%d SENS=%d CAL=%d ZERO=%d S=%s",
-                     (int)lroundf(currentAmps * 1000), maxStr, mode == MODE_OVERLOAD, sensorOk,
+  int len = snprintf(buf, sizeof buf, "R I=%d SENS=%d CAL=%d ZERO=%d S=%s",
+                     (int)lroundf((showAvg.mean() - driftA) * 100) * 10, sensorOk,
                      dropCalibrate, (int)lroundf(currentZeroMv), doorState());
   for (Servo &s : servos) {
     len += snprintf(buf + len, sizeof buf - len, " %s=%d", s.id, (int)lroundf(s.pos));
@@ -644,17 +630,7 @@ void handleCommand(String line) {
     return;
   }
   if (cmd == "ZERO") {
-    startDrop(true);  // also leaves MODE_OVERLOAD: the baseline is being re-measured
-  } else if (cmd == "RESET_OVERLOAD") {
-    if (mode != MODE_OVERLOAD) {
-      Serial.println("ERR not overloaded");
-      return;
-    }
-    mode = MODE_AUTO;
-    moveOpenClose(false);  // smooth close; detection re-arms
-  } else if (mode == MODE_OVERLOAD) {
-    Serial.println("ERR overload: send RESET_OVERLOAD");
-    return;
+    startDrop(true);
   } else if (cmd == "OPEN") {
     startDrop();
   } else if (cmd == "OPEN_HOLD") {
@@ -670,6 +646,9 @@ void handleCommand(String line) {
     cancelDrop();
     stopServos();
 #if DEBUG_COMMANDS
+  } else if (cmd == "TRACE") {
+    traceLen = traceSent = 0;
+    traceCapturing = true;
   } else if (cmd == "OFF") {
     for (Servo &s : servos) servoDetach(s);
     mode = MODE_STOPPED;
@@ -756,6 +735,9 @@ void loop() {
     updateServos();
   }
   updateDrop();
+#if DEBUG_COMMANDS
+  traceDump();
+#endif
 
   // Sensor fault: measure the zero again while nothing moves.
   if (!sensorOk && !anyServoMoving() && millis() - lastZeroAttemptMs >= ZERO_RETRY_MS) {

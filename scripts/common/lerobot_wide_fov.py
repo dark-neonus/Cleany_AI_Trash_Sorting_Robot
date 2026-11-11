@@ -16,8 +16,9 @@ Follower servo motion limits can be set with SERVO_ACCELERATION and
 SERVO_MAX_VELOCITY_DEG, and replay playback speed with REPLAY_SPEED (see below).
 Servo torque is switched on one servo at a time, TORQUE_STAGGER_S apart (default 0.15).
 Cameras are opened while the imports run (camera_preopen.py).
-The trash drop panel (drop_panel.py) is shown for every command, and on a drop overload the
-follower is stopped and released (arm_overload_guard.py); DROP_PANEL=false turns both off.
+Every command gets a red emergency stop button (estop.py) that releases the follower's torque
+(arm_estop.py). The trash drop panel (drop_panel.py) is shown too; DROP_PANEL=false turns only
+the drop controls off.
 """
 
 import importlib
@@ -228,10 +229,9 @@ if __name__ == "__main__":
     if command == "replay" and REPLAY_SPEED is not None:
         _slow_down_replay(module)
     drop_enabled = os.environ.get("DROP_PANEL", "true") != "false"
-    if drop_enabled:
-        import arm_overload_guard
+    import arm_estop
 
-        arm_overload_guard.install()  # stop the follower when the trash drop reports an overload
+    arm_estop.install()  # the red emergency stop button releases the follower's torque
     # Control panel window with countdown and End/Discard/Stop buttons (see record_panel.py).
     if command == "record" and os.environ.get("RECORD_PANEL", "true") != "false":
         import record_panel
@@ -242,4 +242,8 @@ if __name__ == "__main__":
         import drop_panel
 
         drop_panel.start_drop_panel()
+    else:
+        import estop
+
+        estop.start_estop_window()
     module.main()

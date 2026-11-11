@@ -51,6 +51,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # (SERVO_* env vars) and staggered torque-on, exactly as for teleop, recording and run_policy.sh.
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 import lerobot_wide_fov  # noqa: E402,F401
+import arm_estop  # noqa: E402
+import estop  # noqa: E402
+
+arm_estop.install()  # the red emergency stop button releases the follower's torque
+estop.start_estop_window()
 
 CLASSES = ("metal", "plastic")
 # Interiors of the left (metal) and right (plastic) bins in the 640x480 front image of the
