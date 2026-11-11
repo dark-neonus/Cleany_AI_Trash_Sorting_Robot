@@ -12,7 +12,7 @@ cd "$PROJECT_ROOT"
 source "$PROJECT_ROOT/scripts/config/hardware.sh"
 require_venv
 require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
-configure_cameras
+configure_cameras_async
 
 echo "Starting teleoperation (auto-accepting calibration)..."
 

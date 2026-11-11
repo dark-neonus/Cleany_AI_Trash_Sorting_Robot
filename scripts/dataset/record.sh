@@ -38,7 +38,7 @@ RESET_TIME_S="${RESET_TIME_S:-10}"
 require_venv
 require_devices FOLLOWER_PORT LEADER_PORT FRONT_CAMERA WRIST_CAMERA
 require_video_encoder
-configure_cameras
+configure_cameras_async
 
 # Keep data/ out of git without touching the root .gitignore
 mkdir -p "$PROJECT_ROOT/data"

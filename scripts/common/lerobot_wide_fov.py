@@ -14,7 +14,8 @@ Cameras not listed are captured as usual.
 
 Follower servo motion limits can be set with SERVO_ACCELERATION and
 SERVO_MAX_VELOCITY_DEG, and replay playback speed with REPLAY_SPEED (see below).
-Servo torque is switched on one servo at a time, TORQUE_STAGGER_S apart (default 0.5).
+Servo torque is switched on one servo at a time, TORQUE_STAGGER_S apart (default 0.15).
+Cameras are opened while the imports run (camera_preopen.py).
 The trash drop panel (drop_panel.py) is shown for every command, and on a drop overload the
 follower is stopped and released (arm_overload_guard.py); DROP_PANEL=false turns both off.
 """
@@ -24,18 +25,26 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
-import cv2
-
-import screenshot
-from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
-from lerobot.motors.feetech.feetech import FeetechMotorsBus
-from lerobot.robots.so_follower.so_follower import SOFollower
+import camera_preopen
 
 CAPTURE_MODES = {
     os.path.realpath(path): tuple(size)
     for path, size in json.loads(os.environ.get("CAMERA_CAPTURE_MODES", "{}")).items()
 }
+
+# Start opening the cameras now: the imports below take ~4.5 s, about as long as the front
+# camera needs to deliver its first frame (see camera_preopen.py).
+if __name__ == "__main__":
+    camera_preopen.start(sys.argv[2:], CAPTURE_MODES)
+
+import cv2  # noqa: E402
+
+import screenshot  # noqa: E402
+from lerobot.cameras.opencv.camera_opencv import OpenCVCamera  # noqa: E402
+from lerobot.motors.feetech.feetech import FeetechMotorsBus  # noqa: E402
+from lerobot.robots.so_follower.so_follower import SOFollower  # noqa: E402
 
 
 def _capture_mode(camera: OpenCVCamera) -> tuple[int, int] | None:
@@ -48,13 +57,17 @@ _original_read_from_hardware = OpenCVCamera._read_from_hardware
 
 def _validate_width_and_height(self: OpenCVCamera) -> None:
     mode = _capture_mode(self)
-    if mode is None:
-        return _original_validate_width_and_height(self)
-
     # Set the hardware to the full-FOV mode, then restore the output size lerobot expects.
     output_size = (self.capture_width, self.capture_height)
-    self.capture_width, self.capture_height = mode
+    if mode is not None:
+        self.capture_width, self.capture_height = mode
     try:
+        # A pre-opened camera already streams at this size; writing it again restarts the stream.
+        if getattr(self, "_preopened", False) and (self.capture_width, self.capture_height) == (
+            int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_WIDTH))),
+            int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_HEIGHT))),
+        ):
+            return
         _original_validate_width_and_height(self)
     finally:
         self.capture_width, self.capture_height = output_size
@@ -70,8 +83,35 @@ def _read_from_hardware(self: OpenCVCamera):
     return frame
 
 
+_original_camera_connect = OpenCVCamera.connect
+
+
+def _camera_connect(self: OpenCVCamera, warmup: bool = True) -> None:
+    """OpenCVCamera.connect, using the camera camera_preopen.py already opened if there is one."""
+    capture = camera_preopen.take(str(self.index_or_path))
+    if capture is None:
+        camera_preopen.wait_for_camera_config()
+        return _original_camera_connect(self, warmup)
+    cv2.setNumThreads(1)  # as lerobot's connect
+    self.videocapture = capture
+    self._preopened = True
+    try:
+        self._configure_capture_settings()
+        self._start_read_thread()
+        if warmup and self.warmup_s > 0:
+            self.async_read(timeout_ms=self.warmup_s * 1000)
+    except BaseException:
+        self._cleanup_resources()
+        self._reset_connection_settings()
+        raise
+    finally:
+        self._preopened = False
+    print(f"{self} connected (pre-opened).")
+
+
 OpenCVCamera._validate_width_and_height = _validate_width_and_height
 OpenCVCamera._read_from_hardware = _read_from_hardware
+OpenCVCamera.connect = _camera_connect
 
 
 # Follower servo motion limits, applied after lerobot configures the motors (which sets
@@ -100,11 +140,53 @@ if SERVO_ACCELERATION is not None or SERVO_MAX_VELOCITY_DEG is not None:
     SOFollower.configure = _follower_configure
 
 
+# Connect the follower's cameras in parallel and without the fixed warmup: lerobot connects
+# them one after another and each one keeps reading frames for its whole warmup_s. Exposure,
+# gain and white balance are fixed, so a camera is ready as soon as its first frame arrives
+# (the front camera needs ~2.5 s for that). CAMERA_FIRST_FRAME_TIMEOUT_S bounds the wait.
+FIRST_FRAME_TIMEOUT_S = float(os.environ.get("CAMERA_FIRST_FRAME_TIMEOUT_S", "10"))
+_original_follower_connect = SOFollower.connect
+
+
+def _connect_camera(cam: OpenCVCamera) -> None:
+    cam.connect(warmup=False)
+    try:
+        cam.async_read(timeout_ms=FIRST_FRAME_TIMEOUT_S * 1000)
+    except BaseException:
+        cam.disconnect()
+        raise
+
+
+def _follower_connect(self: SOFollower, calibrate: bool = True) -> None:
+    # The motors are configured (staggered torque, ~1 s) while the cameras start, not after.
+    cameras = list(self.cameras.values())
+    with ThreadPoolExecutor(max_workers=max(len(cameras), 1)) as pool:
+        futures = [pool.submit(_connect_camera, cam) for cam in cameras]
+        configured = False
+        try:
+            self.bus.connect()
+            if not self.is_calibrated and calibrate:
+                self.calibrate()
+            self.configure()
+            configured = True
+        finally:
+            try:
+                for future in futures:  # camera errors surface here
+                    future.result()
+            except BaseException:
+                if configured:  # do not leave the arm stiff after a failed start
+                    self.bus.disable_torque()
+                raise
+    print(f"{self} connected.")
+
+
+SOFollower.connect = _follower_connect
+
 # Soft start: lerobot switches torque on for all servos back to back, so they all start
 # pulling current at once. That spike can make a servo miss its reply ("There is no status
 # packet") and abort the connect. Switch them on one at a time from servo 1 (base) to
 # servo 6 (gripper), TORQUE_STAGGER_S apart, and retry each write a couple of times.
-TORQUE_STAGGER_S = float(os.environ.get("TORQUE_STAGGER_S", "0.5"))
+TORQUE_STAGGER_S = float(os.environ.get("TORQUE_STAGGER_S", "0.15"))
 
 _original_enable_torque = FeetechMotorsBus.enable_torque
 

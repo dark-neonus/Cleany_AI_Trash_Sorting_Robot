@@ -69,7 +69,7 @@ if [ -z "$DEVICE" ]; then
 fi
 
 require_devices FOLLOWER_PORT FRONT_CAMERA WRIST_CAMERA
-configure_cameras
+configure_cameras_async
 
 STRATEGY_ARGS=(--strategy.type=base)  # runs the model, records nothing
 if [ "$RECORD" = true ]; then

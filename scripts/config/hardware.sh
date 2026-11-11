@@ -17,6 +17,8 @@ export CAMERA_CAPTURE_MODES="{
   \"$FRONT_CAMERA\": [800, 600]
 }"
 
+# warmup_s is how long each camera is read before use. Exposure, gain and white balance are
+# fixed (camera_settings.sh), so there is nothing to settle; it only has to deliver a frame.
 ROBOT_CAMERAS="{
   \"front\": {
     \"type\": \"opencv\",
@@ -148,6 +150,13 @@ configure_cameras() {
         v4l2-ctl -d "${!device}" -c "$(echo "${!controls}" | tr ',' '\n' | grep -E '^(auto_exposure|white_balance_automatic)=' | paste -sd,)"
         v4l2-ctl -d "${!device}" -c "${!controls}"
     done
+}
+
+# configure_cameras in the background (~0.7 s, mostly waking the C270), for scripts that start
+# lerobot_wide_fov.py right after: it waits for CAMERA_CONFIG_PID before opening a camera.
+configure_cameras_async() {
+    configure_cameras &
+    export CAMERA_CONFIG_PID=$!
 }
 
 # The C270 MJPG stream makes libjpeg print "Corrupt JPEG data: N extraneous bytes before
