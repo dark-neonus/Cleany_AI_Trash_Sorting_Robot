@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1610" width="1600" height="1610" font-family="Arial, 'Liberation Sans', 'Helvetica Neue', Helvetica, sans-serif">
+<title>Cleany sorting workflow</title>
+<desc>YOLO detects an item, a settle gate waits until it is still, DINOv2 plus a head classify it as metal, plastic or other. Other items go to the mixed bin through the door mechanism. Metal and plastic items are grasped by the ACT model and placed by hardcoded arm poses over their bin.</desc>
+<defs><marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11 Z" fill="#64748b"/></marker><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2f7"/></linearGradient></defs>
+<rect width="1600" height="1610" fill="url(#bg)"/>
+<text x="40" y="62" font-size="36" fill="#0f172a" font-weight="700" text-anchor="start">Cleany sorting workflow</text>
+<text x="40" y="95" font-size="18" fill="#64748b" font-weight="400" text-anchor="start">A model decides what the item is, fixed math moves the arm, and a learned policy only does the grasp.</text>
+<rect x="40" y="125" width="1520" height="225" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="78" cy="159" r="17" fill="#0f172a"/>
+<text x="78" y="165" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<text x="106" y="166" font-size="22" fill="#0f172a" font-weight="700" text-anchor="start">SEE</text>
+<text x="166" y="166" font-size="18" fill="#64748b" font-weight="400" text-anchor="start">what is on the tray?</text>
+<rect x="70" y="199" width="250" height="130" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="70" y="195" width="250" height="130" rx="16" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2.5"/>
+<rect x="70" y="195" width="8" height="130" rx="4" fill="#7c3aed"/>
+<text x="96" y="222" font-size="12" fill="#7c3aed" font-weight="700" text-anchor="start">MODEL</text>
+<text x="96" y="252" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">YOLO</text>
+<text x="96" y="278" font-size="15" fill="#334155" font-weight="400" text-anchor="start">top camera, 5-10 Hz</text>
+<text x="96" y="299" font-size="15" fill="#334155" font-weight="400" text-anchor="start">item detected?</text>
+<circle cx="296" cy="218" r="12" fill="#7c3aed"/>
+<text x="296" y="223" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<path d="M 324 260.0 H 366" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="372" y="199" width="250" height="130" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="372" y="195" width="250" height="130" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="372" y="195" width="8" height="130" rx="4" fill="#2563eb"/>
+<text x="398" y="222" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="398" y="252" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Settle gate</text>
+<text x="398" y="278" font-size="15" fill="#334155" font-weight="400" text-anchor="start">box still and confident</text>
+<text x="398" y="299" font-size="15" fill="#334155" font-weight="400" text-anchor="start">for 2 seconds</text>
+<circle cx="598" cy="218" r="12" fill="#2563eb"/>
+<text x="598" y="223" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<path d="M 626 260.0 H 668" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="674" y="199" width="250" height="130" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="674" y="195" width="250" height="130" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="674" y="195" width="8" height="130" rx="4" fill="#2563eb"/>
+<text x="700" y="222" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="700" y="252" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Crop</text>
+<text x="700" y="278" font-size="15" fill="#334155" font-weight="400" text-anchor="start">cut the box out of each</text>
+<text x="700" y="299" font-size="15" fill="#334155" font-weight="400" text-anchor="start">settled frame</text>
+<circle cx="900" cy="218" r="12" fill="#2563eb"/>
+<text x="900" y="223" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<path d="M 928 260.0 H 970" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="976" y="199" width="250" height="130" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="976" y="195" width="250" height="130" rx="16" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2.5"/>
+<rect x="976" y="195" width="8" height="130" rx="4" fill="#7c3aed"/>
+<text x="1002" y="222" font-size="12" fill="#7c3aed" font-weight="700" text-anchor="start">MODEL</text>
+<text x="1002" y="252" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">DINOv2 embedding</text>
+<text x="1002" y="278" font-size="15" fill="#334155" font-weight="400" text-anchor="start">frozen backbone, averaged</text>
+<text x="1002" y="299" font-size="15" fill="#334155" font-weight="400" text-anchor="start">over the settled frames</text>
+<circle cx="1202" cy="218" r="12" fill="#7c3aed"/>
+<text x="1202" y="223" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
+<path d="M 1230 260.0 H 1272" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="1278" y="199" width="250" height="130" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="1278" y="195" width="250" height="130" rx="16" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2.5"/>
+<rect x="1278" y="195" width="8" height="130" rx="4" fill="#7c3aed"/>
+<text x="1304" y="222" font-size="12" fill="#7c3aed" font-weight="700" text-anchor="start">MODEL</text>
+<text x="1304" y="252" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Head + distance</text>
+<text x="1304" y="278" font-size="15" fill="#334155" font-weight="400" text-anchor="start">trained head, far from known</text>
+<text x="1304" y="299" font-size="15" fill="#334155" font-weight="400" text-anchor="start">examples means other</text>
+<circle cx="1504" cy="218" r="12" fill="#7c3aed"/>
+<text x="1504" y="223" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
+<rect x="90" y="181" width="132" height="28" rx="14" fill="#0f172a"/>
+<text x="156" y="200" font-size="13" fill="#ffffff" font-weight="700" text-anchor="middle">LOOP START</text>
+<path d="M 1403.0 329 V 392 H 800 V 420" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<polygon points="800,430 975,510 800,590 625,510" fill="#0f172a" opacity="0.07"/>
+<polygon points="800,425 975,505 800,585 625,505" fill="#fef3c7" stroke="#d97706" stroke-width="3" stroke-linejoin="round"/>
+<text x="800" y="505" font-size="22" fill="#0f172a" font-weight="700" text-anchor="middle">Class?</text>
+<text x="800" y="529" font-size="14" fill="#78350f" font-weight="400" text-anchor="middle">metal, plastic or other</text>
+<rect x="40" y="640" width="400" height="445" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+<rect x="40" y="640" width="400" height="54" rx="22" fill="#b45309"/>
+<rect x="40" y="670" width="400" height="24" fill="#b45309"/>
+<text x="64" y="675" font-size="20" fill="#ffffff" font-weight="700" text-anchor="start">OTHER</text>
+<text x="150" y="675" font-size="16" fill="#fde68a" font-weight="400" text-anchor="start">goes to the mixed bin</text>
+<rect x="480" y="640" width="1080" height="915" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+<rect x="480" y="640" width="1080" height="54" rx="22" fill="#0f172a"/>
+<rect x="480" y="670" width="1080" height="24" fill="#0f172a"/>
+<text x="504" y="675" font-size="20" fill="#ffffff" font-weight="700" text-anchor="start">METAL or PLASTIC</text>
+<text x="704" y="675" font-size="16" fill="#cbd5e1" font-weight="400" text-anchor="start">grasped by the arm, placed over its own bin</text>
+<path d="M 623 505 H 240 V 636" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="422.3" y="490" width="65.5" height="30" rx="15" fill="#b45309"/>
+<text x="455" y="510.4" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">other</text>
+<path d="M 977 505 H 1030 V 636" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="961.0" y="570" width="138.0" height="30" rx="15" fill="#0f172a"/>
+<text x="1030" y="590.4" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">metal or plastic</text>
+<rect x="64" y="722" width="352" height="258" rx="18" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-dasharray="9 7"/>
+<rect x="112.0" y="707" width="255.9" height="30" rx="15" fill="#0d9488"/>
+<text x="240" y="727.04" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">one OPEN command to the ESP32</text>
+<rect x="84" y="756" width="312" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="84" y="752" width="312" height="92" rx="16" fill="#ccfbf1" stroke="#0d9488" stroke-width="2.5"/>
+<rect x="84" y="752" width="8" height="92" rx="4" fill="#0d9488"/>
+<text x="110" y="779" font-size="12" fill="#0d9488" font-weight="700" text-anchor="start">ESP32</text>
+<text x="110" y="809" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Open doors</text>
+<text x="110" y="835" font-size="15" fill="#334155" font-weight="400" text-anchor="start">trash drops into the mixed bin</text>
+<rect x="84" y="872" width="312" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="84" y="868" width="312" height="92" rx="16" fill="#ccfbf1" stroke="#0d9488" stroke-width="2.5"/>
+<rect x="84" y="868" width="8" height="92" rx="4" fill="#0d9488"/>
+<text x="110" y="895" font-size="12" fill="#0d9488" font-weight="700" text-anchor="start">ESP32</text>
+<text x="110" y="925" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Close doors</text>
+<text x="110" y="951" font-size="15" fill="#334155" font-weight="400" text-anchor="start">doors return to closed</text>
+<path d="M 240 848 V 864" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 240 982 V 1004" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="90.0" y="1006" width="300" height="48" rx="24" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5" stroke-dasharray="2 0"/>
+<path d="M 131.0 1023 A 10 10 0 1 0 132.0 1033" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+<path d="M 136.0 1016 L 131.0 1024 L 140.0 1026 Z" fill="#0f172a"/>
+<text x="254" y="1036" font-size="18" fill="#0f172a" font-weight="700" text-anchor="middle">Back to loop start</text>
+<rect x="520" y="729" width="300" height="120" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="520" y="725" width="300" height="120" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="520" y="725" width="8" height="120" rx="4" fill="#2563eb"/>
+<text x="546" y="752" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="546" y="782" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go to ready position</text>
+<text x="546" y="808" font-size="15" fill="#334155" font-weight="400" text-anchor="start">hardcoded pose above the</text>
+<text x="546" y="829" font-size="15" fill="#334155" font-weight="400" text-anchor="start">tray, camera looking down</text>
+<circle cx="796" cy="748" r="12" fill="#2563eb"/>
+<text x="796" y="753" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<rect x="865" y="729" width="300" height="120" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="865" y="725" width="300" height="120" rx="16" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2.5"/>
+<rect x="865" y="725" width="8" height="120" rx="4" fill="#7c3aed"/>
+<text x="891" y="752" font-size="12" fill="#7c3aed" font-weight="700" text-anchor="start">MODEL</text>
+<text x="891" y="782" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">ACT takes control</text>
+<text x="891" y="808" font-size="15" fill="#334155" font-weight="400" text-anchor="start">learned to lower, grasp</text>
+<text x="891" y="829" font-size="15" fill="#334155" font-weight="400" text-anchor="start">and lift the item</text>
+<circle cx="1141" cy="748" r="12" fill="#7c3aed"/>
+<text x="1141" y="753" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<rect x="1210" y="729" width="300" height="120" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="1210" y="725" width="300" height="120" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="1210" y="725" width="8" height="120" rx="4" fill="#2563eb"/>
+<text x="1236" y="752" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="1236" y="782" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go to ready position</text>
+<text x="1236" y="808" font-size="15" fill="#334155" font-weight="400" text-anchor="start">hardcoded pose, item</text>
+<text x="1236" y="829" font-size="15" fill="#334155" font-weight="400" text-anchor="start">held in the closed gripper</text>
+<circle cx="1486" cy="748" r="12" fill="#2563eb"/>
+<text x="1486" y="753" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<path d="M 824 785.0 H 859" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 1169 785.0 H 1204" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 1360.0 849 V 878 H 1030 V 892" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<polygon points="1030,902 1190,970 1030,1038 870,970" fill="#0f172a" opacity="0.07"/>
+<polygon points="1030,897 1190,965 1030,1033 870,965" fill="#fef3c7" stroke="#d97706" stroke-width="3" stroke-linejoin="round"/>
+<text x="1030" y="972" font-size="22" fill="#0f172a" font-weight="700" text-anchor="middle">Which class?</text>
+<path d="M 868 965 H 790 V 1066" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="756.4" y="1005" width="67.2" height="30" rx="15" fill="#475569"/>
+<text x="790" y="1025.4" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">metal</text>
+<path d="M 1192 965 H 1290 V 1066" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="1252.2" y="1005" width="75.5" height="30" rx="15" fill="#16a34a"/>
+<text x="1290" y="1025.4" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">plastic</text>
+<rect x="739.4" y="1075" width="101.3" height="30" rx="15" fill="#475569"/>
+<text x="790" y="1096.12" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">METAL</text>
+<rect x="620.0" y="1144" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="620.0" y="1140" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="620.0" y="1140" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="646.0" y="1167" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="646.0" y="1197" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go over the metal bin</text>
+<text x="646.0" y="1223" font-size="15" fill="#334155" font-weight="400" text-anchor="start">hardcoded pose</text>
+<circle cx="936.0" cy="1163" r="12" fill="#2563eb"/>
+<text x="936.0" y="1168" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<rect x="620.0" y="1266" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="620.0" y="1262" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="620.0" y="1262" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="646.0" y="1289" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="646.0" y="1319" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Open gripper</text>
+<text x="646.0" y="1345" font-size="15" fill="#334155" font-weight="400" text-anchor="start">wait 1 second, item drops</text>
+<circle cx="936.0" cy="1285" r="12" fill="#2563eb"/>
+<text x="936.0" y="1290" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<rect x="620.0" y="1388" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="620.0" y="1384" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="620.0" y="1384" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="646.0" y="1411" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="646.0" y="1441" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go to home position</text>
+<text x="646.0" y="1467" font-size="15" fill="#334155" font-weight="400" text-anchor="start">arm back at its start pose</text>
+<circle cx="936.0" cy="1407" r="12" fill="#2563eb"/>
+<text x="936.0" y="1412" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<path d="M 790 1109 V 1136" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 790 1235 V 1256" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 790 1357 V 1378" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 790 1479 V 1494" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="640.0" y="1500" width="300" height="48" rx="24" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5" stroke-dasharray="2 0"/>
+<path d="M 681.0 1517 A 10 10 0 1 0 682.0 1527" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+<path d="M 686.0 1510 L 681.0 1518 L 690.0 1520 Z" fill="#0f172a"/>
+<text x="804" y="1530" font-size="18" fill="#0f172a" font-weight="700" text-anchor="middle">Back to loop start</text>
+<rect x="1231.6" y="1075" width="116.7" height="30" rx="15" fill="#16a34a"/>
+<text x="1290" y="1096.12" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">PLASTIC</text>
+<rect x="1120.0" y="1144" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="1120.0" y="1140" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="1120.0" y="1140" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="1146.0" y="1167" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="1146.0" y="1197" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go over the plastic bin</text>
+<text x="1146.0" y="1223" font-size="15" fill="#334155" font-weight="400" text-anchor="start">hardcoded pose</text>
+<circle cx="1436.0" cy="1163" r="12" fill="#2563eb"/>
+<text x="1436.0" y="1168" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<rect x="1120.0" y="1266" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="1120.0" y="1262" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="1120.0" y="1262" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="1146.0" y="1289" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="1146.0" y="1319" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Open gripper</text>
+<text x="1146.0" y="1345" font-size="15" fill="#334155" font-weight="400" text-anchor="start">wait 1 second, item drops</text>
+<circle cx="1436.0" cy="1285" r="12" fill="#2563eb"/>
+<text x="1436.0" y="1290" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<rect x="1120.0" y="1388" width="340" height="92" rx="16" fill="#0f172a" opacity="0.07"/>
+<rect x="1120.0" y="1384" width="340" height="92" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<rect x="1120.0" y="1384" width="8" height="92" rx="4" fill="#2563eb"/>
+<text x="1146.0" y="1411" font-size="12" fill="#2563eb" font-weight="700" text-anchor="start">FIXED MATH</text>
+<text x="1146.0" y="1441" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Go to home position</text>
+<text x="1146.0" y="1467" font-size="15" fill="#334155" font-weight="400" text-anchor="start">arm back at its start pose</text>
+<circle cx="1436.0" cy="1407" r="12" fill="#2563eb"/>
+<text x="1436.0" y="1412" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<path d="M 1290 1109 V 1136" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 1290 1235 V 1256" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 1290 1357 V 1378" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M 1290 1479 V 1494" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="1140.0" y="1500" width="300" height="48" rx="24" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5" stroke-dasharray="2 0"/>
+<path d="M 1181.0 1517 A 10 10 0 1 0 1182.0 1527" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+<path d="M 1186.0 1510 L 1181.0 1518 L 1190.0 1520 Z" fill="#0f172a"/>
+<text x="1304" y="1530" font-size="18" fill="#0f172a" font-weight="700" text-anchor="middle">Back to loop start</text>
+<rect x="40" y="1130" width="400" height="425" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+<text x="66" y="1174" font-size="20" fill="#0f172a" font-weight="700" text-anchor="start">Who does the work</text>
+<rect x="66" y="1202" width="46" height="40" rx="10" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2.5"/>
+<text x="130" y="1220" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Model</text>
+<text x="130" y="1239" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">learned from data</text>
+<rect x="66" y="1256" width="46" height="40" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+<text x="130" y="1274" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Fixed math</text>
+<text x="130" y="1293" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">hardcoded poses and logic</text>
+<rect x="66" y="1310" width="46" height="40" rx="10" fill="#ccfbf1" stroke="#0d9488" stroke-width="2.5"/>
+<text x="130" y="1328" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">ESP32</text>
+<text x="130" y="1347" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">door mechanism</text>
+<polygon points="89,1362 114,1384 89,1406 64,1384" fill="#fef3c7" stroke="#d97706" stroke-width="2.5"/>
+<text x="130" y="1382" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Decision</text>
+<text x="130" y="1401" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">one outcome per branch</text>
+<rect x="64" y="1420" width="50" height="36" rx="18" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5"/>
+<text x="130" y="1436" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Back to loop start</text>
+<text x="130" y="1455" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">arm home, doors closed</text>
+<line x1="66" y1="1472" x2="414" y2="1472" stroke="#e2e8f0" stroke-width="2"/>
+<text x="66" y="1502" font-size="14" fill="#64748b" font-weight="400" text-anchor="start">Numbers show the order inside each group.</text>
+</svg>
