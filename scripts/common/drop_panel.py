@@ -226,6 +226,8 @@ def run_drop_panel(controller: DropController, title: str = "Cleany trash drop")
     root.resizable(False, False)
     root.protocol("WM_DELETE_WINDOW", root.iconify)  # closing it must not stop the robot
     tk.Frame(root, height=8).pack()
+    from screenshot import add_screenshot_button  # lazy: only the camera runs have frames
+    add_screenshot_button(root)
     add_drop_section(root, controller)
     root.mainloop()
 

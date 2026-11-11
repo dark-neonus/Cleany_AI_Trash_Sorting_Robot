@@ -27,6 +27,7 @@ import time
 
 import cv2
 
+import screenshot
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
 from lerobot.motors.feetech.feetech import FeetechMotorsBus
 from lerobot.robots.so_follower.so_follower import SOFollower
@@ -61,12 +62,11 @@ def _validate_width_and_height(self: OpenCVCamera) -> None:
 
 def _read_from_hardware(self: OpenCVCamera):
     frame = _original_read_from_hardware(self)
-    if _capture_mode(self) is None:
-        return frame
-
-    h, w = frame.shape[:2]
-    if (w, h) != (self.capture_width, self.capture_height):
-        frame = cv2.resize(frame, (self.capture_width, self.capture_height), interpolation=cv2.INTER_AREA)
+    if _capture_mode(self) is not None:
+        h, w = frame.shape[:2]
+        if (w, h) != (self.capture_width, self.capture_height):
+            frame = cv2.resize(frame, (self.capture_width, self.capture_height), interpolation=cv2.INTER_AREA)
+    screenshot.remember_frame(str(self.index_or_path), frame)  # for the panels' screenshot button
     return frame
 
 

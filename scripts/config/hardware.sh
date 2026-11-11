@@ -6,6 +6,7 @@ FOLLOWER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79031690-if00"
 LEADER_PORT="/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79034180-if00"
 FRONT_CAMERA="/dev/v4l/by-id/usb-046d_0825_A0006B50-video-index0"
 WRIST_CAMERA="/dev/v4l/by-id/usb-Alpha_Imaging_Tech._Corp._SEMIC_Camera-video-index0"
+export FRONT_CAMERA WRIST_CAMERA  # lets the screenshot button tell the cameras apart
 CALIB_DIR="$PROJECT_ROOT/calibration"
 
 # 640x480 is a center crop on the front camera. Capture it in its full-FOV 800x600 mode

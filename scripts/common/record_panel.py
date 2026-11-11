@@ -23,6 +23,7 @@ import threading
 import time
 import tkinter as tk
 
+from screenshot import add_screenshot_button
 from drop_panel import DropController, add_drop_section, get_controller
 
 from lerobot.utils.keyboard_input import apply_recording_control
@@ -95,6 +96,7 @@ def _run_panel(state: PanelState, title: str, drop: DropController | None) -> No
     stop_button.grid(row=1, column=1, padx=4, pady=4)
     tk.Label(root, text="Keys in the terminal: → start / end, ← discard, Esc stop",
              font=("Sans", 9), fg="#666666").pack(padx=16, pady=(0, 10))
+    add_screenshot_button(root)
     if drop is not None:
         add_drop_section(root, drop)
 
