@@ -17,6 +17,8 @@ settings are applied before a camera is opened.
 
 import json
 import os
+import re
+import subprocess
 import threading
 import time
 
@@ -46,6 +48,27 @@ def wait_for_camera_config() -> None:
         time.sleep(0.02)
 
 
+def reapply_controls(path: str) -> None:
+    """Set the fixed exposure/gain/white balance again now that the stream is running.
+
+    The C270 drops the exposure written before the stream starts (it reported 27 instead of
+    22 and kept an exposure far brighter than asked), while the same write on a running
+    stream takes effect. So configure_cameras (before opening) is not enough on its own.
+    Reads the values from config/camera_settings.sh; no file means auto mode, nothing to do.
+    """
+    settings = os.path.join(os.path.dirname(__file__), "..", "config", "camera_settings.sh")
+    try:
+        text = open(settings).read()
+    except OSError:
+        return
+    for name in ("FRONT", "WRIST"):
+        device = os.environ.get(f"{name}_CAMERA")
+        match = re.search(rf'^{name}_CAMERA_CONTROLS="([^"]*)"', text, re.MULTILINE)
+        if device and match and os.path.realpath(device) == os.path.realpath(path):
+            manual = ",".join(c for c in match.group(1).split(",") if not c.startswith(("auto_exposure=", "white_balance_automatic=")))
+            subprocess.run(["v4l2-ctl", "-d", device, "-c", manual], capture_output=True)
+
+
 def _cameras_arg(argv: list[str]) -> str | None:
     for i, arg in enumerate(argv):
         if arg.startswith("--robot.cameras="):
@@ -70,6 +93,7 @@ def _open(key: str, camera: dict, size: tuple[int, int]) -> None:
         ok, _ = cap.read()  # waits for the first frame
         if not ok:
             raise ConnectionError
+        reapply_controls(camera["index_or_path"])
     except Exception:
         cap.release()
         return

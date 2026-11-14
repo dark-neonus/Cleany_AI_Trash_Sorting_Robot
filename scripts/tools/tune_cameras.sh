@@ -27,8 +27,8 @@ FRONT=$(python "$SCRIPT_DIR/tune_cameras.py" "$FRONT_CAMERA" 800 600 2> >(filter
 # Wrist camera quirks:
 # - it reports gain 0 in auto mode, far too dark in manual; 64 is its brightest usable step
 #   (64 and 128 look the same, 255 is darker)
-# - its white balance is unreliable: auto sometimes settles on extreme colours, and manual
-#   blue/red is not monotonic and peaks at 3000 K, the most neutral value it reaches
+# - its manual white balance never reaches neutral (blue/red are not monotonic; 4000 K is
+#   yellow); 3000 K is the closest it gets, with a visible green tint
 echo "=== Wrist camera (640x360 capture) ==="
 WRIST=$(python "$SCRIPT_DIR/tune_cameras.py" "$WRIST_CAMERA" 640 360 --gain 64 --wb-temp 3000 \
     2> >(filter_jpeg_warnings))

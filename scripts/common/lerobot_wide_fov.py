@@ -92,7 +92,9 @@ def _camera_connect(self: OpenCVCamera, warmup: bool = True) -> None:
     capture = camera_preopen.take(str(self.index_or_path))
     if capture is None:
         camera_preopen.wait_for_camera_config()
-        return _original_camera_connect(self, warmup)
+        _original_camera_connect(self, warmup)
+        camera_preopen.reapply_controls(str(self.index_or_path))
+        return
     cv2.setNumThreads(1)  # as lerobot's connect
     self.videocapture = capture
     self._preopened = True
