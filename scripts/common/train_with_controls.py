@@ -26,6 +26,10 @@ from pathlib import Path
 
 from lerobot.scripts import lerobot_train
 
+# Our policy plugins (--policy.type=act_dino), registered by importing them.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "policies"))
+import lerobot_policy_act_dino  # noqa: E402,F401
+
 STOP_COMMANDS = {"exit", "stop"}
 INFO_FILE = "cleany_info.json"
 

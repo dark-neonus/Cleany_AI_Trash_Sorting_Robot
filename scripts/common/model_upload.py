@@ -45,6 +45,7 @@ ACT policy for the Cleany trash sorting robot (SO-101 arm).
 | | |
 | --- | --- |
 | Setup | `{repo_id.split("/")[-1].split("_act_")[0]}`: only valid for this physical setup |
+| Policy | `{train_config.get("policy", {}).get("type", "act")}` (`act_dino` needs scripts/policies/lerobot_policy_act_dino) |
 | Dataset | `{dataset.get("repo_id")}` |
 | Training step | {info["step"]} of {train_config.get("steps")} |
 | Last training step finished | {info["finished_at"].isoformat(timespec="minutes")} |

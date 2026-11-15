@@ -15,7 +15,8 @@ set -e
 # --resume continues a run from its last checkpoint (weights, optimizer, step counter) in the same
 # folder, with the settings it was started with; only STEPS (if set) and extra args change them.
 #
-# Env overrides: JOB_NAME, BATCH_SIZE, STEPS, SAVE_FREQ, AUGMENT=false (no image augmentation)
+# Env overrides: JOB_NAME, BATCH_SIZE, STEPS, SAVE_FREQ, AUGMENT=false (no image augmentation),
+#   POLICY=act_dino (ACT with a frozen DINO encoder instead of ResNet-18; scripts/train/train_act_dino.sh)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -26,6 +27,7 @@ source "$PROJECT_ROOT/scripts/config/datasets.sh"
 resolve_dataset "$1"
 shift
 require_venv
+POLICY="${POLICY:-act}"
 
 if [ "$1" = "--resume" ]; then
     shift
@@ -35,13 +37,13 @@ if [ "$1" = "--resume" ]; then
     else
         # Most recently modified run of this model that has a checkpoint
         RUN_DIR=""
-        for dir in $(ls -dt "$PROJECT_ROOT"/outputs/train/act_"${MODEL}"_* 2>/dev/null); do
+        for dir in $(ls -dt "$PROJECT_ROOT"/outputs/train/"${POLICY}"_"${MODEL}"_* 2>/dev/null); do
             if [ -e "$dir/checkpoints/last" ]; then RUN_DIR="$dir"; break; fi
         done
     fi
     CONFIG="$RUN_DIR/checkpoints/last/pretrained_model/train_config.json"
     if [ -z "$RUN_DIR" ] || [ ! -f "$CONFIG" ]; then
-        echo "Error: no checkpoint to resume (looked for ${RUN_DIR:-outputs/train/act_${MODEL}_*}/checkpoints/last)"
+        echo "Error: no checkpoint to resume (looked for ${RUN_DIR:-outputs/train/${POLICY}_${MODEL}_*}/checkpoints/last)"
         exit 1
     fi
     echo "Resuming $RUN_DIR from step $(readlink "$RUN_DIR/checkpoints/last" | xargs basename)"
@@ -50,7 +52,7 @@ if [ "$1" = "--resume" ]; then
         ${STEPS:+--steps="$STEPS"} "$@"
 fi
 
-JOB_NAME="${JOB_NAME:-act_${MODEL}_$(date +%Y%m%d_%H%M)}"
+JOB_NAME="${JOB_NAME:-${POLICY}_${MODEL}_$(date +%Y%m%d_%H%M)}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 STEPS="${STEPS:-100000}"
 # ACT trains fast, so save often enough to pick a good intermediate checkpoint. Each checkpoint
@@ -84,7 +86,7 @@ fi
 
 # train_with_controls.py = lerobot-train + typing `exit` saves the current step and stops.
 python "$PROJECT_ROOT/scripts/common/train_with_controls.py" \
-  --policy.type=act \
+  --policy.type="$POLICY" \
   --policy.device=cuda \
   --policy.push_to_hub=false \
   --dataset.repo_id="$DATASET_REPO_ID" \

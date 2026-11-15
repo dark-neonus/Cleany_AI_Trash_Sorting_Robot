@@ -136,6 +136,9 @@ class Policy:
         from lerobot.configs import PreTrainedConfig
         from lerobot.policies import get_policy_class, make_pre_post_processors
 
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "policies"))
+        import lerobot_policy_act_dino  # noqa: F401  registers act_dino (ACT with a DINO encoder)
+
         config = PreTrainedConfig.from_pretrained(path)
         config.pretrained_path = path
         config.device = device

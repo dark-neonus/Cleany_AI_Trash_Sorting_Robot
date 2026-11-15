@@ -37,9 +37,11 @@ flowchart TD
 | Pose capture | [capture_poses.sh](../scripts/tools/capture_poses.sh) | Done; no poses captured yet |
 | Gallery build and held-out evaluation | [build_gallery.sh](../scripts/tools/build_gallery.sh) | Done; only old-setup crops so far |
 | Pick model (hover to lifted) | `grasp.model` in [box_pipeline.yaml](../config/box_pipeline.yaml) | **Not trained**: needs the hover-start dataset recorded in the box |
+| ACT with a frozen DINO encoder (`act_dino`) | [lerobot_policy_act_dino](../scripts/policies/lerobot_policy_act_dino/), [train_act_dino.sh](../scripts/train/train_act_dino.sh) | Done, tested; trains and runs on the old datasets, **no trained model yet** |
 
 Not in it yet (later steps of the proposal): the target image as a third camera, several
-items with distractor demos, the one-class YOLO, and ACT with a DINOv2 backbone.
+items with distractor demos, the one-class YOLO, and the target item's DINO embedding as
+`observation.environment_state` (ACT already takes it; the recording tool has to write it).
 
 ## Setting it up in the box
 
@@ -116,6 +118,46 @@ results, slips, drops. With `--recording true`, `showcase.mp4` shows the state t
   `speed_deg_s` (mean), at least `min_move_s`.
 - **Stale reference.** If the tray still looks occupied after 2 drops in a row, the reference is
   retaken (the doors just emptied the tray), so a light change cannot make it drop forever.
+
+## Pick model: ACT with a DINO encoder
+
+`act_dino` is ACT with the ResNet-18 replaced by a frozen DINO ViT, by default the same DINOv3
+ViT-S/16 as the classifier. ACT turns each camera image into a feature map and feeds every cell
+to its transformer as one token; DINO's patch tokens, put back on their grid, are such a map. So
+only the backbone and the 1×1 projection change ([modeling_act_dino.py](../scripts/policies/lerobot_policy_act_dino/modeling_act_dino.py)).
+
+- **Frozen**: no gradients, always in eval mode. Only ACT's layers train (40 M parameters, as with
+  ResNet). The encoder's weights are saved in the checkpoint (about 240 MB in all).
+- **Images resized to 240×320**: a 15×20 patch grid, 300 tokens per camera, as many as ResNet-18 on
+  480×640. `--policy.dino_height/width` changes it.
+- **Defaults for the short hover-to-lifted episodes**: `chunk_size` 45, temporal ensembling 0.01.
+- **Backbone fallback**: if DINOv3 cannot be downloaded, DINOv2 with registers is used and written
+  into the saved config, so the model never runs on a different encoder than it was trained with.
+- **Normalisation**: ImageNet mean/std, LeRobot's default (`dataset.use_imagenet_stats`).
+- Our scripts import the plugin themselves (training, `run_policy.sh`, the box pipeline); plain
+  `lerobot-*` commands do not know `act_dino`.
+
+```bash
+scripts/train/train_act_dino.sh metal --steps=2000          # smoke test
+scripts/train/train_act_dino.sh metal                       # 50k steps
+scripts/train/train_act_dino.sh metal --resume              # continue; `exit` + Enter stops
+POLICY=act_dino scripts/train/upload_model.sh metal
+```
+
+Measured on the RTX 2050 (2026-11-15, old `cleany_metal` dataset, 2 cameras):
+
+| | ACT ResNet-18 | ACT DINOv3 |
+| --- | --- | --- |
+| Training, batch 8 | | 0.8 s per step, 2.5 GB GPU memory |
+| One forward pass (both cameras) | 42 ms | 39 ms (DINO 12 ms per camera) |
+
+Neither fits 33 ms, so with temporal ensembling (a forward pass every control step) the pick runs
+at about 25 Hz instead of 30, slightly slower than the demonstrations. If that matters on the arm,
+set `"temporal_ensemble_coeff": null` and `"n_action_steps": 10` in the model's `config.json`:
+these only change inference, not the trained weights.
+
+The dataset names are still per material (`metal`, `plastic`); the hover-start pick dataset for
+all materials does not exist yet.
 
 ## Old-setup check of the classifier
 

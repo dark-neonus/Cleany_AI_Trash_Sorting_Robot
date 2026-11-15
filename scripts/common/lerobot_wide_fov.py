@@ -225,6 +225,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
         sys.exit(f"Usage: {sys.argv[0]} <{'|'.join(COMMANDS)}> [lerobot args...]")
     command = sys.argv.pop(1)
+    # Our policy plugins (act_dino), so rollout can load models trained with them.
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "policies"))
+    import lerobot_policy_act_dino  # noqa: F401
     module = importlib.import_module(COMMANDS[command])
     if command == "replay" and REPLAY_SPEED is not None:
         _slow_down_replay(module)

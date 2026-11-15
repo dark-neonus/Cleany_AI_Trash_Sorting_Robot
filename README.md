@@ -191,6 +191,9 @@ robot with objects in colours that are not in the dataset:
 AUGMENT=false JOB_NAME=act_plastic_noaug scripts/train/train_act.sh plastic
 ```
 
+ACT with a frozen DINOv3 encoder instead of ResNet-18 takes the same arguments
+(`scripts/train/train_act_dino.sh plastic`); see [box-pipeline.md](docs/box-pipeline.md#pick-model-act-with-a-dino-encoder).
+
 ### Sharing trained models
 
 Upload a checkpoint to a private model repo on the Hugging Face Hub, e.g. to run it on the
