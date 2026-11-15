@@ -1,0 +1,57 @@
+# Settings of the box pipeline (scripts/run/run_box_pipeline.sh, docs/box-pipeline.md).
+# Values marked UNCALIBRATED are starting points from the old setup or the proposal
+# (docs/pipeline-proposal.md): measure them in the final box before trusting any result.
+
+# Named joint poses, captured by hand with scripts/tools/capture_poses.sh (not in git until
+# captured: the pipeline refuses to move the arm while one is missing).
+poses: config/poses.yaml
+
+# Where to look for items: X0,Y0,X1,Y1 in the 640x480 front image. UNCALIBRATED: the whole
+# image until the front camera is fixed in the box; then set it to the tray.
+trigger:
+  tray_region: [0, 0, 640, 480]
+  pixel_diff: 25            # brightness change (0-255, after a 4x4 blur) that counts as changed
+  occupied_fraction: 0.004  # share of changed tray pixels vs the empty reference: "something is there"
+  still_fraction: 0.002     # share changed between consecutive frames below which the scene is still
+  settle_s: 0.5             # still for this long before classifying
+  settle_timeout_s: 8       # never settles (keeps rolling): drop it
+  classify_frames: 6        # settled frames whose detections and embeddings are averaged
+  yolo_every_n: 5           # WAIT also triggers on a YOLO detection, checked every n-th frame
+
+detector:
+  conf: 0.25                # boxes only: the class comes from the classifier
+
+classifier:
+  type: dino                # dino | yolo (YOLO's own class; 'other' below yolo_min_conf)
+  backbone: facebook/dinov3-vits16-pretrain-lvd1689m      # gated: accept the licence on the Hub
+  fallback_backbone: facebook/dinov2-with-registers-small  # used when the backbone cannot be loaded
+  gallery: models/dino/gallery.npz  # scripts/tools/build_gallery.sh
+  k: 5
+  max_distance: 0.35        # UNCALIBRATED: farther than this from every known crop -> other
+  min_margin: 0.03          # UNCALIBRATED: metal and plastic closer than this to each other -> other
+  crop_pad: 0.15
+  yolo_min_conf: 0.6
+
+grasp:
+  model: null               # pick model (Hub repo or pretrained_model folder); null: --grasp scripted only
+  task: "Pick up the item"
+  timeout_s: 10
+  hold_s: 0.3               # grasp check must hold this long
+  blocked_deg: 4            # measured gripper this far above the commanded one: fingers blocked
+  lift_joint: shoulder_lift.pos
+  lift_deg: 8               # raised: lift joint back this far from its lowest point of the attempt
+  max_attempts: 3           # then the item counts as other and goes to the mixed bin
+  squeeze_deg: 3            # carry: gripper goal this far past where it closed on the item
+  slip_deg: 6               # carry: closed this far past the grasp -> the item slipped
+
+motion:
+  fps: 30
+  speed_deg_s: 45           # mean joint speed of a minimum-jerk move (peak 1.9x)
+  min_move_s: 0.8
+  gripper_open: 60          # 0-100
+  release_s: 1.0
+
+door:
+  open_timeout_s: 3         # OPEN sent, state must leave CLOSED within this
+  cycle_timeout_s: 15       # and be CLOSED again within this
+  max_drops_in_a_row: 2     # still "occupied" after this many drops: retake the empty-tray reference

@@ -136,7 +136,8 @@ scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # the
 | [docs/dataset-collection.md](docs/dataset-collection.md) | Recording, reviewing and cleaning demonstrations |
 | [docs/training.md](docs/training.md) | Training ACT, resuming, sharing models |
 | [docs/running-models.md](docs/running-models.md) | Available models, downloading, running one ACT on the arm |
-| [docs/pipeline.md](docs/pipeline.md) | The sorting pipeline: dry run, on the arm, options |
+| [docs/box-pipeline.md](docs/box-pipeline.md) | The final box pipeline: DINO classifier, one grasp model, scripted moves, doors |
+| [docs/pipeline.md](docs/pipeline.md) | The two-ACT sorting pipeline (plan B): dry run, on the arm, options |
 | [docs/yolo.md](docs/yolo.md) | Using and retraining the detector, labelling new frames |
 | [docs/cloud-storage.md](docs/cloud-storage.md) | Hugging Face Hub setup, dataset sync, team rules |
 | [electronics/ELECTRONICS.md](electronics/ELECTRONICS.md) | Hardware and power supply |

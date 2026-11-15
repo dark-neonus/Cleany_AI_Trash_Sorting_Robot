@@ -1,7 +1,9 @@
 # Pipeline proposal for the final box
 
-Status: proposal, nothing here is implemented. Part of the [Cleany README](../README.md). The
-current pipeline is described in [pipeline.md](pipeline.md).
+Status: step 2 (state machine with the doors), most of step 3 (background trigger, settle gate,
+DINO classifier; not the one-class YOLO) and the pose capture are implemented, see
+[box-pipeline.md](box-pipeline.md). The rest is still a proposal. Part of the
+[Cleany README](../README.md). The two-ACT pipeline is described in [pipeline.md](pipeline.md).
 
 ## Summary
 
