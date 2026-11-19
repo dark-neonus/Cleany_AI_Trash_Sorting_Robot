@@ -149,9 +149,12 @@ def compose(front, wrist, record: dict, size: tuple[int, int], inset: float, loc
         canvas[y0:y1, x0:x1] = cv2.resize(wrist, (inset_w, inset_h), interpolation=cv2.INTER_AREA)
 
     mode = record["mode"]
-    background = (40, 40, 40) if mode == "yolo" else CLASS_COLORS_BGR[mode]
+    # Other labels (the box pipeline's states, e.g. "metal CARRY") take the colour of the class
+    # they start with, or grey
+    cls = next((c for c in CLASS_COLORS_BGR if mode.startswith(c)), None)
+    background = CLASS_COLORS_BGR[cls] if cls else (40, 40, 40)
     bottom = _text(canvas, MODE_LABELS.get(mode, mode), (width - 16, 16), 1.1,
-                   (255, 255, 255) if mode == "yolo" else (0, 0, 0), background, anchor="right", pad=10)
+                   (0, 0, 0) if cls else (255, 255, 255), background, anchor="right", pad=10)
     if mode == "yolo" and record.get("lock"):
         cls, held = record["lock"]
         progress = f"{cls} {held:.1f}/{lock_seconds:.0f} s" if lock_seconds else f"{cls} {held:.1f} s"

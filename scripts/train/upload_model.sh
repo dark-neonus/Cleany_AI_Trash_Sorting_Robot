@@ -10,7 +10,8 @@ set -e
 #   scripts/train/upload_model.sh plastic outputs/train/act_plastic_20261020_1400 --checkpoint 50000
 #   scripts/train/upload_model.sh plastic --dry-run             # show what would be uploaded
 #
-# Env overrides: HF_NAMESPACE, SETUP_NAME (see scripts/config/datasets.sh)
+# Env overrides: HF_NAMESPACE, SETUP_NAME (see scripts/config/datasets.sh),
+#   POLICY=act_dino for runs of scripts/train/train_act_dino.sh (repo <SETUP_NAME>_act_dino_<model>_...)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -21,6 +22,7 @@ source "$PROJECT_ROOT/scripts/config/datasets.sh"
 resolve_dataset "$1"
 shift
 require_venv
+POLICY="${POLICY:-act}"
 
 RUN_DIR=""
 CHECKPOINT="last"
@@ -38,11 +40,11 @@ done
 
 if [ -z "$RUN_DIR" ]; then
     # Most recently modified run of this model that has a checkpoint
-    for dir in $(ls -dt "$PROJECT_ROOT"/outputs/train/act_"${MODEL}"_* 2>/dev/null); do
+    for dir in $(ls -dt "$PROJECT_ROOT"/outputs/train/"${POLICY}"_"${MODEL}"_* 2>/dev/null); do
         if [ -e "$dir/checkpoints/last" ]; then RUN_DIR="$dir"; break; fi
     done
     if [ -z "$RUN_DIR" ]; then
-        echo "Error: no trained run found in outputs/train/act_${MODEL}_*"
+        echo "Error: no trained run found in outputs/train/${POLICY}_${MODEL}_*"
         exit 1
     fi
 fi
@@ -62,4 +64,4 @@ else
 fi
 
 python "$PROJECT_ROOT/scripts/common/model_upload.py" "$(realpath "$CHECKPOINT_DIR")" \
-    "$HF_NAMESPACE/${SETUP_NAME}_act_${MODEL}" "${EXTRA[@]}"
+    "$HF_NAMESPACE/${SETUP_NAME}_${POLICY}_${MODEL}" "${EXTRA[@]}"
