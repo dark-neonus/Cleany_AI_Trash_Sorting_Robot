@@ -1,0 +1,226 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 1800" width="1760" height="1800" font-family="Arial, 'Liberation Sans', 'Helvetica Neue', Helvetica, sans-serif">
+<title>Cleany box pipeline state machine</title>
+<desc>State machine of scripts/run/box_states.py in three bands: SEE with YOLO26n and a frozen DINOv3 classifier, PICK with the act_dino policy, PLACE with fixed minimum-jerk moves. DROP uses the ESP32 doors. Every transition carries its condition and thresholds from config/box_pipeline.yaml.</desc>
+<defs><marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#334155"/></marker><marker id="l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#64748b"/></marker><marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#b91c1c"/></marker></defs>
+<rect width="1760" height="1800" fill="#f8fafc"/>
+<text x="40" y="56" font-size="32" font-weight="700" text-anchor="start" fill="#0f172a">Cleany box pipeline</text>
+<text x="40" y="86" font-size="16" font-weight="400" text-anchor="start" fill="#64748b">State machine of scripts/run/box_states.py, split by the model that does the work. Models only say what an item is and grasp it; everything else is fixed math.</text>
+<rect x="20" y="270" width="1720" height="520" rx="18" fill="#faf7ff" stroke="#7c3aed" stroke-opacity="0.35" stroke-width="1.5"/>
+<circle cx="46" cy="294" r="13" fill="#7c3aed"/>
+<text x="46" y="299" font-size="14" font-weight="700" text-anchor="middle" fill="#ffffff">1</text>
+<text x="68" y="300" font-size="17" font-weight="700" text-anchor="start" fill="#7c3aed">SEE AND DECIDE</text>
+<text x="253.0" y="300" font-size="14" font-weight="400" text-anchor="start" fill="#64748b">front camera · YOLO26n finds items, DINOv3 says the material</text>
+<rect x="20" y="812" width="1720" height="338" rx="18" fill="#fdf7fe" stroke="#c026d3" stroke-opacity="0.35" stroke-width="1.5"/>
+<circle cx="46" cy="836" r="13" fill="#c026d3"/>
+<text x="46" y="841" font-size="14" font-weight="700" text-anchor="middle" fill="#ffffff">2</text>
+<text x="68" y="842" font-size="17" font-weight="700" text-anchor="start" fill="#c026d3">PICK</text>
+<text x="128.0" y="842" font-size="14" font-weight="400" text-anchor="start" fill="#64748b">act_dino policy grasps the item from the hover pose</text>
+<rect x="20" y="1172" width="1720" height="438" rx="18" fill="#f6f9ff" stroke="#2563eb" stroke-opacity="0.35" stroke-width="1.5"/>
+<circle cx="46" cy="1196" r="13" fill="#2563eb"/>
+<text x="46" y="1201" font-size="14" font-weight="700" text-anchor="middle" fill="#ffffff">3</text>
+<text x="68" y="1202" font-size="17" font-weight="700" text-anchor="start" fill="#2563eb">PLACE</text>
+<text x="140.5" y="1202" font-size="14" font-weight="400" text-anchor="start" fill="#64748b">no model: minimum-jerk moves between captured poses</text>
+<circle cx="745.0" cy="122" r="10" fill="#0f172a"/>
+<path d="M 745.0 132 V 148" fill="none" stroke="#334155" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#m)"/>
+<path d="M 745.0 232 V 316" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<path d="M 745.0 400 V 464" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="757.0" y="438.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[&gt; 0.4 % of tray changed, or a YOLO box]</text>
+<text x="757.0" y="438.0" font-size="13" font-weight="700" text-anchor="start" fill="#334155">[&gt; 0.4 % of tray changed, or a YOLO box]</text>
+<path d="M 745.0 548 V 612" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="757.0" y="586.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[still for 0.5 s]</text>
+<text x="757.0" y="586.0" font-size="13" font-weight="700" text-anchor="start" fill="#334155">[still for 0.5 s]</text>
+<path d="M 745.0 760 V 870" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="757.0" y="821.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[metal or plastic target chosen]</text>
+<text x="757.0" y="821.0" font-size="13" font-weight="700" text-anchor="start" fill="#334155">[metal or plastic target chosen]</text>
+<path d="M 745.0 936 V 998" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<path d="M 745.0 1120 V 1226" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="757.0" y="1179.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[grasp check holds 0.3 s]</text>
+<text x="757.0" y="1179.0" font-size="13" font-weight="700" text-anchor="start" fill="#334155">[grasp check holds 0.3 s]</text>
+<path d="M 745.0 1310 V 1374" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="757.0" y="1348.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[at the bin pose]</text>
+<text x="757.0" y="1348.0" font-size="13" font-weight="700" text-anchor="start" fill="#334155">[at the bin pose]</text>
+<path d="M 745.0 1440 V 1504" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<path d="M 920 657.0 H 1035 V 359.0 H 922" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="1045" y="429.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[tray empty]</text>
+<text x="1045" y="429.0" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">[tray empty]</text>
+<path d="M 920 1060.0 H 975 V 904.0 H 922" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="985" y="956.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[10 s timeout,</text>
+<text x="985" y="956.0" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">[10 s timeout,</text>
+<text x="985" y="973.0" font-size="13" font-weight="700" text-anchor="start" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"> tries &lt; 3]</text>
+<text x="985" y="973.0" font-size="13" font-weight="700" text-anchor="start" fill="#64748b"> tries &lt; 3]</text>
+<path d="M 920 1538.0 H 1180 V 507.0 H 1044 A 9 9 0 0 0 1026 507.0 H 922" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="1170" y="1526.0" font-size="13" font-weight="700" text-anchor="end" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">look at the tray again</text>
+<text x="1170" y="1526.0" font-size="13" font-weight="700" text-anchor="end" fill="#64748b">look at the tray again</text>
+<path d="M 570 1060.0 H 500 V 1538.0 H 568" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#f)"/>
+<path d="M 570 1269.0 H 500" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5"/>
+<text x="488" y="1065.0" font-size="13" font-weight="700" text-anchor="end" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[3rd try failed]</text>
+<text x="488" y="1065.0" font-size="13" font-weight="700" text-anchor="end" fill="#b91c1c">[3rd try failed]</text>
+<text x="488" y="1265.0" font-size="13" font-weight="700" text-anchor="end" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[gripper closed 6° more:</text>
+<text x="488" y="1265.0" font-size="13" font-weight="700" text-anchor="end" fill="#b91c1c">[gripper closed 6° more:</text>
+<text x="488" y="1282.0" font-size="13" font-weight="700" text-anchor="end" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"> item slipped]</text>
+<text x="488" y="1282.0" font-size="13" font-weight="700" text-anchor="end" fill="#b91c1c"> item slipped]</text>
+<path d="M 570 717.0 H 397" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="482.5" y="708.0" font-size="13" font-weight="700" text-anchor="middle" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[only other / unknown]</text>
+<text x="482.5" y="708.0" font-size="13" font-weight="700" text-anchor="middle" fill="#64748b">[only other / unknown]</text>
+<path d="M 570 493.0 H 190 V 610" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="380" y="484.0" font-size="13" font-weight="700" text-anchor="middle" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[not still after 8 s]</text>
+<text x="380" y="484.0" font-size="13" font-weight="700" text-anchor="middle" fill="#64748b">[not still after 8 s]</text>
+<path d="M 330 612 V 521.0 H 568" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="450" y="541.0" font-size="13" font-weight="700" text-anchor="middle" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[doors CLOSED]</text>
+<text x="450" y="541.0" font-size="13" font-weight="700" text-anchor="middle" fill="#64748b">[doors CLOSED]</text>
+<path d="M 75 687.0 H 48 V 359.0 H 568" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="300" y="350.0" font-size="13" font-weight="700" text-anchor="middle" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">[2nd drop in a row: retake empty-tray photo]</text>
+<text x="300" y="350.0" font-size="13" font-weight="700" text-anchor="middle" fill="#64748b">[2nd drop in a row: retake empty-tray photo]</text>
+<rect x="570" y="153" width="350" height="82" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="150" width="350" height="82" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="176" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">START</text>
+<text x="586" y="198" font-size="13" font-weight="400" text-anchor="start" fill="#334155">doors report CLOSED (≤ 30 s), arm to home,</text>
+<text x="586" y="217" font-size="13" font-weight="400" text-anchor="start" fill="#334155">then 5 frames: photo of the empty tray</text>
+<rect x="570" y="321" width="350" height="82" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="318" width="350" height="82" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="344" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">WAIT</text>
+<rect x="642.4" y="329" width="66" height="20" rx="10" fill="#7c3aed"/>
+<text x="675.55" y="343" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">YOLO26n</text>
+<text x="586" y="366" font-size="13" font-weight="400" text-anchor="start" fill="#334155">tray pixels vs empty photo (diff &gt; 25, 4×4 blur);</text>
+<text x="586" y="385" font-size="13" font-weight="400" text-anchor="start" fill="#334155">YOLO checked on every 5th frame</text>
+<rect x="570" y="469" width="350" height="82" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="466" width="350" height="82" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="492" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">SETTLE</text>
+<text x="586" y="514" font-size="13" font-weight="400" text-anchor="start" fill="#334155">frame-to-frame change &lt; 0.2 % for 0.5 s;</text>
+<text x="586" y="533" font-size="13" font-weight="400" text-anchor="start" fill="#334155">gives up after 8 s (item keeps rolling)</text>
+<rect x="570" y="617" width="350" height="146" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="614" width="350" height="146" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="586" y="640" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">CLASSIFY</text>
+<rect x="688.8" y="625" width="66" height="20" rx="10" fill="#7c3aed"/>
+<text x="721.9499999999999" y="639" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">YOLO26n</text>
+<rect x="761.0999999999999" y="625" width="59" height="20" rx="10" fill="#7c3aed"/>
+<text x="790.8" y="639" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">DINOv3</text>
+<text x="586" y="662" font-size="13" font-weight="400" text-anchor="start" fill="#334155">6 settled frames: YOLO boxes (conf ≥ 0.25) by IoU</text>
+<text x="586" y="681" font-size="13" font-weight="400" text-anchor="start" fill="#334155">DINOv3 embeds each crop (+15 % pad), mean per item</text>
+<text x="586" y="700" font-size="13" font-weight="400" text-anchor="start" fill="#334155">k-NN: mean distance to 5 nearest crops per class</text>
+<text x="586" y="719" font-size="13" font-weight="400" text-anchor="start" fill="#334155">sortable if &lt; 0.35 and 0.03 clear, else other</text>
+<text x="586" y="738" font-size="13" font-weight="400" text-anchor="start" fill="#334155">target: most free space; skip overlap / 3× failed</text>
+<rect x="570" y="875" width="350" height="64" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="872" width="350" height="64" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="898" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">HOVER</text>
+<text x="586" y="920" font-size="13" font-weight="400" text-anchor="start" fill="#334155">move to hover pose, gripper open (60 / 100)</text>
+<rect x="570" y="1003" width="350" height="120" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="1000" width="350" height="120" rx="12" fill="#fae8ff" stroke="#c026d3" stroke-width="2"/>
+<text x="586" y="1026" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">GRASP</text>
+<rect x="654.0" y="1011" width="73" height="20" rx="10" fill="#c026d3"/>
+<text x="690.6" y="1025" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">act_dino</text>
+<text x="586" y="1048" font-size="13" font-weight="400" text-anchor="start" fill="#334155">policy drives the arm at 30 Hz (or scripted pose)</text>
+<text x="586" y="1067" font-size="13" font-weight="400" text-anchor="start" fill="#334155">check: fingers blocked ≥ 4° above command</text>
+<text x="586" y="1086" font-size="13" font-weight="400" text-anchor="start" fill="#334155">and lift joint back up ≥ 8°</text>
+<rect x="570" y="1231" width="350" height="82" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="1228" width="350" height="82" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="1254" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">CARRY</text>
+<text x="586" y="1276" font-size="13" font-weight="400" text-anchor="start" fill="#334155">centre pose, then metal_bin or plastic_bin;</text>
+<text x="586" y="1295" font-size="13" font-weight="400" text-anchor="start" fill="#334155">gripper held 3° past where it closed</text>
+<rect x="570" y="1379" width="350" height="64" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="1376" width="350" height="64" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="1402" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">RELEASE</text>
+<text x="586" y="1424" font-size="13" font-weight="400" text-anchor="start" fill="#334155">gripper open, wait 1 s: item drops in its bin</text>
+<rect x="570" y="1509" width="350" height="64" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="570" y="1506" width="350" height="64" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="586" y="1532" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">HOME</text>
+<text x="586" y="1554" font-size="13" font-weight="400" text-anchor="start" fill="#334155">move to home pose, ready for the next item</text>
+<rect x="75" y="615" width="320" height="150" rx="12" fill="#0f172a" opacity="0.06"/>
+<rect x="75" y="612" width="320" height="150" rx="12" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+<text x="91" y="638" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">DROP</text>
+<rect x="147.4" y="623" width="52" height="20" rx="10" fill="#0d9488"/>
+<text x="173.65" y="637" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">ESP32</text>
+<text x="91" y="660" font-size="13" font-weight="400" text-anchor="start" fill="#334155">arm home first (doors need it)</text>
+<text x="91" y="679" font-size="13" font-weight="400" text-anchor="start" fill="#334155">OPEN: leaves CLOSED in ≤ 3 s</text>
+<text x="91" y="698" font-size="13" font-weight="400" text-anchor="start" fill="#334155">CLOSED again in ≤ 15 s</text>
+<text x="91" y="717" font-size="13" font-weight="400" text-anchor="start" fill="#334155">items fall into the mixed bin</text>
+<text x="91" y="736" font-size="13" font-weight="400" text-anchor="start" fill="#334155">no doors: clear tray by hand</text>
+<path d="M 60 1400 H 422 L 440 1418 V 1500 H 60 Z" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+<path d="M 422 1400 V 1418 H 440" fill="none" stroke="#c2410c" stroke-width="1.5"/>
+<text x="76" y="1427" font-size="15" font-weight="700" text-anchor="start" fill="#9a3412">Any state: red E-STOP button</text>
+<text x="76" y="1450" font-size="13" font-weight="400" text-anchor="start" fill="#334155">1st press: arm torque off, move it by hand.</text>
+<text x="76" y="1469" font-size="13" font-weight="400" text-anchor="start" fill="#334155">2nd press: arm stays where it was put,</text>
+<text x="76" y="1488" font-size="13" font-weight="400" text-anchor="start" fill="#334155">goes home, and the state continues.</text>
+<rect x="1250" y="303" width="480" height="190" rx="14" fill="#0f172a" opacity="0.06"/>
+<rect x="1250" y="300" width="480" height="190" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+<rect x="1250" y="300" width="8" height="190" rx="4" fill="#7c3aed"/>
+<text x="1274" y="324" font-size="11.5" font-weight="700" text-anchor="start" fill="#7c3aed">MODEL · TRAINED · used in WAIT and CLASSIFY</text>
+<text x="1274" y="350" font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">YOLO26n detector</text>
+<text x="1274" y="376" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">weights</text>
+<text x="1362" y="376" font-size="13" font-weight="400" text-anchor="start" fill="#334155">cleany-ai/setupv2_yolo_20261020_2008</text>
+<text x="1274" y="396" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">trained</text>
+<text x="1362" y="396" font-size="13" font-weight="400" text-anchor="start" fill="#334155">fine-tuned on our front-camera frames</text>
+<text x="1274" y="416" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">in → out</text>
+<text x="1362" y="416" font-size="13" font-weight="400" text-anchor="start" fill="#334155">front image 640×480 → item boxes</text>
+<text x="1274" y="436" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">used as</text>
+<text x="1362" y="436" font-size="13" font-weight="400" text-anchor="start" fill="#334155">boxes only: its class label is ignored</text>
+<text x="1274" y="456" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">results</text>
+<text x="1362" y="456" font-size="13" font-weight="400" text-anchor="start" fill="#334155">val mAP50-95 0.870 · unseen photo 8 / 8</text>
+<rect x="1250" y="541" width="480" height="218" rx="14" fill="#0f172a" opacity="0.06"/>
+<rect x="1250" y="538" width="480" height="218" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+<rect x="1250" y="538" width="8" height="218" rx="4" fill="#7c3aed"/>
+<text x="1274" y="562" font-size="11.5" font-weight="700" text-anchor="start" fill="#7c3aed">MODEL · FROZEN, NOT TRAINED · used in CLASSIFY</text>
+<text x="1274" y="588" font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">DINOv3 ViT-S/16 + gallery</text>
+<text x="1274" y="614" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">backbone</text>
+<text x="1362" y="614" font-size="13" font-weight="400" text-anchor="start" fill="#334155">facebook/dinov3-vits16 (fallback DINOv2-reg)</text>
+<text x="1274" y="634" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">in → out</text>
+<text x="1362" y="634" font-size="13" font-weight="400" text-anchor="start" fill="#334155">item crop → embedding vector</text>
+<text x="1274" y="654" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">gallery</text>
+<text x="1362" y="654" font-size="13" font-weight="400" text-anchor="start" fill="#334155">labelled crops: metal / plastic / other</text>
+<text x="1274" y="674" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">decides</text>
+<text x="1362" y="674" font-size="13" font-weight="400" text-anchor="start" fill="#334155">k = 5 nearest, max 0.35, margin 0.03</text>
+<text x="1274" y="694" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">checked</text>
+<text x="1362" y="694" font-size="13" font-weight="400" text-anchor="start" fill="#334155">Kaggle: metal ↔ plastic wrong bin ≈ 1 %</text>
+<text x="1274" y="720" font-size="13" font-weight="700" text-anchor="start" fill="#b91c1c">box gallery not built yet; thresholds uncalibrated</text>
+<rect x="1250" y="865" width="480" height="238" rx="14" fill="#0f172a" opacity="0.06"/>
+<rect x="1250" y="862" width="480" height="238" rx="14" fill="#ffffff" stroke="#c026d3" stroke-width="2"/>
+<rect x="1250" y="862" width="8" height="238" rx="4" fill="#c026d3"/>
+<text x="1274" y="886" font-size="11.5" font-weight="700" text-anchor="start" fill="#c026d3">MODEL · TRAINED (ACT layers only) · used in GRASP</text>
+<text x="1274" y="912" font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">act_dino policy</text>
+<text x="1274" y="938" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">base</text>
+<text x="1362" y="938" font-size="13" font-weight="400" text-anchor="start" fill="#334155">ACT; ResNet-18 → frozen DINOv3 ViT-S/16</text>
+<text x="1274" y="958" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">in</text>
+<text x="1362" y="958" font-size="13" font-weight="400" text-anchor="start" fill="#334155">wrist + front at 240×320 → 300 tokens each,</text>
+<text x="1274" y="978" font-size="13" font-weight="700" text-anchor="start" fill="#64748b"></text>
+<text x="1362" y="978" font-size="13" font-weight="400" text-anchor="start" fill="#334155">plus the 6 joint positions</text>
+<text x="1274" y="998" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">out</text>
+<text x="1362" y="998" font-size="13" font-weight="400" text-anchor="start" fill="#334155">chunk of 45 joint actions, temporal ens. 0.01</text>
+<text x="1274" y="1018" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">size</text>
+<text x="1362" y="1018" font-size="13" font-weight="400" text-anchor="start" fill="#334155">40 M trainable · checkpoint ≈ 240 MB</text>
+<text x="1274" y="1038" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">speed</text>
+<text x="1362" y="1038" font-size="13" font-weight="400" text-anchor="start" fill="#334155">39 ms / step on RTX 2050 → about 25 Hz</text>
+<text x="1274" y="1064" font-size="13" font-weight="700" text-anchor="start" fill="#b91c1c">not trained yet: needs hover-start dataset</text>
+<rect x="1250" y="1225" width="480" height="190" rx="14" fill="#0f172a" opacity="0.06"/>
+<rect x="1250" y="1222" width="480" height="190" rx="14" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+<rect x="1250" y="1222" width="8" height="190" rx="4" fill="#2563eb"/>
+<text x="1274" y="1246" font-size="11.5" font-weight="700" text-anchor="start" fill="#2563eb">NO MODEL · used in HOVER, CARRY, RELEASE, HOME</text>
+<text x="1274" y="1272" font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">Minimum-jerk moves</text>
+<text x="1274" y="1298" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">poses</text>
+<text x="1362" y="1298" font-size="13" font-weight="400" text-anchor="start" fill="#334155">hand-captured, config/poses.yaml</text>
+<text x="1274" y="1318" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">time</text>
+<text x="1362" y="1318" font-size="13" font-weight="400" text-anchor="start" fill="#334155">largest joint distance at 45 °/s mean</text>
+<text x="1274" y="1338" font-size="13" font-weight="700" text-anchor="start" fill="#64748b"></text>
+<text x="1362" y="1338" font-size="13" font-weight="400" text-anchor="start" fill="#334155">(peak 1.9×), at least 0.8 s</text>
+<text x="1274" y="1358" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">rate</text>
+<text x="1362" y="1358" font-size="13" font-weight="400" text-anchor="start" fill="#334155">joint commands at 30 Hz</text>
+<text x="1274" y="1378" font-size="13" font-weight="700" text-anchor="start" fill="#64748b">safety</text>
+<text x="1362" y="1378" font-size="13" font-weight="400" text-anchor="start" fill="#334155">slip watched on every CARRY step</text>
+<rect x="20" y="1640" width="1720" height="130" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+<text x="44" y="1674" font-size="14" font-weight="700" text-anchor="start" fill="#0f172a">State colour = who does the work</text>
+<rect x="44" y="1690" width="34" height="24" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="88" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">fixed math</text>
+<rect x="204" y="1690" width="34" height="24" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="248" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">vision model</text>
+<rect x="364" y="1690" width="34" height="24" rx="6" fill="#fae8ff" stroke="#c026d3" stroke-width="2"/>
+<text x="408" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">pick policy</text>
+<rect x="524" y="1690" width="34" height="24" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+<text x="568" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">ESP32 doors</text>
+<text x="700" y="1674" font-size="14" font-weight="700" text-anchor="start" fill="#0f172a">Arrows</text>
+<path d="M 700 1702 H 744" fill="none" stroke="#334155" stroke-width="3" stroke-linejoin="round" marker-end="url(#m)"/>
+<text x="756" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">sorting one item</text>
+<path d="M 900 1702 H 944" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#l)"/>
+<text x="956" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">loop / branch</text>
+<path d="M 1100 1702 H 1144" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#f)"/>
+<text x="1156" y="1707" font-size="14" font-weight="400" text-anchor="start" fill="#0f172a">failure</text>
+<text x="44" y="1748" font-size="13" font-weight="400" text-anchor="start" fill="#64748b">[condition] = the transition fires when it holds; an arrow without one fires when the state's work is done. Chips name the models a state runs. Values from config/box_pipeline.yaml.</text>
+</svg>
