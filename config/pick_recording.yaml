@@ -1,0 +1,33 @@
+# Settings of the pick recorder (scripts/dataset/record_pick.sh, docs/pick-dataset.md).
+# Trigger, classifier, grasp check, motion and door settings are shared with the box pipeline,
+# so episodes start, are judged and end exactly as the pipeline will run them.
+box_pipeline: config/box_pipeline.yaml
+
+dataset:
+  repo_id: cleany-ai/cleany_pick
+  root: data/cleany_pick
+  fps: 30
+  # The material is stored as the episode's task (ACT ignores the text)
+  tasks:
+    metal: "Pick up the metal item"
+    plastic: "Pick up the plastic item"
+
+episode:
+  timeout_s: 20
+  warn_after_s: 10          # the pipeline gives the pick model grasp.timeout_s (10 s): slower demos teach a slow grasp
+  end_on_grasp: true        # end when the box pipeline's grasp check holds (fingers blocked + arm lifted)
+
+start:
+  leader_hold: true         # the leader holds the hover pose until pushed; false: it goes limp, start with Space
+  settle_s: 0.5             # the leader settles this long at hover before a push counts
+  push_deg: 3               # any leader joint this far from where it settled: recording starts
+
+release:
+  where: tray               # tray: back onto the tray at pose tray_release (next episode, no reset); bin: into its bin
+  gripper: 100              # fully open
+  hold_s: 1.0
+
+outputs:
+  yolo_frames: data/pick_yolo     # images/, labels/ (YOLO format, classes.txt), frames.jsonl
+  crops: data/box_crops           # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh
+  records: data/pick_records.jsonl  # one line per kept episode or `other` item
