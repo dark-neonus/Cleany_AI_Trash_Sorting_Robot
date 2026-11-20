@@ -63,6 +63,7 @@ if [ ${#POSITIONAL[@]} -ne 2 ]; then
     exit 1
 fi
 resolve_dataset "${POSITIONAL[0]}"
+refuse_normalised_dataset "run_policy.sh (a pick model outputs normalised actions, not degrees)"
 POLICY_PATH="${POSITIONAL[1]}"
 if [ -z "$DEVICE" ]; then
     DEVICE="$(python -c 'import torch; print("cuda" if torch.cuda.is_available() else "cpu")')"

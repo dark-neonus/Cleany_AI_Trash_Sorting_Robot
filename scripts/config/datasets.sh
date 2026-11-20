@@ -10,14 +10,26 @@ HF_NAMESPACE="${HF_NAMESPACE:-cleany-ai}"
 # lighting, arm calibration) they were trained on: change it whenever that setup changes.
 SETUP_NAME="${SETUP_NAME:-setupv2}"
 
-# One ACT model, and so one dataset, per material.
-MODELS=(plastic metal)
+# One ACT model, and so one dataset, per material (old pipeline), plus the box pipeline's pick
+# dataset for all materials (recorded with scripts/dataset/record_pick.sh, docs/pick-dataset.md).
+MODELS=(plastic metal pick)
 MODELS_USAGE="$(IFS="|"; echo "${MODELS[*]}")"
 
 declare -A MODEL_TASKS=(
     [plastic]="Put the plastic item into the right hole"
     [metal]="Put the metal item into the left hole"
+    [pick]="Pick up the item"
 )
+
+# Datasets whose positions are normalised (docs/pick-dataset.md), not in degrees: lerobot's
+# record and replay would mix them up with degrees. Usage: refuse_normalised_dataset "<what>"
+refuse_normalised_dataset() {
+    if [ "$MODEL" = "pick" ]; then
+        echo "Error: the pick dataset stores normalised positions, not degrees: $1 cannot use it."
+        echo "Record it with scripts/dataset/record_pick.sh (see docs/pick-dataset.md)."
+        exit 1
+    fi
+}
 
 # Usage: resolve_dataset <model>
 # Sets MODEL, DATASET_REPO_ID, DATASET_ROOT and TASK (env TASK overrides the default).

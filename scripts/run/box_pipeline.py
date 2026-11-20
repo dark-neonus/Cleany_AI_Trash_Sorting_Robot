@@ -30,8 +30,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # sort_pipeline patches lerobot (camera FOV, servo limits, emergency stop) and opens the
 # emergency stop window, as for every other run on the arm
@@ -41,25 +39,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 import estop  # noqa: E402
 from box_logic import GRIPPER, JOINT_KEYS, REQUIRED_POSES, load_poses, load_yaml, yolo_vote  # noqa: E402
 from box_states import BoxPipeline, Clock, DoorSequencer, Hooks, ScriptedGrasper, Stop  # noqa: E402
-
-
-class YoloBoxes:
-    """Every YOLO box above conf, whatever its class: the material comes from the classifier."""
-
-    def __init__(self, weights: str, conf: float, device: str):
-        import cv2
-        from ultralytics import YOLO
-
-        self.cv2, self.model, self.conf, self.device = cv2, YOLO(weights), conf, device
-
-    def __call__(self, frame_rgb: np.ndarray) -> list[dict]:
-        h, w = frame_rgb.shape[:2]
-        sx, sy = 640 / w, 480 / h  # boxes in 640x480 coordinates, like the regions
-        result = self.model.predict(self.cv2.cvtColor(frame_rgb, self.cv2.COLOR_RGB2BGR), conf=self.conf,
-                                    device=self.device, verbose=False)[0]
-        return [{"class": self.model.names[int(c)], "conf": round(p, 2),
-                 "box": [b[0] * sx, b[1] * sy, b[2] * sx, b[3] * sy]}
-                for c, p, b in zip(result.boxes.cls.tolist(), result.boxes.conf.tolist(), result.boxes.xyxy.tolist())]
+from yolo_boxes import YoloBoxes  # noqa: E402
 
 
 def make_classify(config: dict, device: str):

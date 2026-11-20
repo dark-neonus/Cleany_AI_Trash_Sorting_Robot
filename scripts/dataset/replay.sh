@@ -28,6 +28,7 @@ require_devices FOLLOWER_PORT
 for arg in "$@"; do
     if [ -n "${MODEL_TASKS[$arg]}" ]; then
         resolve_dataset "$arg"
+        refuse_normalised_dataset "replay.sh (it would send normalised actions as degrees)"
         RECORDING_ROOT="$DATASET_ROOT"
     elif [ -d "$arg" ]; then
         RECORDING_ROOT="$(realpath "$arg")"

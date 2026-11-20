@@ -31,6 +31,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 resolve_dataset "$1"
+refuse_normalised_dataset "record.sh"
 NUM_EPISODES="${2:-10}"
 EPISODE_TIME_S="${EPISODE_TIME_S:-30}"
 RESET_TIME_S="${RESET_TIME_S:-10}"
