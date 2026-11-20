@@ -2,6 +2,10 @@
 
 Part of the [Cleany README](../README.md).
 
+This page is the **old pipeline's** recorder (one dataset per material, whole sort per
+episode). The box pipeline's pick dataset is recorded with `scripts/dataset/record_pick.sh`:
+see [pick-dataset.md](pick-dataset.md#how-to-record).
+
 ## Dataset collection
 
 One dataset per ACT model, picked by the model name (`plastic` or `metal`):

@@ -11,7 +11,8 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 | `scripts/setup/`       | `install_dependencies.sh` | Install system packages, LeRobot and YOLO (Ultralytics) into `.venv` |
 | `scripts/calibration/` | `calibrate_leader.sh`, `calibrate_follower.sh` | Calibrate the arms into `calibration/`  |
 | `scripts/teleop/`      | `run_teleop.sh`          | Drive the follower with the leader arm, cameras shown in Rerun |
-| `scripts/dataset/`     | `record.sh`              | Record teleoperated episodes for one ACT model                |
+| `scripts/dataset/`     | `record_pick.sh`         | Record the box pipeline's pick dataset with a panel ([pick-dataset.md](pick-dataset.md)) |
+|                        | `record.sh`              | Record teleoperated episodes for one ACT model (old pipeline) |
 |                        | `view.sh`                | Browse a recorded episode in Rerun (no robot needed)          |
 |                        | `replay.sh`              | Replay a recorded episode on the follower arm                 |
 |                        | `delete_last_episode.sh` | Drop the last episode (e.g. a failed demo)                    |

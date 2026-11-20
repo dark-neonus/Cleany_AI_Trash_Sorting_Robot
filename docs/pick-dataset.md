@@ -2,7 +2,8 @@
 
 Part of the [Cleany README](../README.md). The dataset for the box pipeline's pick model
 ([box-pipeline.md](box-pipeline.md#pick-model-act-with-a-dino-encoder)): hover pose to item lifted,
-all materials. Agreed on 2026-11-20; nothing of it is implemented yet.
+all materials. Agreed on 2026-11-20. Recorded with `scripts/dataset/record_pick.sh`: see
+[How to record](#how-to-record).
 
 ## Decision
 
@@ -33,6 +34,91 @@ of it is not planned.
 - **Gripper current and load are trained on**: they tell the policy it is squeezing something,
   which the cameras often cannot see under the fingers. They exist at inference too. Current and
   load of the other joints mostly reflect gravity, the item's weight, temperature and voltage.
+
+## How to record
+
+### Once, before the first session
+
+1. **Poses**, with the box, cameras and arm in their final place (see
+   [box-pipeline.md](box-pipeline.md#setting-it-up-in-the-box)):
+
+   ```bash
+   scripts/tools/capture_poses.sh
+   ```
+
+   The recorder needs `home`, `hover`, `centre`, `metal_bin`, `plastic_bin` and `tray_release`
+   (low over the tray centre: the item falls back onto the tray from there). It uses the same
+   poses as the pipeline, so every episode starts where the pipeline will start its grasp.
+2. **Tray region**: `trigger.tray_region` in [box_pipeline.yaml](../config/box_pipeline.yaml).
+3. **Check the leader holds a pose under torque.** It runs on 5 V (the follower on 12 V). If it
+   sags at hover or cannot hold, set `start.leader_hold: false` in
+   [pick_recording.yaml](../config/pick_recording.yaml): it then goes limp at hover and you
+   start with Space while holding it.
+
+### A session
+
+```bash
+scripts/dataset/sync.sh pull pick        # the shared copy (skip for the first session)
+scripts/dataset/record_pick.sh           # record; appends to data/cleany_pick
+scripts/dataset/sync.sh push pick        # upload
+```
+
+The doors open and close once (keep hands out), both arms go home and the empty tray is
+photographed. Then, per item:
+
+1. **READY.** Put one item on the tray, type its name in the panel (the same name every time
+   for the same item, e.g. `redbull-can`), press **Metal** (M), **Plastic** (P) or **Other** (O).
+2. **CLASSIFY.** Hands off the tray. The panel shows the tray change (orange), the YOLO boxes
+   (blue) and the target (green), and warns when DINO disagrees with your button or YOLO found
+   nothing. A labelled YOLO frame and a gallery crop are saved.
+   **Other** ends here: the doors drop the item, back to READY.
+3. **HOVER, ARMED.** Both arms move to the hover pose by themselves: hands off. Then grab the
+   leader and **push it**: the moment it moves 3°, its torque goes off and recording starts
+   (or press **Space**). **Esc** cancels: back home, nothing recorded.
+4. **RECORDING.** Lower, grasp, lift. It ends by itself once the item is lifted, with the box
+   pipeline's own grasp check (fingers blocked by the item and arm back up 8°), or on **Space**,
+   or after 20 s. The bar turns orange after 10 s: the pipeline gives the model 10 s to grasp,
+   and a model copies the pace of its demos. **Backspace** throws the episode away.
+5. **PLACE, HOME.** Let go of the leader: both arms carry the item to the centre, drop it back
+   onto the tray (a new spot for the next episode, no reset by hand) and go home.
+6. **READY again**, with the episode's length and how it ended. **Backspace** discards it (and
+   its YOLO frame and crop) until you press the next Metal / Plastic / Other.
+
+**Stop session** (or closing the window, or Ctrl+C) keeps the last finished episode, discards
+one being recorded, and sends both arms home. The red **EMERGENCY STOP** releases both arms;
+an episode being recorded is discarded; pressed again, the arms go home and you are back at
+READY. Without the doors: `record_pick.sh --door none` (take Other items out by hand).
+
+### What a session writes
+
+| Where | What |
+| --- | --- |
+| `data/cleany_pick/` | the LeRobot dataset; the material is the episode's task |
+| `data/pick_yolo/` | `images/`, `labels/` (YOLO format, classes in `classes.txt`: metal, plastic, other), `frames.jsonl` with every box found; one negative (empty tray) frame per session |
+| `data/box_crops/<material>/<item>_<time>.jpg` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/box_crops` |
+| `data/pick_records.jsonl` | one line per kept episode or Other item: length, how it ended, DINO's opinion |
+| `logs/pick/pick_<time>.jsonl` | every event |
+
+**YOLO labels without a good YOLO.** With one item on the tray, the label box is the change from
+the empty-tray photo (`label_from: tray_change`), whatever YOLO sees: the old-setup YOLO is only
+a cross-check. Record the first sessions with **one item at a time**, retrain YOLO on
+`data/pick_yolo` (as a one-class `item` detector is the plan), then several items are fine.
+
+### Recommendations
+
+- **Balance the materials**: the panel counts metal / plastic / other.
+- **Vary**: items, where the item lands, its orientation, a little lighting (as in
+  [dataset-collection.md](dataset-collection.md#recommendations)).
+- **Short, decisive grasps**: under 10 s. Discard hesitant ones.
+- **Put glass, paper and cardboard through Other**: the gallery needs `other` examples
+  (see [box-pipeline.md](box-pipeline.md#kaggle-check-of-the-classifier)).
+
+### Not done yet
+
+- **Running a pick model**: the box pipeline's `PolicyGrasper` still feeds a policy degrees and
+  the 6-joint state. A model trained on this dataset needs the 8-value normalised state in and
+  its actions turned back into degrees with the leader's calibration (`motor_state.Normaliser`).
+  Until then `run_policy.sh` and `replay.sh` refuse the pick dataset.
 
 ## What the servos report
 
