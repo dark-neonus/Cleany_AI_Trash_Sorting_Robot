@@ -2,7 +2,7 @@
 
 Usage (through scripts/tools/capture_poses.sh, which fills in the port and calibration):
     python capture_poses.py --robot-port <port> --calibration-dir <dir> [names...]
-    names: default home hover centre metal_bin plastic_bin grasp
+    names: default home hover centre metal_bin plastic_bin tray_release grasp
 
 The arm's torque is switched off: hold it, move it to the pose, press Enter. The joint values
 are written to config/poses.yaml right away (other poses in the file are kept), so an
@@ -14,6 +14,8 @@ Poses:
   centre       between the tray and the bins, high enough to clear the walls with an item
   metal_bin    over the metal (left) bin
   plastic_bin  over the plastic (right) bin
+  tray_release only for pick recording (scripts/dataset/record_pick.sh): low over the tray centre,
+               where the gripper lets the item fall back onto the tray for the next episode
   grasp        only for --grasp scripted: low over the tray centre, where a test item lies
 
 The gripper value of a pose is ignored except for home (the pipeline sets the gripper itself).
@@ -32,7 +34,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 from box_logic import JOINT_KEYS  # noqa: E402
 
-DEFAULT_NAMES = ["home", "hover", "centre", "metal_bin", "plastic_bin", "grasp"]
+DEFAULT_NAMES = ["home", "hover", "centre", "metal_bin", "plastic_bin", "tray_release", "grasp"]
 
 
 def save(path: Path, poses: dict):
