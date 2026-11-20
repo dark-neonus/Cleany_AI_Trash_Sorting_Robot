@@ -157,7 +157,7 @@ set `"temporal_ensemble_coeff": null` and `"n_action_steps": 10` in the model's 
 these only change inference, not the trained weights.
 
 The dataset names are still per material (`metal`, `plastic`); the hover-start pick dataset for
-all materials does not exist yet.
+all materials does not exist yet. What it will record and train on: [pick-dataset.md](pick-dataset.md).
 
 ## Old-setup check of the classifier
 
