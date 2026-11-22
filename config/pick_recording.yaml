@@ -11,6 +11,7 @@ dataset:
   tasks:
     metal: "Pick up the metal item"
     plastic: "Pick up the plastic item"
+    generic: "Pick up the item"   # Pick other: socks, toys, tools, for grasp variety
 
 episode:
   timeout_s: 20
@@ -27,7 +28,19 @@ release:
   gripper: 100              # fully open
   hold_s: 1.0
 
+# Episodes to record (docs/collection-plan.md), cumulative; the panel shows the counts against `phase`
+targets:
+  phase: pilot
+  pilot: {metal: 23, plastic: 22, generic: 15}
+  main: {metal: 90, plastic: 90, generic: 60}
+
+# Item registry and labels, written by the agent after each session (scripts/tools/contact_sheet.py);
+# held-out test items are refused, the panel offers the training items with their counts
+items:
+  registry: config/items.yaml
+  labels: config/item_labels.yaml
+
 outputs:
   yolo_frames: data/pick_yolo     # images/, labels/ (YOLO format, classes.txt), frames.jsonl
-  crops: data/box_crops           # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh
+  crops: data/box_crops           # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh (generic/ is left out)
   records: data/pick_records.jsonl  # one line per kept episode or `other` item

@@ -1,12 +1,15 @@
 """Pick recording session: the states behind scripts/dataset/record_pick.py (docs/pick-dataset.md).
 
     SETUP      doors open and close (the tray is empty), both arms home, empty-tray photo
-    READY      wait for Metal / Plastic / Other; Discard drops the last record; the previous
-               record is kept (episode saved) when the next one starts or the session stops
+    READY      wait for Metal / Plastic / Pick other (generic) / Other; Discard drops the last
+               record; the previous record is kept (episode saved) when the next one starts or the
+               session stops. A held-out test item (config/items.yaml) is refused
     CLASSIFY   settle, YOLO boxes + the tray-change box over a few frames, DINO per item; the
                target is the freest item DINO agrees with (or any). Saves a labelled YOLO frame
                (box from the empty-tray difference, class from the button) and a gallery crop
     DROP       Other: the doors drop it into the mixed bin, then READY
+               (Pick other: a generic object, socks, toys, tools, gets a pick episode like metal and
+               plastic, for grasp variety; its crops go to <crops>/generic, outside the gallery)
     HOVER      both arms to the hover pose, gripper open, as the pipeline starts its grasp
     ARMED      the leader holds hover until pushed push_deg (or Space): its torque goes off and
     RECORDING  the follower follows it; every frame goes to the dataset. Ends when the box
@@ -25,7 +28,6 @@ from __future__ import annotations
 
 import json
 import queue
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -46,9 +48,10 @@ from box_logic import (
     trajectory,
 )
 from box_states import BoxPipeline, Paused, Stop
+from item_registry import Registry, read_records, slug
 
-MATERIALS = ("metal", "plastic", "other")
-YOLO_CLASSES = {"metal": 0, "plastic": 1, "other": 2}
+MATERIALS = ("metal", "plastic", "other", "generic")
+YOLO_CLASSES = {"metal": 0, "plastic": 1, "other": 2, "generic": 3}  # generic: pick-only objects
 
 
 # --- tray-change box -----------------------------------------------------------------------------
@@ -79,7 +82,7 @@ def changed_box(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: fl
 def safe_name(text: str) -> str:
     """Item names become file name prefixes: letters, digits and '-' only (no '_': build_gallery
     groups crops by the part before the last '_')."""
-    return re.sub(r"[^a-z0-9-]+", "-", text.strip().lower()).strip("-") or "item"
+    return slug(text)
 
 
 @dataclass
@@ -100,6 +103,7 @@ class PickStore:
         self.crops = project_root / outputs["crops"]
         self.records = project_root / outputs["records"]
         self.save_image = save_image
+        self.session = self._stamp()  # every record of this session carries it (contact sheets)
         for sub in ("images", "labels"):
             (self.yolo / sub).mkdir(parents=True, exist_ok=True)
         (self.yolo / "classes.txt").write_text("\n".join(YOLO_CLASSES) + "\n")
@@ -138,7 +142,8 @@ class PickStore:
         return rec
 
     def commit(self, rec: Record, **extra):
-        line = {"time": rec.stamp, "material": rec.material, "item": rec.item, **rec.data, **extra}
+        line = {"time": rec.stamp, "session": self.session, "material": rec.material, "item": rec.item,
+                **rec.data, **extra}
         with self.records.open("a") as f:
             f.write(json.dumps(line) + "\n")
 
@@ -150,12 +155,13 @@ class PickStore:
             kept = [ln for ln in frames.read_text().splitlines() if f"pick_{rec.stamp}." not in ln]
             frames.write_text("".join(f"{ln}\n" for ln in kept))
 
+    def read(self) -> list[dict]:
+        return read_records(self.records)
+
     def counts(self) -> dict[str, int]:
         counts = dict.fromkeys(MATERIALS, 0)
-        if self.records.exists():
-            for line in self.records.read_text().splitlines():
-                if line.strip():
-                    counts[json.loads(line)["material"]] += 1
+        for record in self.read():
+            counts[record["material"]] = counts.get(record["material"], 0) + 1
         return counts
 
 
@@ -169,6 +175,10 @@ class Status:
     material: str | None = None
     counts: dict = field(default_factory=lambda: dict.fromkeys(MATERIALS, 0))
     session: int = 0  # records kept in this session
+    targets: dict = field(default_factory=dict)  # phase -> {class: episodes} (docs/collection-plan.md)
+    target_phase: str = ""
+    item_counts: dict = field(default_factory=dict)  # item id -> kept episodes
+    suggest: dict = field(default_factory=dict)  # class -> 'm03 Hell classic (1)', least recorded
     pending: str = ""  # what Discard would drop
     elapsed: float = 0.0
     timeout: float | None = None
@@ -213,7 +223,7 @@ class PickSession(BoxPipeline):
 
     def __init__(self, arm, leader, detector, embed, decide, door, recorder, store: PickStore, poses: dict,
                  config: dict, recording: dict, hooks, commands: Commands, status: Status, clock=None,
-                 should_stop=lambda: False, paused=lambda: False):
+                 should_stop=lambda: False, paused=lambda: False, registry: Registry | None = None):
         super().__init__(arm, detector, None, None, door, poses, config, hooks, clock=clock,
                          should_stop=should_stop, paused=paused)
         self.leader, self.embed, self.decide, self.recorder, self.store = leader, embed, decide, recorder, store
@@ -224,7 +234,12 @@ class PickSession(BoxPipeline):
         self.item: dict | None = None  # embedding and box recorded with the episode
         self.pending: tuple[str, Record, dict] | None = None  # last record, kept unless discarded
         self.recording = False
+        self.registry = registry or Registry()
+        targets = recording.get("targets") or {}
+        self.status.targets = {k: v for k, v in targets.items() if isinstance(v, dict)}
+        self.status.target_phase = targets.get("phase", "")
         self.status.counts = store.counts()
+        self.refresh_items()
 
     # -- helpers ------------------------------------------------------------------------------------
 
@@ -269,6 +284,29 @@ class PickSession(BoxPipeline):
             self.tick(began)
         self.mirror = True
 
+    def refresh_items(self):
+        """Per-item episode counts and the least-recorded training item per class, for the panel."""
+        reg, records = self.registry, self.store.read()
+        counts = reg.item_counts(records)
+        self.status.item_counts = dict(counts)
+        self.status.suggest = {}
+        for cls in ("metal", "plastic", "generic"):
+            item = reg.suggest(cls, records)
+            if item is not None:
+                self.status.suggest[cls] = f"{item.id} {item.label()} ({counts[item.id]})"
+
+    def refuse(self, material: str) -> str | None:
+        """Why this item may not be recorded as `material`, or None."""
+        name = self.commands.item
+        held = self.registry.held_out(name)
+        if held is not None:
+            return (f"'{name}' is held out for testing ({held.id}: {held.label()}): it must not be recorded. "
+                    f"Put it back in the test bag")
+        item = self.registry.by_name(name)
+        if item is not None and material != "other" and item.cls != material:
+            return f"{item.id} is a {item.cls} item in config/items.yaml, not {material}: check the item or the button"
+        return None
+
     def commit_pending(self):
         if self.pending is None:
             return
@@ -276,9 +314,10 @@ class PickSession(BoxPipeline):
         if kind == "episode":
             extra = {**extra, "episode": self.recorder.save()}
         self.store.commit(rec, kind=kind, **extra)
-        self.status.counts[rec.material] += 1
+        self.status.counts[rec.material] = self.status.counts.get(rec.material, 0) + 1
         self.status.session += 1
         self.pending, self.status.pending = None, ""
+        self.refresh_items()
         self.log("kept", kind=kind, material=rec.material, **extra)
 
     def discard_pending(self):
@@ -307,7 +346,7 @@ class PickSession(BoxPipeline):
         return "READY"
 
     def ready(self):
-        self.set_phase("READY", "Put an item on the tray, type its name, then Metal, Plastic or Other",
+        self.set_phase("READY", "Put an item on the tray, name it, then Metal, Plastic, Pick other or Other",
                        target_box=None, change_box=None, yolo_boxes=[])
         if self.mirror:  # the leader rests at home: no torque while waiting
             self.mirror = False
@@ -317,6 +356,10 @@ class PickSession(BoxPipeline):
             if command == "discard":
                 self.discard_pending()
             elif command in MATERIALS:
+                reason = self.refuse(command)
+                if reason is not None:
+                    self.warn(reason)
+                    continue
                 self.commit_pending()
                 self.material = command
                 self.status.warning, self.status.material = "", command
@@ -485,7 +528,7 @@ class PickSession(BoxPipeline):
         self.align_leader()
         holding = hold_command(self.joints(self.observe())[GRIPPER], self.cfg["grasp"]["squeeze_deg"])
         self.move_to({**self.poses["transit"], GRIPPER: holding}, self.material)
-        if r["where"] == "bin":
+        if r["where"] == "bin" and f"{self.material}_bin" in self.poses:  # generic: no bin, let go at transit
             self.move_to({**self.poses[f"{self.material}_bin"], GRIPPER: holding}, self.material)
         self.move_to({**self.joints(self.observe()), GRIPPER: r["gripper"]}, self.material)
         self.hold(r["hold_s"], self.material)

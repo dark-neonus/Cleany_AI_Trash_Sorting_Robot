@@ -12,7 +12,7 @@ Writes:
   data/cleany_pick/                LeRobot dataset (appended to when it exists)
   data/pick_yolo/                  labelled front frames for YOLO
   data/box_crops/<material>/       DINO gallery crops (scripts/tools/build_gallery.sh --crops)
-  data/pick_records.jsonl          one line per kept episode or `other` item
+  data/pick_records.jsonl          one line per kept episode or `other` item (with the session)
   logs/pick/pick_<time>.jsonl      every event of the session
 """
 
@@ -34,6 +34,7 @@ import arm_estop  # noqa: E402
 import estop  # noqa: E402
 from box_logic import REQUIRED_POSES, load_poses, load_yaml  # noqa: E402
 from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
+from item_registry import Registry, RegistryError  # noqa: E402
 from motor_state import JOINTS, Normaliser, dataset_features, read_extras, training_state  # noqa: E402
 from pick_session import Commands, PickSession, PickStore, Status  # noqa: E402
 
@@ -184,6 +185,14 @@ def main():
         poses = load_poses(PROJECT_ROOT / config["poses"], REQUIRED_POSES)
     except (FileNotFoundError, KeyError) as error:
         sys.exit(f"Error: {error}")
+    items = recording.get("items") or {}
+    try:
+        registry = Registry.load(PROJECT_ROOT / items["registry"] if items.get("registry") else None,
+                                 PROJECT_ROOT / items["labels"] if items.get("labels") else None)
+    except RegistryError as error:
+        sys.exit(f"Error: {error}")
+    held = sum(it.split == "test" for it in registry.items.values())
+    print(f"Items: {len(registry.items)} in the registry ({held} held out: refused), {len(registry.labels)} labels")
     log = EventLog(PROJECT_ROOT / "logs" / "pick" / f"pick_{datetime.now():%Y%m%d_%H%M%S}.jsonl")
 
     from dino_classifier import Embedder, Gallery, decide
@@ -232,7 +241,7 @@ def main():
     status, commands, stop = Status(), Commands(), threading.Event()
     session = PickSession(Follower(robot), Leader(teleop), detector, embedder, check, door, recorder, store, poses,
                           config, recording, Hooks(log), commands, status, should_stop=stop.is_set,
-                          paused=estop.is_active)
+                          paused=estop.is_active, registry=registry)
     errors = []
 
     def run_session():
@@ -248,7 +257,8 @@ def main():
 
     try:
         run_panel(status, commands, stop.set, f"Cleany pick recorder · {recording['dataset']['repo_id']}",
-                  config["trigger"]["tray_region"], recording["episode"]["warn_after_s"], worker.is_alive)
+                  config["trigger"]["tray_region"], recording["episode"]["warn_after_s"], worker.is_alive,
+                  registry)
     except KeyboardInterrupt:
         pass
     finally:
@@ -260,6 +270,7 @@ def main():
         log("end", counts=status.counts, session=status.session)
     print(f"\nKept this session: {status.session}. Totals: {status.counts}")
     print("Upload with: scripts/dataset/sync.sh push pick")
+    print("Label the items: scripts/tools/contact_sheet.sh (then the agent fills config/items.yaml and item_labels.yaml)")
     if errors:
         raise errors[0]
 

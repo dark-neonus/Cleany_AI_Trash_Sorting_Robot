@@ -234,3 +234,50 @@ def test_changed_box_finds_the_item_and_ignores_noise():
 
 def test_item_names_are_safe_gallery_prefixes():
     assert safe_name("Red Bull_can 2") == "red-bull-can-2" and safe_name("  ") == "item"
+
+
+def test_pick_other_records_a_generic_episode_kept_out_of_the_gallery_classes(tmp_path):
+    world = World([("READY", "generic", (300, 200)), ("READY", "stop", None)])
+    store = world.run(tmp_path)
+    [record] = world.kept(store)
+    assert record["material"] == "generic" and record["kind"] == "episode" and record["ended"] == "lifted"
+    assert record["session"] == store.session
+    assert len(list((store.crops / "generic").glob("*.jpg"))) == 1  # build_gallery reads metal/plastic/other only
+    assert list((store.yolo / "labels").glob("pick_*.txt"))[0].read_text().startswith("3 ")
+    assert world.drops == 1 and world.status.counts["generic"] == 1
+
+
+def test_held_out_items_and_a_wrong_class_are_refused(tmp_path):
+    from item_registry import Item, Registry
+
+    reg = Registry({"m01": Item("m01", "metal", "hell-classic"),
+                    "m-peach": Item("m-peach", "metal", "redbull-peach", "test", names=["redbull-peach"])})
+    world = World([("READY", "metal", (300, 200)), ("READY", "plastic", None), ("READY", "stop", None)])
+    world.commands.item = "Redbull Peach 2"
+    store = PickStore(tmp_path, RECORDING["outputs"], lambda path, rgb: Path(path).write_bytes(b"jpg"))
+    world.status = Status()
+    session = PickSession(world, world, world.detector, world.embed, world.decide, world, world, store, POSES,
+                          CONFIG, RECORDING, Hooks(world.log), world.commands, world.status, clock=world.clock,
+                          should_stop=lambda: world.clock.t > 5, registry=reg)
+    session.run()
+    assert world.episodes["begun"] == 0 and world.kept(store) == []
+    assert "held out" in " ".join(str(d) for e, d in world.events if e == "warning")
+    world.commands.item = "m01"
+    assert "a metal item" in session.refuse("plastic") and session.refuse("metal") is None
+    assert session.refuse("other") is None  # anything may go through Other
+
+
+def test_the_panel_shows_progress_and_the_least_recorded_item(tmp_path):
+    from item_registry import Item, Registry
+
+    reg = Registry({"m01": Item("m01", "metal", "hell-classic", brand="Hell"), "m02": Item("m02", "metal", "x")})
+    world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
+    world.commands.item = "m01"
+    store = PickStore(tmp_path, RECORDING["outputs"], lambda path, rgb: Path(path).write_bytes(b"jpg"))
+    world.status = Status()
+    PickSession(world, world, world.detector, world.embed, world.decide, world, world, store, POSES, CONFIG, RECORDING,
+                Hooks(world.log), world.commands, world.status, clock=world.clock,
+                should_stop=lambda: world.stop, registry=reg).run()
+    s = world.status
+    assert s.item_counts == {"m01": 1} and s.suggest["metal"].startswith("m02")
+    assert s.target_phase == "pilot" and s.targets["pilot"]["metal"] == 23

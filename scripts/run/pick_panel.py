@@ -1,12 +1,16 @@
 """Control panel of the pick recorder (scripts/dataset/record_pick.py): what the session is doing,
 the front camera with the boxes it found, and the buttons, each with a key.
 
-    M / P / O      Metal / Plastic / Other: classify the item on the tray (READY)
+    M / P          Metal / Plastic: classify the item on the tray, then a pick episode (READY)
+    G              Pick other: a generic object (sock, toy, tool), a pick episode for grasp variety
+    O              Other: classify only, the doors drop it (glass, paper, ...)
     Space          start the episode (ARMED), end it (RECORDING)
     Backspace      discard the last record (READY), or the episode being recorded
     Esc            cancel: back home without recording (ARMED)
 
-Keys work while the panel has focus and the item name field does not (Enter leaves the field).
+Keys work while the panel has focus and the item field does not (Enter leaves the field).
+The item field takes any name (a hint for the labelling after the session) or, once
+config/items.yaml exists, a training item from its list, which shows each item's episode count.
 The panel only reads the session's Status and puts commands in its queue; the session runs in
 its own thread.
 """
@@ -14,9 +18,11 @@ its own thread.
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 
 import numpy as np
 from estop import add_estop_button
+from item_registry import Registry, progress
 from pick_session import Commands, Status
 from screenshot import add_screenshot_button
 
@@ -29,6 +35,7 @@ SCALE = PREVIEW[0] / 640
 BUTTONS = [
     ("metal", "Metal", "M", ("READY",)),
     ("plastic", "Plastic", "P", ("READY",)),
+    ("generic", "Pick other", "G", ("READY",)),
     ("other", "Other", "O", ("READY",)),
     ("start", "Start", "Space", ("ARMED",)),
     ("end", "End", "Space", ("RECORDING",)),
@@ -37,8 +44,14 @@ BUTTONS = [
 ]
 
 
+def item_choices(registry: Registry, counts: dict) -> list[str]:
+    """'m03 · Hell classic · 2 ep' for every training item, least recorded first within a class."""
+    items = sorted(registry.train_items(), key=lambda it: (it.cls, counts.get(it.id, 0), it.id))
+    return [f"{it.id} · {it.label()} · {counts.get(it.id, 0)} ep" for it in items]
+
+
 def run_panel(status: Status, commands: Commands, stop, title: str, tray_region, warn_after_s: float,
-              is_running) -> None:
+              is_running, registry: Registry | None = None) -> None:
     """Tk main loop in the calling thread. stop(): ask the session to stop; is_running(): False once
     it has finished, then the window closes."""
     from PIL import Image, ImageDraw, ImageTk
@@ -62,17 +75,24 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
     preview.pack(padx=16, pady=6)
     counts_label = tk.Label(root, font=("Sans", 11))
     counts_label.pack(padx=16, anchor="w")
+    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=420)
+    suggest_label.pack(padx=16, anchor="w")
     last_label = tk.Label(root, font=("Sans", 10), fg="#444444")
     last_label.pack(padx=16, anchor="w")
 
     name_row = tk.Frame(root)
     name_row.pack(padx=16, pady=(8, 0), fill="x")
-    tk.Label(name_row, text="Item name:", font=("Sans", 11)).pack(side="left")
+    registry = registry or Registry()
+    tk.Label(name_row, text="Item:", font=("Sans", 11)).pack(side="left")
     item_var = tk.StringVar(value=commands.item)
-    entry = tk.Entry(name_row, textvariable=item_var, font=("Sans", 11), width=24)
+    entry = ttk.Combobox(name_row, textvariable=item_var, font=("Sans", 11), width=34,
+                         postcommand=lambda: entry.configure(values=item_choices(registry, status.item_counts)))
     entry.pack(side="left", padx=6)
-    tk.Label(name_row, text="(same name for the same item)", font=("Sans", 9), fg="#666666").pack(side="left")
-    item_var.trace_add("write", lambda *_: setattr(commands, "item", item_var.get()))
+    hint = "(pick from the list, or type a short name)" if registry.items else "(a short name: a hint for labelling)"
+    tk.Label(name_row, text=hint, font=("Sans", 9), fg="#666666").pack(side="left")
+    # a choice from the list is 'm03 · Hell classic · 2 ep': the item is its id
+    item_var.trace_add("write", lambda *_: setattr(commands, "item", item_var.get().split(" · ")[0].strip()))
+    entry.bind("<<ComboboxSelected>>", lambda _: root.focus_set())
     entry.bind("<Return>", lambda _: root.focus_set())
     entry.bind("<Escape>", lambda _: root.focus_set())
 
@@ -82,7 +102,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
     for i, (command, label, key, _) in enumerate(BUTTONS):
         widgets[command] = tk.Button(grid, text=f"{label}  [{key}]", width=13, font=("Sans", 11, "bold"),
                                      command=lambda c=command: commands.put(c))
-        widgets[command].grid(row=i // 3, column=i % 3, padx=3, pady=3)
+        widgets[command].grid(row=i // 4, column=i % 4, padx=3, pady=3)
     tk.Button(root, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 6), fill="x")
     add_screenshot_button(root)
 
@@ -90,7 +110,8 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
         if root.focus_get() is entry:
             return
         phase = status.phase
-        name = {"m": "metal", "p": "plastic", "o": "other", "BackSpace": "discard", "Escape": "cancel"}.get(
+        name = {"m": "metal", "p": "plastic", "g": "generic", "o": "other", "BackSpace": "discard",
+                "Escape": "cancel"}.get(
             event.keysym, event.keysym.lower())
         if event.keysym == "space":
             name = "start" if phase == "ARMED" else "end"
@@ -126,9 +147,9 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
                            fg=PHASE_COLORS.get(s.phase, "#37474f"))
         message_label.config(text=s.message)
         warning_label.config(text=s.warning)
-        c = s.counts
-        counts_label.config(text=f"Kept: metal {c['metal']} · plastic {c['plastic']} · other {c['other']}"
-                                 f"   (this session {s.session})")
+        counts_label.config(text=f"Kept: {progress(s.counts, s.targets, s.target_phase)}   (this session {s.session})")
+        suggest_label.config(text=("Least recorded: " + " · ".join(f"{c} {v}" for c, v in s.suggest.items()))
+                             if s.suggest and s.phase == "READY" else "")
         last_label.config(text=(f"Last: {s.last}" if s.last else "") +
                           (f"   ·   Discard drops the last {s.pending}" if s.pending else ""))
         bar.delete("all")
