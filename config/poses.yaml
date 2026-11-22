@@ -1,0 +1,47 @@
+# Named joint poses of the box (degrees; gripper 0-100), captured with scripts/tools/capture_poses.sh.
+# What each pose is: scripts/common/pose_catalog.py. How they look: assets/poses_workspace.svg
+# (scripts/tools/draw_poses.py). They only fit the arm calibration and box they were captured
+# with: capture them again after recalibrating or moving anything.
+poses:
+  home:
+    shoulder_pan.pos: 2.86
+    shoulder_lift.pos: -104.4
+    elbow_flex.pos: 98.24
+    wrist_flex.pos: 76.75
+    wrist_roll.pos: -84.62
+    gripper.pos: 2.54
+  hover:
+    shoulder_pan.pos: 2.68
+    shoulder_lift.pos: -22.99
+    elbow_flex.pos: 7.87
+    wrist_flex.pos: 91.87
+    wrist_roll.pos: -84.79
+    gripper.pos: 2.54
+  transit:
+    shoulder_pan.pos: -0.13
+    shoulder_lift.pos: -82.95
+    elbow_flex.pos: 70.02
+    wrist_flex.pos: 23.65
+    wrist_roll.pos: -84.79
+    gripper.pos: 2.54
+  metal_bin:
+    shoulder_pan.pos: -40.13
+    shoulder_lift.pos: -30.37
+    elbow_flex.pos: 32.4
+    wrist_flex.pos: 23.65
+    wrist_roll.pos: -84.79
+    gripper.pos: 2.54
+  plastic_bin:
+    shoulder_pan.pos: 44.35
+    shoulder_lift.pos: -30.29
+    elbow_flex.pos: 32.13
+    wrist_flex.pos: 23.65
+    wrist_roll.pos: -84.79
+    gripper.pos: 2.54
+  tray_low:
+    shoulder_pan.pos: -3.38
+    shoulder_lift.pos: 13.23
+    elbow_flex.pos: 53.41
+    wrist_flex.pos: 23.47
+    wrist_roll.pos: -84.79
+    gripper.pos: 53.28
