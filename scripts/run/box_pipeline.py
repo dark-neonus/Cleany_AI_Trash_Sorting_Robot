@@ -165,6 +165,7 @@ def main():
     import torch
 
     config = load_yaml(args.config)
+    config["motion"]["lag_deg"] = 0.8 * args.max_step  # paced motion: stay inside the follower's step limit
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     log = EventLog(PROJECT_ROOT / "logs" / "pipeline" / f"box_{datetime.now():%Y%m%d_%H%M%S}.jsonl")
 

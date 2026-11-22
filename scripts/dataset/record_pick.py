@@ -178,6 +178,7 @@ def main():
 
     recording = load_yaml(args.config)
     config = load_yaml(PROJECT_ROOT / recording["box_pipeline"])
+    config["motion"]["lag_deg"] = 0.8 * args.max_step  # paced motion: stay inside the follower's step limit
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     try:
         poses = load_poses(PROJECT_ROOT / config["poses"], REQUIRED_POSES)

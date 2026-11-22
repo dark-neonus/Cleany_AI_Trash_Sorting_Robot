@@ -22,9 +22,25 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-from box_logic import (GRIPPER, JOINT_KEYS, BackgroundTrigger, GraspCheck, Item, SettleGate, choose_target,
-                       crop_box, group_detections, hold_command, iou, max_joint_distance, record_failure,
-                       slipped, trajectory)
+import paced_move
+from box_logic import (
+    GRIPPER,
+    JOINT_KEYS,
+    BackgroundTrigger,
+    GraspCheck,
+    Item,
+    SettleGate,
+    choose_target,
+    crop_box,
+    group_detections,
+    hold_command,
+    interpolate,
+    iou,
+    max_joint_distance,
+    record_failure,
+    slipped,
+    trajectory,
+)
 
 
 class Stop(Exception):
@@ -106,11 +122,13 @@ class DoorSequencer:
 
 class ScriptedGrasper:
     """Fake grasp for testing the state machine without a model: lower to the `tray_low` pose,
-    close the gripper, lift back to `hover`. Only grasps something placed under the `tray_low` pose."""
+    close the gripper, lift back to `hover`. Only grasps something placed under the `tray_low` pose.
+    The plan advances paced by the arm (paced_move.py): slower while the arm lags it."""
 
     def __init__(self, poses, motion: dict, close_to: float = 0.0):
         self.poses, self.motion, self.close_to = poses, motion, close_to
         self.plan: list[dict] = []
+        self.position, self.rate, self.last = 0.0, 1.0, None
 
     def reset(self, start: dict):
         m = self.motion
@@ -121,9 +139,17 @@ class ScriptedGrasper:
                      + trajectory(opened, closed, m["speed_deg_s"], 0.8, m["fps"])
                      + [closed] * int(0.3 * m["fps"])
                      + trajectory(closed, lifted, m["speed_deg_s"], m["min_move_s"], m["fps"]))
+        self.position, self.rate, self.last = 0.0, 1.0, None
 
     def action(self, obs: dict) -> dict:
-        return self.plan.pop(0) if len(self.plan) > 1 else self.plan[0]
+        if self.last is not None:
+            lag = paced_move.worst_joint(self.last, obs)[1]  # the gripper is blocked on purpose: left out
+            lag_deg = self.motion.get("lag_deg", paced_move.LAG_DEG)
+            self.rate = paced_move.SMOOTH * self.rate + (1 - paced_move.SMOOTH) * paced_move.pacing(lag, lag_deg)
+        self.position = min(self.position + self.rate, len(self.plan) - 1)
+        i = int(self.position)
+        self.last = interpolate(self.plan[i], self.plan[min(i + 1, len(self.plan) - 1)], self.position - i)
+        return self.last
 
 
 # --- the state machine ---------------------------------------------------------------------------
@@ -184,22 +210,24 @@ class BoxPipeline:
         self.clock.sleep(1 / self.cfg["motion"]["fps"] - (self.clock.now() - started))
 
     def move_to(self, target: dict, mode: str, on_step=None):
-        """Minimum-jerk move from where the arm is (gripper: from its last command)."""
+        """Minimum-jerk move from where the arm is (gripper: from its last command), paced by the arm
+        (paced_move.py): the plan slows down smoothly while the arm lags it, and the move ends when the
+        arm has settled on the pose. False when on_step aborted it (a slipped item)."""
         m = self.cfg["motion"]
-        obs = self.observe()
-        start = self.joints(obs)
+        start = self.joints(self.observe())
         if self.command is not None:
             start[GRIPPER] = self.command[GRIPPER]
-        for step in trajectory(start, target, m["speed_deg_s"], m["min_move_s"], m["fps"]):
-            began = self.clock.now()
-            self.check()
-            self.send(step)
-            obs = self.observe()
+
+        def on_tick(obs):
             self.hooks.frame(obs, mode, state=self.state)
-            if on_step is not None and on_step(obs) is False:
-                return False
-            self.tick(began)
-        return True
+            return on_step(obs) if on_step is not None else None
+
+        result = paced_move.run(start, target, speed=m["speed_deg_s"], min_s=m["min_move_s"], fps=m["fps"],
+                                observe=self.observe, send=self.send, clock=self.clock, check=self.check,
+                                lag_deg=m.get("lag_deg", paced_move.LAG_DEG), on_tick=on_tick)
+        if not result.aborted and result.error > paced_move.SHORT_DEG:
+            self.log("arm_short", cls=mode, joint=result.joint, degrees=round(result.error, 1))
+        return not result.aborted
 
     def hold(self, seconds: float, mode: str):
         end = self.clock.now() + seconds

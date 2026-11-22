@@ -371,3 +371,45 @@ def test_emergency_stop_mid_carry_then_resume_goes_home_and_goes_on():
     assert actions == ["paused", "paused", "resumed"]
     after = world.names()[world.names().index("estop"):]
     assert "state" in after and world.joints == POSES["home"]
+
+
+# --- a follower that cannot keep up with the plan ------------------------------------------------
+
+class SlowWorld(World):
+    """Like World, but the five arm joints move at most `rate` degrees per command (a follower that
+    tracks slower than the plan: about 30 deg/s here)."""
+
+    def __init__(self, items, rate=1.0, **kw):
+        super().__init__(items, **kw)
+        self.rate, self.ahead = rate, []
+
+    def send(self, action):
+        before = dict(self.joints)
+        self.ahead.append(max(abs(action[k] - before[k]) for k in JOINT_KEYS if k != GRIPPER))
+        super().send(action)
+        for k in JOINT_KEYS:
+            if k != GRIPPER:
+                self.joints[k] = before[k] + max(-self.rate, min(self.rate, action[k] - before[k]))
+
+
+def test_a_slow_follower_slows_the_pipeline_instead_of_running_ahead():
+    from paced_move import ARRIVE_DEG, LAG_DEG
+
+    world = SlowWorld([("metal", (300, 200))])
+    world.run(seconds=60)  # a whole slow cycle takes about 30 simulated seconds
+    assert ("sorted", {"cls": "metal"}) in world.events and world.drops == 0
+    assert max(world.ahead) < LAG_DEG + 4  # never commanded far enough ahead for the follower's step limit
+    # every state started with the arm settled: it is home again, not still on its way
+    assert all(abs(world.joints[k] - POSES["home"][k]) <= ARRIVE_DEG for k in JOINT_KEYS if k != GRIPPER)
+    assert not any(e == "arm_short" for e, _ in world.events)
+
+
+def test_the_scripted_grasp_advances_slower_while_the_arm_lags_it():
+    keen, lagging = ScriptedGrasper(POSES, CONFIG["motion"]), ScriptedGrasper(POSES, CONFIG["motion"])
+    for grasper in (keen, lagging):
+        grasper.reset(POSES["hover"])
+    far = {**POSES["hover"], "shoulder_lift.pos": POSES["hover"]["shoulder_lift.pos"] - 30}  # 30 degrees behind
+    for _ in range(40):
+        keen.action(keen.last or POSES["hover"])  # an arm exactly where the last command was
+        lagging.action(far)
+    assert keen.position == pytest.approx(40, abs=1) and lagging.position < 0.4 * keen.position
