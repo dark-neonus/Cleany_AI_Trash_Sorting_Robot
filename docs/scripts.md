@@ -28,7 +28,10 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `extra_frames.py`        | More labelled frames per episode: the ones before the arm reaches the item |
 |                        | `prepare_dataset.py`     | Build the YOLO train/val dataset from the labelled frames     |
 |                        | `train.sh`               | Train the metal/plastic YOLO (runs the two scripts above first) |
-| `scripts/tools/`       | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
+| `scripts/tools/`       | `capture_poses.sh`       | Capture the arm's named poses with a live panel ([box-pipeline.md](box-pipeline.md#setting-it-up-in-the-box)) |
+|                        | `show_poses.sh`          | Move the arm through the poses: walk, slideshow, go to one (`--dry-run` without the arm) |
+|                        | `draw_poses.py`          | Draw the poses in the v3 box (`assets/poses_workspace.svg`) |
+|                        | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
 |                        | `start_frames.sh`        | One image with the first top-camera frame of every episode    |
 | `scripts/config/`      | `hardware.sh`, `datasets.sh` | Ports, cameras, video codec, display, motion limits; model names, tasks, Hub namespace |

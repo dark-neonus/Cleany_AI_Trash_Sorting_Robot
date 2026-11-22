@@ -46,9 +46,10 @@ of it is not planned.
    scripts/tools/capture_poses.sh
    ```
 
-   The recorder needs `home`, `hover`, `centre`, `metal_bin`, `plastic_bin` and `tray_release`
-   (low over the tray centre: the item falls back onto the tray from there). It uses the same
-   poses as the pipeline, so every episode starts where the pipeline will start its grasp.
+   The recorder needs the pipeline's poses: `home`, `hover`, `transit`, `metal_bin` and
+   `plastic_bin` (what they are: [box-pipeline.md](box-pipeline.md#setting-it-up-in-the-box)).
+   It uses the same poses as the pipeline, so every episode starts where the pipeline will start
+   its grasp, and it lets go of the item at `transit`, above the tray.
 2. **Tray region**: `trigger.tray_region` in [box_pipeline.yaml](../config/box_pipeline.yaml).
 3. **Check the leader holds a pose under torque.** It runs on 5 V (the follower on 12 V). If it
    sags at hover or cannot hold, set `start.leader_hold: false` in
@@ -79,8 +80,12 @@ photographed. Then, per item:
    pipeline's own grasp check (fingers blocked by the item and arm back up 8°), or on **Space**,
    or after 20 s. The bar turns orange after 10 s: the pipeline gives the model 10 s to grasp,
    and a model copies the pace of its demos. **Backspace** throws the episode away.
-5. **PLACE, HOME.** Let go of the leader: both arms carry the item to the centre, drop it back
-   onto the tray (a new spot for the next episode, no reset by hand) and go home.
+5. **PLACE, HOME.** Let go of the leader: both arms carry the item to `transit`, high above the
+   tray, open the gripper for 1 s so the item falls back onto the tray, and go home with the
+   gripper closing on the way (as in the pipeline). The item lands near the spot below the
+   gripper and may bounce or roll a little, so the next episode needs no hands, but it will not
+   land in a fresh place every time: move or turn the item yourself every few episodes (see the
+   recommendations). `release.where: bin` in the config carries it to its bin instead.
 6. **READY again**, with the episode's length and how it ended. **Backspace** discards it (and
    its YOLO frame and crop) until you press the next Metal / Plastic / Other.
 

@@ -57,7 +57,7 @@ flowchart TD
     G --> V{Grasp check<br/>gripper blocked and arm raised?}
     V -->|fail, tries left| H
     V -->|fail, 3 tries used| D
-    V -->|ok| M[CARRY: math to centre pose,<br/>then left or right pose by class]
+    V -->|ok| M[CARRY: math to transit pose,<br/>then left or right pose by class]
     M --> R[RELEASE: open gripper]
     R --> B[HOME: math to start pose]
     B --> C

@@ -115,7 +115,7 @@
 <rect x="570" y="1231" width="350" height="82" rx="12" fill="#0f172a" opacity="0.06"/>
 <rect x="570" y="1228" width="350" height="82" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
 <text x="586" y="1254" font-size="17" font-weight="700" text-anchor="start" fill="#0f172a">CARRY</text>
-<text x="586" y="1276" font-size="13" font-weight="400" text-anchor="start" fill="#334155">centre pose, then metal_bin or plastic_bin;</text>
+<text x="586" y="1276" font-size="13" font-weight="400" text-anchor="start" fill="#334155">transit pose, then metal_bin or plastic_bin;</text>
 <text x="586" y="1295" font-size="13" font-weight="400" text-anchor="start" fill="#334155">gripper held 3° past where it closed</text>
 <rect x="570" y="1379" width="350" height="64" rx="12" fill="#0f172a" opacity="0.06"/>
 <rect x="570" y="1376" width="350" height="64" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>

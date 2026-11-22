@@ -18,7 +18,7 @@ flowchart TD
     C -->|only other / unknown| D[DROP: doors open and close]
     C -->|tray empty| W
     H --> G[GRASP: pick model or scripted]
-    G -->|check holds| M[CARRY: centre, then the bin]
+    G -->|check holds| M[CARRY: transit, then the bin]
     G -->|timeout, tries left| H
     G -->|3 tries| B
     M -->|slipped| B
@@ -34,7 +34,7 @@ flowchart TD
 | Background trigger, settle gate, grasp check, moves, target choice | [box_logic.py](../scripts/common/box_logic.py) | Done, unit-tested |
 | DINO classifier (metal / plastic / other) | [dino_classifier.py](../scripts/common/dino_classifier.py) | Done; thresholds **uncalibrated** |
 | Runner (arm, cameras, ESP32, Rerun, showcase video) | [box_pipeline.py](../scripts/run/box_pipeline.py), [run_box_pipeline.sh](../scripts/run/run_box_pipeline.sh) | Dry run checked on recorded videos; **not yet run on the arm** |
-| Pose capture | [capture_poses.sh](../scripts/tools/capture_poses.sh) | Done; no poses captured yet |
+| Pose capture | [capture_poses.sh](../scripts/tools/capture_poses.sh), [pose_catalog.py](../scripts/common/pose_catalog.py) | Done; poses captured on 2026-11-22 (check them with `capture_poses.sh --list`) |
 | Gallery build and held-out evaluation | [build_gallery.sh](../scripts/tools/build_gallery.sh) | Done; only old-setup crops so far |
 | Pick model (hover to lifted) | `grasp.model` in [box_pipeline.yaml](../config/box_pipeline.yaml) | **Not trained**: needs the hover-start dataset recorded in the box |
 | ACT with a frozen DINO encoder (`act_dino`) | [lerobot_policy_act_dino](../scripts/policies/lerobot_policy_act_dino/), [train_act_dino.sh](../scripts/train/train_act_dino.sh) | Done, tested; trains and runs on the old datasets, **no trained model yet** |
@@ -48,13 +48,72 @@ items with distractor demos, the one-class YOLO, and the target item's DINO embe
 1. **Poses.** With the arm, cameras and box in their final place:
 
    ```bash
-   scripts/tools/capture_poses.sh
+   scripts/tools/capture_poses.sh          # a panel; the follower follows the leader arm
+   scripts/tools/capture_poses.sh --hand   # or: torque off, move the follower by hand
+   scripts/tools/capture_poses.sh --list   # what is captured, what looks wrong (no arm needed)
    ```
 
-   The torque goes off; move the arm by hand to each pose and press Enter. `hover` also saves
-   `outputs/poses/hover_wrist.jpg`: all four tray corners must be visible in it. Redo one
-   pose with `scripts/tools/capture_poses.sh hover`. The pipeline refuses to move the arm while
-   a pose is missing.
+   The panel lists the poses in the order of a cycle, says for the selected one where the arm has
+   to be and how to check it, and draws the arm live from above and from the side over the box,
+   with the poses captured so far marked. "Right now" tells while you move whether the fingertips
+   are over the tray or the bin and whether the gripper points down. Press Enter when the arm
+   is in place and still: the pose is stored at once, checked against the others (a bin on the
+   wrong side, two poses that are the same, a hover that is not above the tray), and the panel
+   moves on. `hover` also saves `outputs/poses/hover_wrist.jpg`: all four tray corners must be
+   visible in it. The pipeline refuses to move the arm while a pose is missing.
+
+   | Pose | Where the fingertips are | Used for |
+   | --- | --- | --- |
+   | `home` | folded over the base, gripper **closed** | start and end of every cycle; the doors only open here |
+   | `hover` | over the middle of the tray, gripper down, wrist camera sees the whole tray | the pick model starts its grasp here |
+   | `transit` | high above the middle of the tray, higher than every wall | every carry passes here; the pick recorder lets go of the item here |
+   | `metal_bin` | above the metal bin (left) | the item is released here |
+   | `plastic_bin` | above the plastic bin (right) | the item is released here |
+   | `tray_low` | *optional:* just above the tray floor | only the scripted grasp test below |
+
+   ![The poses in the v3 box](../assets/poses_workspace.png)
+
+   The figure is made from `config/poses.yaml` by `python scripts/tools/draw_poses.py --png`
+   (run it again after capturing). The arm is exact (forward kinematics of the SO-101, from
+   [arm_kinematics.py](../scripts/common/arm_kinematics.py)); the tray and bins are approximate,
+   scaled from the v3 photo (measurements go in [workspace_layout.py](../scripts/common/workspace_layout.py)).
+   A `poses.yaml` with the old names (`centre`, `grasp`, `tray_release`) is read as the new ones;
+   `capture_poses.sh --migrate` rewrites it and keeps the old file as `poses.yaml.bak`.
+   **Looking at the poses on the arm.** [show_poses.sh](../scripts/tools/show_poses.sh) moves the
+   follower between them, the way the pipeline does (minimum-jerk moves at 60 deg/s that slow down
+   smoothly if the arm cannot follow, only along routes the pipeline takes, the bins through
+   `transit`; the arm must start at a captured pose, normally home; the red stop window ends
+   everything; Ctrl+C or the end sends it home). It waits for the arm to settle on each pose and
+   prints how close it got:
+
+   ```bash
+   scripts/tools/show_poses.sh walk                 # every pose in order, 1 s at each (--delay), then home
+   scripts/tools/show_poses.sh slideshow            # Enter: next pose, b: back, q: quit
+   scripts/tools/show_poses.sh go hover             # one pose, held; type another name or Enter to finish
+   scripts/tools/show_poses.sh walk --dry-run       # no arm: the route and the timing
+   ```
+
+   Walking through them is also the first real test of the moves the pipeline makes, in
+   particular each bin straight to `home`. Run it with the box empty and a hand near the stop.
+   **How fast the arm can be moved by a script.** Measured on the follower (2026-11-22): with
+   lerobot's `--max-step 10` limit it tracks only about 48 deg/s, while a plan of 45 deg/s
+   *mean* peaks at about 85 deg/s, so the commanded goal runs ahead (after a second the elbow
+   was 33 deg behind) and lerobot prints a "had to be clamped" warning per command. Two things
+   to know:
+
+   - **Do not hold the command until the arm catches up.** A goal that stops and starts makes
+     the arm shake. [pose_show.py](../scripts/common/pose_show.py) instead slows the whole plan
+     down *continuously* as the arm lags, so the goal never stops, and waits for the arm to settle
+     on each pose. It runs smoothly at `--speed 60 --max-velocity 120 --max-step 20`. If it
+     shakes again, lower `--acceleration` (try 20) or `--speed`.
+   - **The pipeline and the pick recorder use it too**
+     ([paced_move.py](../scripts/common/paced_move.py), called from `BoxPipeline.move_to`): a move
+     slows down smoothly while the arm lags the plan and ends when the arm has settled, so the
+     next state never starts while the arm is still on its way. The scripted grasp is paced the
+     same way. The limit is 80 % of `--max-step`. The pipeline keeps its slower defaults
+     (`--max-step 10`, velocity limit 90): try `--max-step 20 --max-velocity 120` as the viewer
+     does if it should move faster. The pick model's own actions are not paced (the model decides).
+
 2. **Tray region.** Set `trigger.tray_region` in [box_pipeline.yaml](../config/box_pipeline.yaml)
    to the tray in the 640×480 front image, so the bins and walls are not watched.
 3. **Gallery.** Take front-camera crops of the items in the box, as
@@ -79,7 +138,7 @@ items with distractor demos, the one-class YOLO, and the target item's DINO embe
 scripts/run/run_box_pipeline.sh --recording false --dry-run --display
 scripts/run/run_box_pipeline.sh --recording false --dry-run --source data/cleany_metal/videos/observation.images.front/chunk-000/file-000.mp4
 
-# On the arm with a scripted grasp (the captured `grasp` pose): tests everything but the model
+# On the arm with a scripted grasp (the optional `tray_low` pose): tests everything but the model
 scripts/run/run_box_pipeline.sh --recording true --display
 
 # On the arm with the pick model
