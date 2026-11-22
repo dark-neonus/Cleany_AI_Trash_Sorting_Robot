@@ -1,0 +1,5 @@
+# Which item each pick record is: record time (data/pick_records.jsonl "time") -> item id
+# (config/items.yaml). Written by the agent after each session from the contact sheet
+# (scripts/tools/contact_sheet.sh); only needed when the name typed while recording was not an
+# item id or one of its names. Checked by scripts/tools/check_split.sh.
+{}

@@ -1,0 +1,24 @@
+# Physical items of the pick dataset (docs/collection-plan.md, scripts/common/item_registry.py).
+# Filled in by the agent after each session from its contact sheet (scripts/tools/contact_sheet.sh),
+# not by hand during recording.
+#
+#   id       short and unique: m01.. metal, p01.. plastic, g01.. generic (Pick other), o01.. other
+#   class    metal | plastic | generic | other
+#   design   the look: copies of one design share it. The split is by design
+#   split    train | test. A test entry stands for every copy of its design: it is never recorded
+#            (the recorder refuses its names), never in the gallery, YOLO frames or episodes
+#   names    names that may be typed in the recorder for it (any form: "Red Bull peach" = red-bull-peach).
+#            For a test item a name also matches inside a longer one (redbull-peach-2): keep them specific
+#   brand, crushed, notes   optional
+#
+# Held out, as agreed on 2026-11-23: the six can designs and the plastic below. Keep them in the test bag.
+items:
+  - {id: m-kvas-taras, class: metal, brand: Квас Тарас, design: kvas-taras-pryanyi, split: test, names: [kvas-taras]}
+  - {id: m-solidgate, class: metal, brand: Solidgate, design: solidgate-lemonade, split: test, names: [solidgate, solidgate-lemonade]}
+  - {id: m-redbull-peach, class: metal, brand: Red Bull, design: redbull-peach, split: test, names: [redbull-peach, red-bull-peach]}
+  - {id: m-monster-ultra-white, class: metal, brand: Monster, design: monster-ultra-white, split: test, names: [monster-ultra-white]}
+  - {id: m-nonstop-boost, class: metal, brand: Non Stop, design: nonstop-boost, split: test, names: [nonstop-boost, non-stop-boost]}
+  - {id: m-hell-peach-lemon, class: metal, brand: Hell, design: hell-peach-lemon, split: test, names: [hell-peach-lemon, hell-peach]}
+  - {id: p-mojo, class: plastic, brand: Mojo, design: mojo-lemonade, split: test, names: [mojo]}
+  - {id: p-1886, class: plastic, design: bottle-1886, split: test, names: ["1886"]}
+  # The held-out clear water bottle: pick one and add it here (with a name you will not type for others)

@@ -10,6 +10,9 @@ Sources (any mix):
   --crops DIR         DIR/<class>/<item>_<n>.jpg crops, class metal, plastic or other. Group: the
                       part of the file name before the last "_", so name the files by item
                       (cola_can_01.jpg, cola_can_02.jpg, ...) to evaluate on unseen items.
+                      Crops of held-out test items (config/items.yaml, item_labels.yaml) are
+                      skipped (docs/collection-plan.md); a labelled crop is grouped by its item id.
+                      DIR/generic/ (Pick other objects) is not a gallery class and is left out.
 
 Evaluation: every group is held out in turn and its crops are classified against the rest, at
 several max_distance values. With --yolo-dataset only, the same cans appear in several
@@ -30,6 +33,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 from box_logic import crop_box, load_yaml  # noqa: E402
 from dino_classifier import Embedder, Gallery, decide  # noqa: E402
+from item_registry import Registry  # noqa: E402
 
 CLASSES = ("metal", "plastic", "other")
 
@@ -55,11 +59,20 @@ def yolo_crops(root: Path, pad: float):
                 yield crop, names[int(cls)], group
 
 
-def folder_crops(root: Path):
+def folder_crops(root: Path, registry: Registry | None = None, skipped: list | None = None):
+    registry = registry or Registry()
     for cls in CLASSES:
         for path in sorted((root / cls).glob("*")):
             if path.suffix.lower() in (".jpg", ".jpeg", ".png"):
-                group = path.stem.rsplit("_", 1)[0]
+                group, _, time = path.stem.rpartition("_")
+                group = group or path.stem
+                item = registry.resolve(time, group) or registry.held_out(group)
+                if item is not None and item.split == "test":
+                    if skipped is not None:
+                        skipped.append(path)
+                    continue
+                if item is not None:
+                    group = item.id
                 yield cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB), cls, f"{cls}/{group}"
 
 
@@ -96,6 +109,9 @@ def main():
     parser.add_argument("--crops", type=Path)
     parser.add_argument("--output", type=Path, default=PROJECT_ROOT / config["gallery"])
     parser.add_argument("--device", default=None)
+    parser.add_argument("--items", type=Path, default=PROJECT_ROOT / "config" / "items.yaml",
+                        help="item registry: held-out test items are skipped")
+    parser.add_argument("--labels", type=Path, default=PROJECT_ROOT / "config" / "item_labels.yaml")
     args = parser.parse_args()
     if not args.yolo_dataset and not args.crops:
         sys.exit("Give --yolo-dataset and/or --crops")
@@ -107,7 +123,10 @@ def main():
     if args.yolo_dataset:
         samples += list(yolo_crops(args.yolo_dataset, config.get("crop_pad", 0.15)))
     if args.crops:
-        samples += list(folder_crops(args.crops))
+        skipped = []
+        samples += list(folder_crops(args.crops, Registry.load(args.items, args.labels), skipped))
+        if skipped:
+            print(f"Skipped {len(skipped)} crops of held-out test items")
     if not samples:
         sys.exit("No crops found")
     crops, labels, groups = zip(*samples)
