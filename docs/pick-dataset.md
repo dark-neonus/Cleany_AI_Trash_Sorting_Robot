@@ -67,8 +67,15 @@ scripts/dataset/sync.sh push pick        # upload
 The doors open and close once (keep hands out), both arms go home and the empty tray is
 photographed. Then, per item:
 
-1. **READY.** Put one item on the tray, type its name in the panel (the same name every time
-   for the same item, e.g. `redbull-can`), press **Metal** (M), **Plastic** (P) or **Other** (O).
+1. **READY.** Put one item on the tray, name it in the **Item** field, press **Metal** (M),
+   **Plastic** (P), **Pick other** (G) or **Other** (O). The name is a short hint (`hell black`);
+   once [config/items.yaml](../config/items.yaml) has items, pick one from the list instead: it shows
+   each item's episode count, and the panel names the least-recorded item per class. A held-out
+   test item, or an item whose registered class is not the button's, is refused.
+   **Pick other** is for generic objects (socks, toys, tools): a pick episode like metal and
+   plastic, for grasp variety ([collection-plan.md](collection-plan.md#how-much)). The counts line
+   shows the episodes against the targets of the current phase (`targets` in
+   [pick_recording.yaml](../config/pick_recording.yaml)).
 2. **CLASSIFY.** Hands off the tray. The panel shows the tray change (orange), the YOLO boxes
    (blue) and the target (green), and warns when DINO disagrees with your button or YOLO found
    nothing. A labelled YOLO frame and a gallery crop are saved.
@@ -101,7 +108,8 @@ READY. Without the doors: `record_pick.sh --door none` (take Other items out by 
 | `data/cleany_pick/` | the LeRobot dataset; the material is the episode's task |
 | `data/pick_yolo/` | `images/`, `labels/` (YOLO format, classes in `classes.txt`: metal, plastic, other), `frames.jsonl` with every box found; one negative (empty tray) frame per session |
 | `data/box_crops/<material>/<item>_<time>.jpg` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/box_crops` |
-| `data/pick_records.jsonl` | one line per kept episode or Other item: length, how it ended, DINO's opinion |
+| `data/box_crops/generic/` | Pick other crops: not a gallery class, so `build_gallery.sh` leaves them out |
+| `data/pick_records.jsonl` | one line per kept episode or Other item: session, length, how it ended, DINO's opinion |
 | `logs/pick/pick_<time>.jsonl` | every event |
 
 **YOLO labels without a good YOLO.** With one item on the tray, the label box is the change from
@@ -109,7 +117,22 @@ the empty-tray photo (`label_from: tray_change`), whatever YOLO sees: the old-se
 a cross-check. Record the first sessions with **one item at a time**, retrain YOLO on
 `data/pick_yolo` (as a one-class `item` detector is the plan), then several items are fine.
 
+### After a session: label the items
+
+```bash
+scripts/tools/contact_sheet.sh     # data/contact_sheets/session_<stamp>_1.jpg + .yaml
+scripts/tools/check_split.sh       # fails when a held-out item got into the training data
+```
+
+The agent (Claude) looks at the contact sheet, adds new items to
+[config/items.yaml](../config/items.yaml) and writes each record's item into
+[config/item_labels.yaml](../config/item_labels.yaml), then runs the split check.
+`build_gallery.sh` skips held-out crops and groups labelled crops by item.
+
 ### Recommendations
+
+The full strategy (items, train/test split, how many episodes, evaluation) is in
+[collection-plan.md](collection-plan.md).
 
 - **Balance the materials**: the panel counts metal / plastic / other.
 - **Vary**: items, where the item lands, its orientation, a little lighting (as in
