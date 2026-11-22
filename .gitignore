@@ -227,3 +227,5 @@ logs/*
 *.snm
 *.toc
 *.xdv
+# backup of config/poses.yaml made by scripts/tools/capture_poses.sh --migrate
+config/poses.yaml.bak
