@@ -179,9 +179,8 @@ def main():
     recording = load_yaml(args.config)
     config = load_yaml(PROJECT_ROOT / recording["box_pipeline"])
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
-    required = REQUIRED_POSES + (("tray_release",) if recording["release"]["where"] == "tray" else ())
     try:
-        poses = load_poses(PROJECT_ROOT / config["poses"], required)
+        poses = load_poses(PROJECT_ROOT / config["poses"], REQUIRED_POSES)
     except (FileNotFoundError, KeyError) as error:
         sys.exit(f"Error: {error}")
     log = EventLog(PROJECT_ROOT / "logs" / "pick" / f"pick_{datetime.now():%Y%m%d_%H%M%S}.jsonl")

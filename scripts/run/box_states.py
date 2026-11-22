@@ -8,7 +8,7 @@ and grasp it; every other motion is a minimum-jerk move between named poses.
     CLASSIFY  detect every item over a few settled frames, classify each one, pick a target
     HOVER     move over the tray, gripper open
     GRASP     the grasper (policy or scripted) runs until the grasp check holds, or times out
-    CARRY     centre pose, then the bin of the class, gripper held by position; slip -> HOME
+    CARRY     transit pose, then the bin of the class, gripper held by position; slip -> HOME
     RELEASE   open the gripper over the bin
     HOME      back to the start pose, then SETTLE and CLASSIFY again (the scene has changed)
     DROP      arm at home: the ESP32 doors open and close; for `other`, failed and stuck items
@@ -105,8 +105,8 @@ class DoorSequencer:
 # --- graspers ------------------------------------------------------------------------------------
 
 class ScriptedGrasper:
-    """Fake grasp for testing the state machine without a model: lower to the `grasp` pose,
-    close the gripper, lift back to `hover`. Only grasps something placed under the `grasp` pose."""
+    """Fake grasp for testing the state machine without a model: lower to the `tray_low` pose,
+    close the gripper, lift back to `hover`. Only grasps something placed under the `tray_low` pose."""
 
     def __init__(self, poses, motion: dict, close_to: float = 0.0):
         self.poses, self.motion, self.close_to = poses, motion, close_to
@@ -114,7 +114,7 @@ class ScriptedGrasper:
 
     def reset(self, start: dict):
         m = self.motion
-        opened = {**self.poses["grasp"], GRIPPER: m["gripper_open"]}
+        opened = {**self.poses["tray_low"], GRIPPER: m["gripper_open"]}
         closed = {**opened, GRIPPER: self.close_to}
         lifted = {**self.poses["hover"], GRIPPER: self.close_to}
         self.plan = (trajectory(start, opened, m["speed_deg_s"], m["min_move_s"], m["fps"])
@@ -330,7 +330,7 @@ class BoxPipeline:
                 return False
             return True
 
-        for pose in ("centre", f"{cls}_bin"):
+        for pose in ("transit", f"{cls}_bin"):
             if not self.move_to({**self.poses[pose], GRIPPER: holding}, cls, on_step=watch):
                 return "HOME"
         return "RELEASE"

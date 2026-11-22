@@ -16,8 +16,12 @@ import yaml
 JOINTS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
 JOINT_KEYS = tuple(f"{j}.pos" for j in JOINTS)
 GRIPPER = "gripper.pos"
-# Named poses the pipeline moves between (captured with scripts/tools/capture_poses.sh).
-REQUIRED_POSES = ("home", "hover", "centre", "metal_bin", "plastic_bin")
+# Named poses the pipeline moves between (captured with scripts/tools/capture_poses.sh; what each
+# one is: pose_catalog.py). tray_low is also needed for --grasp scripted and the pick recorder.
+REQUIRED_POSES = ("home", "hover", "transit", "metal_bin", "plastic_bin")
+# Names an older config/poses.yaml may still use (scripts/tools/capture_poses.sh --migrate)
+RENAMED_POSES = {"centre": "transit", "grasp": "tray_low"}
+RETIRED_POSES = {"tray_release": "not a pose any more: the pick recorder lets the item go at transit, above the tray"}
 SORTABLE = ("metal", "plastic")
 
 
@@ -36,8 +40,11 @@ def load_poses(path: Path, required=REQUIRED_POSES) -> dict[str, dict[str, float
     poses = load_yaml(path).get("poses", {})
     missing = [name for name in required if name not in poses]
     if missing:
+        old = [f"{o} -> {n}" for o, n in RENAMED_POSES.items() if o in poses and n in missing]
+        hint = (f" ({path.name} still uses old names: {', '.join(old)}; run "
+                f"scripts/tools/capture_poses.sh --migrate to keep what you captured)") if old else ""
         raise KeyError(f"{path} has no pose {', '.join(missing)}: capture it with "
-                       f"scripts/tools/capture_poses.sh {' '.join(missing)}")
+                       f"scripts/tools/capture_poses.sh {' '.join(missing)}{hint}")
     for name, pose in poses.items():
         absent = [k for k in JOINT_KEYS if k not in pose]
         if absent:

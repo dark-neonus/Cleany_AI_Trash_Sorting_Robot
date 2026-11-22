@@ -135,8 +135,8 @@ def dry_run_poses() -> dict:
     base = dict.fromkeys(JOINT_KEYS, 0.0)
     return {"home": {**base, "shoulder_lift.pos": -100.0, "elbow_flex.pos": 95.0},
             "hover": {**base, "shoulder_lift.pos": -40.0, "elbow_flex.pos": 40.0},
-            "grasp": {**base, "shoulder_lift.pos": -10.0, "elbow_flex.pos": 20.0},
-            "centre": {**base, "shoulder_lift.pos": -60.0, "elbow_flex.pos": 50.0},
+            "tray_low": {**base, "shoulder_lift.pos": -10.0, "elbow_flex.pos": 20.0},
+            "transit": {**base, "shoulder_lift.pos": -60.0, "elbow_flex.pos": 50.0},
             "metal_bin": {**base, "shoulder_pan.pos": -40.0, "shoulder_lift.pos": -50.0},
             "plastic_bin": {**base, "shoulder_pan.pos": 40.0, "shoulder_lift.pos": -50.0}}
 
@@ -169,7 +169,7 @@ def main():
     log = EventLog(PROJECT_ROOT / "logs" / "pipeline" / f"box_{datetime.now():%Y%m%d_%H%M%S}.jsonl")
 
     # Poses first: on the arm, a missing pose stops here, before anything is loaded or moves
-    required = REQUIRED_POSES + (("grasp",) if args.grasp == "scripted" else ())
+    required = REQUIRED_POSES + (("tray_low",) if args.grasp == "scripted" else ())
     poses_path = PROJECT_ROOT / config["poses"]
     try:
         poses = load_poses(poses_path, required)

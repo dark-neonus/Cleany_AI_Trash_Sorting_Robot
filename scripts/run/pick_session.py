@@ -11,8 +11,8 @@
     ARMED      the leader holds hover until pushed push_deg (or Space): its torque goes off and
     RECORDING  the follower follows it; every frame goes to the dataset. Ends when the box
                pipeline's grasp check holds (fingers blocked and arm lifted), on End, or timeout
-    PLACE      the leader is driven again; centre, then tray_release (item back onto the tray)
-               or its bin, gripper fully open
+    PLACE      the leader is driven again; transit (above the tray: the item is let go there and
+               falls back onto the tray) or its bin, gripper fully open
     HOME       both arms home, then READY
 
 The leader is moved by script (mirroring every follower command) from SETUP to home, and from
@@ -484,14 +484,12 @@ class PickSession(BoxPipeline):
         self.set_phase("PLACE", "Let go of the leader: both arms put the item down")
         self.align_leader()
         holding = hold_command(self.joints(self.observe())[GRIPPER], self.cfg["grasp"]["squeeze_deg"])
-        self.move_to({**self.poses["centre"], GRIPPER: holding}, self.material)
-        over = "tray_release" if r["where"] == "tray" else f"{self.material}_bin"
-        self.move_to({**self.poses[over], GRIPPER: holding}, self.material)
+        self.move_to({**self.poses["transit"], GRIPPER: holding}, self.material)
+        if r["where"] == "bin":
+            self.move_to({**self.poses[f"{self.material}_bin"], GRIPPER: holding}, self.material)
         self.move_to({**self.joints(self.observe()), GRIPPER: r["gripper"]}, self.material)
         self.hold(r["hold_s"], self.material)
-        if r["where"] == "tray":
-            self.move_to({**self.poses["centre"], GRIPPER: r["gripper"]}, self.material)
-        return "HOME"
+        return "HOME"  # the gripper closes while the arm goes home, as in the pipeline
 
     def home(self):
         self.set_phase("HOME", "Both arms home")

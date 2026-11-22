@@ -23,7 +23,7 @@ start:
   push_deg: 3               # any leader joint this far from where it settled: recording starts
 
 release:
-  where: tray               # tray: back onto the tray at pose tray_release (next episode, no reset); bin: into its bin
+  where: transit            # transit: let go above the tray, the item falls back onto it (no hands for the next episode); bin: carry it to its bin
   gripper: 100              # fully open
   hold_s: 1.0
 

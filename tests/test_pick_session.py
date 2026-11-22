@@ -21,7 +21,7 @@ def pose(**degrees):
 
 
 POSES = {"home": pose(shoulder_lift=-100, elbow_flex=95), "hover": pose(shoulder_lift=-40),
-         "centre": pose(shoulder_lift=-60), "tray_release": pose(shoulder_lift=-20),
+         "transit": pose(shoulder_lift=-60),
          "metal_bin": pose(shoulder_pan=-40, shoulder_lift=-50), "plastic_bin": pose(shoulder_pan=40, shoulder_lift=-50)}
 
 
