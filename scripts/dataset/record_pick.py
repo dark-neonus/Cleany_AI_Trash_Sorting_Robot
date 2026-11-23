@@ -33,6 +33,8 @@ import estop  # noqa: E402
 from box_logic import REQUIRED_POSES, load_poses, load_yaml  # noqa: E402
 from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
 from camera_feed import CameraFeed  # noqa: E402
+from comm_retry import STATS as COMM  # noqa: E402
+from comm_retry import retry  # noqa: E402
 from item_registry import Registry, RegistryError  # noqa: E402
 from leader_arm import Leader  # noqa: E402
 from motor_state import Normaliser, read_extras  # noqa: E402
@@ -67,13 +69,13 @@ class Follower:
         self.robot = robot
 
     def observe(self) -> dict:
-        return self.robot.get_observation()
+        return retry(self.robot.get_observation)
 
     def send(self, action: dict):
-        self.robot.send_action(action)  # through arm_estop's guard
+        retry(self.robot.send_action, action)  # through arm_estop's guard
 
     def extras(self) -> dict:
-        return read_extras(self.robot.bus)
+        return retry(read_extras, self.robot.bus)
 
 
 def main():
@@ -218,6 +220,8 @@ def run(args, recording, config, poses, log, robot, teleop, detector, embedder, 
         print(f"{clamps.count} follower commands were limited by --max-step {args.max_step:g}: the follower lagged "
               f"behind the leader (a grasp: the fingers blocked by the item; a fast move: the arm). Their cause is "
               f"normal in teleoperation; a high count in a quiet episode is not.")
+    if COMM.count:
+        print(f"{COMM.count} arm bus calls needed a retry (a reply went missing once: {COMM.last}).")
     print("Upload with: scripts/dataset/sync.sh push pick")
     print("Label the items: scripts/tools/contact_sheet.sh (then the agent fills config/items.yaml and item_labels.yaml)")
     if errors:

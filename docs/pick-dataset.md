@@ -131,6 +131,11 @@ being recorded is lost. A dataset that cannot be read anyway is renamed to `data
 (`logs/pick/pick_<time>.jsonl`) ends with `shutdown` steps and `end`: if `end` is missing the process died
 after the last step shown.
 
+**Bus glitches.** A servo reply now and then goes missing ("There is no status packet!"); lerobot tries
+once and raises, which ended a session at the start (2026-11-23). Every call the recorder makes to
+either arm is retried up to 4 times ([comm_retry.py](../scripts/common/comm_retry.py)); a call that keeps
+failing still stops the session. The session summary says how many calls needed a retry.
+
 ### What a session writes
 
 | Where | What |

@@ -18,6 +18,7 @@ Two things learned on the arm (2026-11-23):
 
 from __future__ import annotations
 
+from comm_retry import retry
 from motor_state import JOINTS
 
 GRIPPER = "gripper"
@@ -41,17 +42,17 @@ class Leader:
         self.notes: list[str] = []  # expected ones: an overload when the torque goes off
 
     def read(self) -> dict:
-        return self.teleop.get_action()
+        return retry(self.teleop.get_action)
 
     def command(self, degrees: dict):
         goal = {j: degrees[f"{j}.pos"] for j in JOINTS}
         goal[GRIPPER] = inside_range(goal[GRIPPER])
-        self.bus.sync_write("Goal_Position", goal)
+        retry(self.bus.sync_write, "Goal_Position", goal)
 
     def _write(self, name: str, motor: str, value: int):
         """One register write; a servo's error flag in the reply is noted, not raised."""
         try:
-            self.bus.write(name, motor, value)
+            retry(self.bus.write, name, motor, value)
         except RuntimeError as error:  # the servo answered with an error flag (ConnectionError is not one)
             text = f"leader {motor}: {name} {value}: {str(error).strip()}"
             hand = name == "Torque_Enable" and value == 0 and "Overload" in text  # a person fought the hold
@@ -61,9 +62,9 @@ class Leader:
 
     def set_torque(self, on: bool):
         if on and not self.torque:
-            present = dict(self.bus.sync_read("Present_Position"))
+            present = dict(retry(self.bus.sync_read, "Present_Position"))
             present[GRIPPER] = inside_range(present[GRIPPER]) if GRIPPER in present else None
-            self.bus.sync_write("Goal_Position", {m: v for m, v in present.items() if v is not None})
+            retry(self.bus.sync_write, "Goal_Position", {m: v for m, v in present.items() if v is not None})
             for motor in self.bus.motors:
                 self._write("Torque_Enable", motor, 1)
                 self._write("Lock", motor, 1)
