@@ -1,7 +1,7 @@
 """Resolve a model name from config/default.yaml to what a script can load.
 
 Usage:
-    python models.py <name>        # e.g. yolo, yolo_base, act_plastic
+    python models.py <name>        # e.g. yolo, yolo_base
 
 Prints a Hub repo id as is (LeRobot downloads ACT models itself) and downloads a
 "<repo id>/<file>" entry, printing the local path of the file in the Hugging Face cache.

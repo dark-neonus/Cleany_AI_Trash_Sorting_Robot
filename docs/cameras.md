@@ -18,10 +18,10 @@ this automatically:
   (the front C270 otherwise dropped to ~12 fps).
 - **Video encoding on the GPU.** Datasets are encoded with `h264_nvenc` (~3 ms of CPU per
   frame) instead of LeRobot's default CPU AV1 encoder (~100 ms of CPU per frame, enough to
-  saturate a weak CPU and delay the cameras). `record.sh` test-encodes first and stops if
+  saturate a weak CPU and delay the cameras). `record_pick.sh` test-encodes first and stops if
   NVENC does not work. Keep `VIDEO_CODEC` the same for the whole team: episodes from both
   laptops end up in the same video files.
 - **Display options.** To turn the Rerun viewer off completely (saves CPU on a weak laptop):
-  `DISPLAY_DATA=false scripts/dataset/record.sh plastic 10`. If the viewer shows no new data,
+  `DISPLAY_DATA=false scripts/dataset/record_pick.sh`. If the viewer shows no new data,
   close stale viewers first with `pkill -x rerun`: LeRobot reuses a viewer that is already
   running instead of starting a new one.

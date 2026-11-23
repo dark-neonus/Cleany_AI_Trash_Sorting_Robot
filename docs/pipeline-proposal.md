@@ -3,7 +3,7 @@
 Status: step 2 (state machine with the doors), most of step 3 (background trigger, settle gate,
 DINO classifier; not the one-class YOLO) and the pose capture are implemented, see
 [box-pipeline.md](box-pipeline.md). The rest is still a proposal. Part of the
-[Cleany README](../README.md). The two-ACT pipeline is described in [pipeline.md](pipeline.md).
+[Cleany README](../README.md). The two-ACT pipeline it replaces was removed from the repository (see git history).
 
 ## Summary
 
@@ -25,7 +25,7 @@ dataset.
 
 ## Why change
 
-What the repo does now ([sort_pipeline.py](../scripts/run/sort_pipeline.py)): YOLO locks a
+What the repo did when this was written (`sort_pipeline.py`, since removed): YOLO locks a
 class, then one ACT per material drives the arm for the whole 18-20 s episode, including the
 parts that are the same every time. Results so far are 9/10 (plastic) and 8/10 (metal), on known
 items in the old setup.

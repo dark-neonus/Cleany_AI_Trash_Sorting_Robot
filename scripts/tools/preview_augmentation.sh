@@ -5,8 +5,8 @@ set -e
 # each augmentation at both ends of its range, grayscale, and random combinations as training
 # samples them, for frames from the start, middle and end of the episode. No robot needed.
 #
-# Usage: scripts/tools/preview_augmentation.sh <plastic|metal> <episode>
-#   scripts/tools/preview_augmentation.sh plastic 49
+# Usage: scripts/tools/preview_augmentation.sh <pick> <episode>
+#   scripts/tools/preview_augmentation.sh pick 3
 # Images are written to outputs/augmentation_preview/.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

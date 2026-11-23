@@ -3,11 +3,11 @@ set -e
 
 # Train the ACT model of one material on its local dataset.
 #
-# Usage: scripts/train/train_act.sh <plastic|metal> [extra lerobot-train args...]
-#        scripts/train/train_act.sh <plastic|metal> --resume [run_dir] [extra lerobot-train args...]
-#   scripts/train/train_act.sh plastic --steps=2000     # quick smoke test
-#   scripts/train/train_act.sh plastic --resume         # continue the latest act_plastic_* run
-#   STEPS=150000 scripts/train/train_act.sh plastic --resume outputs/train/act_plastic_20261020_1400
+# Usage: scripts/train/train_act.sh <pick> [extra lerobot-train args...]
+#        scripts/train/train_act.sh <pick> --resume [run_dir] [extra lerobot-train args...]
+#   scripts/train/train_act.sh pick --steps=2000     # quick smoke test
+#   scripts/train/train_act.sh pick --resume         # continue the latest act_pick_* run
+#   STEPS=150000 scripts/train/train_act.sh pick --resume outputs/train/act_pick_20261020_1400
 #
 # While training, type `exit` + Enter to save a checkpoint at the current step and stop.
 #

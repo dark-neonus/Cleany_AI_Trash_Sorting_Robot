@@ -76,7 +76,7 @@ would need ACT to be told which item to take (a later model change).
   episodes throw it in through the entry again for a natural landing pose, and place it by hand
   only to fill pose gaps (upright bottles, for example). Hands out before Metal / Plastic.
 - **Light**: whatever the room gives for now (the enclosed box will fix it); brightness and
-  colour augmentation at training time covers the rest, as on setup_v2.
+  colour augmentation at training time covers the rest, as on the old setup.
 - **Sessions**: no fixed length.
 - **Glass, and anything not metal or plastic that is not a grasp object**: through **Other**, so
   the gallery learns to reject it.

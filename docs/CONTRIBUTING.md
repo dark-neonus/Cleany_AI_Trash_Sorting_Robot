@@ -4,7 +4,7 @@ How we work on this repo, so that everyone's work is visible in the commit histo
 
 ## Branches
 
-- `main` is always in a working state: anyone can clone it and run `make reproduce`.
+- `main` is always in a working state: anyone can clone it and run `make setup`.
 - Larger work goes on a branch: `feat/<short-name>` for new functionality, `fix/<short-name>`
   for bug fixes, `exp/<short-name>` for experiments that might not pan out, merged through a
   pull request.
@@ -21,8 +21,7 @@ of the team learns what was built, in enough detail to debug it later.
 Prefixes: `feat:`, `fix:`, `docs:`, `exp:`, `refactor:`, `test:`, `chore:`, `assets:`.
 
 The commit body explains **why**, not what: the diff shows what changed. For `exp:` commits,
-put the result in the body, so the git log doubles as an experiment record next to
-[results/experiments.md](../results/experiments.md):
+put the result in the body, so the git log is the experiment record:
 
 ```
 exp: add pre-grasp frames to YOLO training
@@ -33,8 +32,8 @@ test photo: 7/8 -> 8/8 right at conf 0.25, val mAP50-95 0.861 -> 0.870
 | Before | After |
 |---|---|
 | `update` | `fix: keep the start pose when the arm returns within tolerance` |
-| `changes` | `feat: add the sorting pipeline runner` |
-| `final version` | `docs: add the metal ACT model to the model table` |
+| `changes` | `feat: add the box pipeline runner` |
+| `final version` | `docs: add the pick model to the model table` |
 
 ## Data and models
 
@@ -42,8 +41,7 @@ test photo: 7/8 -> 8/8 right at conf 0.25, val mAP50-95 0.861 -> 0.870
   (`scripts/dataset/sync.sh push`), models to Hub model repos (see [models/](../models/README.md)).
 - One person records a given dataset at a time; pull before recording and push right after
   (see [docs/cloud-storage.md](cloud-storage.md#team-rules)).
-- A new model becomes the default by changing `config/default.yaml`, in a commit that also
-  updates `results/`.
+- A new model becomes the default by changing `config/default.yaml`, with its numbers in the commit message.
 
 ## Authorship
 

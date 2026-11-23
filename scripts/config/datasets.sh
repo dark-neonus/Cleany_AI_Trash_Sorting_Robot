@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
 # Per-model dataset config. Source it after hardware.sh:
 #   source "$PROJECT_ROOT/scripts/config/datasets.sh"
-#   resolve_dataset plastic
+#   resolve_dataset pick
 
 # Hugging Face namespace (user or org) the datasets are pushed to.
 HF_NAMESPACE="${HF_NAMESPACE:-cleany-ai}"
 
 # Prefix of uploaded model names. Models only work with the physical setup (box, cameras,
 # lighting, arm calibration) they were trained on: change it whenever that setup changes.
-SETUP_NAME="${SETUP_NAME:-setupv2}"
+# setupv2 was the open table with two ACT policies (its datasets and models stay on the Hub).
+SETUP_NAME="${SETUP_NAME:-setupv3}"
 
-# One ACT model, and so one dataset, per material (old pipeline), plus the box pipeline's pick
-# dataset for all materials (recorded with scripts/dataset/record_pick.sh, docs/pick-dataset.md).
-MODELS=(plastic metal pick)
+# The box pipeline's pick dataset for all materials (recorded with scripts/dataset/record_pick.sh, docs/pick-dataset.md).
+MODELS=(pick)
 MODELS_USAGE="$(IFS="|"; echo "${MODELS[*]}")"
 
 declare -A MODEL_TASKS=(
-    [plastic]="Put the plastic item into the right hole"
-    [metal]="Put the metal item into the left hole"
     [pick]="Pick up the item"
 )
 

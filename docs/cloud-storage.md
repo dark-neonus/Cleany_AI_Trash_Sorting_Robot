@@ -36,16 +36,16 @@ Repos are created on the first push, always **private**.
 
 ```bash
 scripts/dataset/sync.sh status              # episode counts, local vs Hub, for every model
-scripts/dataset/sync.sh push plastic        # upload local → Hub
+scripts/dataset/sync.sh push pick           # upload local → Hub
 scripts/dataset/sync.sh pull all            # download Hub → local, every model
 ```
 
 - `push` uploads the local dataset and makes the Hub copy match it exactly, including
   episodes deleted locally. It refuses if the Hub has more episodes than the local copy.
 - `pull` replaces the local copy with the Hub one, keeping the old one in
-  `data/cleany_<model>.before_pull/`. It refuses if the local copy has more episodes.
+  `data/pick/episodes.before_pull/`. It refuses if the local copy has more episodes.
 - Add `--force` to skip the episode-count check, e.g. to push after deleting episodes:
-  `scripts/dataset/sync.sh push plastic --force`.
+  `scripts/dataset/sync.sh push pick --force`.
 
 ### Team rules
 
@@ -54,7 +54,7 @@ scripts/dataset/sync.sh pull all            # download Hub → local, every mode
   syncing; two people appending to the same dataset in parallel would overwrite each
   other's episodes. To record the same model on two machines in parallel, the second
   machine pushes to a personal namespace instead
-  (`HF_NAMESPACE=<your-user> scripts/dataset/sync.sh push plastic`), and the two datasets
+  (`HF_NAMESPACE=<your-user> scripts/dataset/sync.sh push pick`), and the two datasets
   are merged afterwards with `lerobot-edit-dataset --operation.type=merge`.
 - Trained models are shared as Hub **model** repos, see
-  [Sharing trained models](training.md#sharing-trained-models) and [Running a trained model](running-models.md#running-a-trained-model).
+  [Sharing trained models](training.md#sharing-trained-models).

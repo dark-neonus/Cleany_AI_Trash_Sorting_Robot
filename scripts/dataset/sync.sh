@@ -4,9 +4,9 @@ set -e
 # Sync ACT datasets with their private Hugging Face Hub repos (<HF_NAMESPACE>/cleany_<model>). `pick` also
 # syncs its items side (<HF_NAMESPACE>/cleany_pick_items: records, registry, crops, YOLO frames).
 #
-# Usage: scripts/dataset/sync.sh <push|pull|status> [plastic|metal|all] [--force]
+# Usage: scripts/dataset/sync.sh <push|pull|status> [pick|all] [--force]
 #   scripts/dataset/sync.sh status             # episode counts, local vs Hub, for every model
-#   scripts/dataset/sync.sh push plastic       # upload after recording
+#   scripts/dataset/sync.sh push pick          # upload after recording
 #   scripts/dataset/sync.sh pull all           # fetch before recording or training
 #
 # Transfers are refused when they would overwrite a copy with more episodes;

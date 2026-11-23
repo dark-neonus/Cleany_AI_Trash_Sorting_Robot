@@ -4,21 +4,19 @@
 # Weights are not in git: an entry is either a Hugging Face model repo id (LeRobot downloads
 # it) or "<repo id>/<file>" for a single file that scripts/common/models.py downloads into the
 # Hugging Face cache. `python scripts/common/models.py <name>` prints what a script will use.
-# Training hyperparameters live with their script: scripts/train/train_act.sh (ACT),
+# Training hyperparameters live with their script: scripts/train/train_act.sh (ACT, act_dino),
 # scripts/yolo/train.sh (YOLO), scripts/config/augmentation.json.
 
 models:
-  # ACT policies, one per material (scripts/run/run_pipeline.sh, run_policy.sh examples)
-  act_plastic: cleany-ai/setupv2_act_plastic_20261020_1926
-  act_metal: cleany-ai/setupv2_act_metal_20261021_1855
-  # Metal/plastic detector used by the pipeline and for pre-labelling new frames
+  # Item detector of the box pipeline (its boxes only; the class is ignored) and for pre-labelling new frames.
+  # Trained on the setupv2 frames; to be retrained on data/pick/items/yolo for this box.
   yolo: cleany-ai/setupv2_yolo_20261020_2008/best.pt
   # Kaggle-only YOLO: the starting point scripts/yolo/train.sh fine-tunes
   yolo_base: cleany-ai/yolo_kaggle_garbage_20261016_2356/best.pt
 
 datasets:
   # LeRobot datasets: scripts/dataset/sync.sh (names from scripts/config/datasets.sh)
-  plastic: cleany-ai/cleany_plastic
-  metal: cleany-ai/cleany_metal
-  # Labelled front-camera frames for YOLO, plus the unseen test photo (test/)
+  pick: cleany-ai/cleany_pick
+  pick_items: cleany-ai/cleany_pick_items
+  # Labelled front-camera frames of the old setup for YOLO (setupv2), plus the unseen test photo (test/)
   yolo_frames: cleany-ai/cleany_yolo_frames

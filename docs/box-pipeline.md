@@ -2,8 +2,8 @@
 
 Part of the [Cleany README](../README.md). This is the final pipeline from the
 [midterm](slides/midterm/midterm.tex) ("New pipeline") as worked out in
-[pipeline-proposal.md](pipeline-proposal.md). The old two-ACT pipeline
-([pipeline.md](pipeline.md)) stays as plan B.
+[pipeline-proposal.md](pipeline-proposal.md). It replaced the old two-ACT pipeline of the open-table
+setup, which is no longer in this repository (git history, before the cleanup of 2026-11-24).
 
 Math does what is predictable and models do what is not. The models only do two things: say
 what an item is, and grasp it. Everything else is minimum-jerk moves between named poses, the
@@ -136,7 +136,7 @@ items with distractor demos, the one-class YOLO, and the target item's DINO embe
 ```bash
 # No arm: simulated arm and door, the front camera or a recorded video
 scripts/run/run_box_pipeline.sh --recording false --dry-run --display
-scripts/run/run_box_pipeline.sh --recording false --dry-run --source data/cleany_metal/videos/observation.images.front/chunk-000/file-000.mp4
+scripts/run/run_box_pipeline.sh --recording false --dry-run --source data/pick/episodes/videos/observation.images.front/chunk-000/file-000.mp4
 
 # On the arm with a scripted grasp (the optional `tray_low` pose): tests everything but the model
 scripts/run/run_box_pipeline.sh --recording true --display
@@ -165,7 +165,7 @@ results, slips, drops. With `--recording true`, `showcase.mp4` shows the state t
   compared with the gallery: mean distance to the k nearest crops per class. Metal or plastic
   only when it is the closest class, nearer than `max_distance`, and clearly nearer than the
   other (`min_margin`); otherwise `other`. A wrong bin is worse than the mixed bin.
-  `classifier.type: yolo` uses YOLO's own class instead (plan B).
+  `classifier.type: yolo` uses YOLO's own class instead.
 - **Target.** The sortable item with the most free space around it; items overlapping another
   box, or that failed 3 times, are left to the doors.
 - **Grasp check.** Both for 0.3 s: the measured gripper stays over 4° above the commanded one
@@ -193,7 +193,7 @@ only the backbone and the 1×1 projection change ([modeling_act_dino.py](../scri
 - **Backbone fallback**: if DINOv3 cannot be downloaded, DINOv2 with registers is used and written
   into the saved config, so the model never runs on a different encoder than it was trained with.
 - **Normalisation**: ImageNet mean/std, LeRobot's default (`dataset.use_imagenet_stats`).
-- Our scripts import the plugin themselves (training, `run_policy.sh`, the box pipeline); plain
+- Our scripts import the plugin themselves (training, the box pipeline); plain
   `lerobot-*` commands do not know `act_dino`.
 
 ```bash

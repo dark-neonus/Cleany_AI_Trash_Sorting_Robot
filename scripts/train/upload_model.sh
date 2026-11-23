@@ -5,10 +5,10 @@ set -e
 #   <HF_NAMESPACE>/<SETUP_NAME>_act_<model>_<YYYYmmdd_HHMM>
 # where the timestamp is when the checkpoint's last training step finished.
 #
-# Usage: scripts/train/upload_model.sh <plastic|metal> [run_dir] [--checkpoint STEP] [--dry-run]
-#   scripts/train/upload_model.sh plastic                       # last checkpoint of the latest run
-#   scripts/train/upload_model.sh plastic outputs/train/act_plastic_20261020_1400 --checkpoint 50000
-#   scripts/train/upload_model.sh plastic --dry-run             # show what would be uploaded
+# Usage: scripts/train/upload_model.sh <pick> [run_dir] [--checkpoint STEP] [--dry-run]
+#   scripts/train/upload_model.sh pick                       # last checkpoint of the latest run
+#   scripts/train/upload_model.sh pick outputs/train/act_pick_20261020_1400 --checkpoint 50000
+#   scripts/train/upload_model.sh pick --dry-run             # show what would be uploaded
 #
 # Env overrides: HF_NAMESPACE, SETUP_NAME (see scripts/config/datasets.sh),
 #   POLICY=act_dino for runs of scripts/train/train_act_dino.sh (repo <SETUP_NAME>_act_dino_<model>_...)

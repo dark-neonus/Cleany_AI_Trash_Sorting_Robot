@@ -60,7 +60,7 @@ Run it with `--policy.path={repo_id}`.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("checkpoint_dir", type=Path)
-    parser.add_argument("repo_prefix", help="e.g. cleany-ai/setupv2_act_plastic")
+    parser.add_argument("repo_prefix", help="e.g. cleany-ai/setupv3_act_dino_pick")
     parser.add_argument("--dry-run", action="store_true", help="print what would be uploaded, upload nothing")
     args = parser.parse_args()
 

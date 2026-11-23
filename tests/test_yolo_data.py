@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 
 from conftest import PROJECT_ROOT
-from evaluate import build_eval_sets
 
 
 def make_frames(root, episodes=10, extra_per_episode=1):
@@ -45,17 +44,3 @@ def test_no_episode_is_in_both_train_and_val(tmp_path):
     assert not episodes(train) & episodes(val)
     assert len(train) == 8 * 3  # 8 training episodes x (first frame + 2 extra frames)
 
-
-def test_evaluation_uses_the_same_validation_episodes(tmp_path):
-    make_frames(tmp_path, episodes=10)
-    test_dir = tmp_path / "frames" / "test"
-    for kind in ("images", "labels"):
-        (test_dir / kind).mkdir(parents=True)
-    cv2.imwrite(str(test_dir / "images" / "photo.jpg"), np.zeros((48, 64, 3), np.uint8))
-    (test_dir / "labels" / "photo.txt").write_text("1 0.5 0.5 0.2 0.2\n")
-
-    val_yaml, test_yaml = build_eval_sets(tmp_path / "frames", tmp_path / "eval")
-    _, prepare_val = run_prepare(tmp_path)
-    evaluate_val = {p.stem for p in (val_yaml.parent / "val" / "labels").glob("*.txt")}
-    assert evaluate_val == prepare_val
-    assert [p.name for p in (test_yaml.parent / "test" / "images").iterdir()] == ["photo.jpg"]

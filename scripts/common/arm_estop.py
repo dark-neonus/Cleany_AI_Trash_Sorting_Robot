@@ -1,7 +1,7 @@
 """Stops the SO-101 follower while the emergency stop (estop.py, red panel button) is pressed.
 
 Installed by lerobot_wide_fov.py in every mode. Every lerobot command (teleoperate, record,
-rollout, replay) and sort_pipeline.py send their actions through SOFollower.send_action, so that
+rollout, replay) and the box pipeline send their actions through SOFollower.send_action, so that
 is what gets wrapped. Per follower, a state machine driven by estop.is_active():
 
   RUN        normal.

@@ -171,7 +171,7 @@ The pick dataset is two repos in the org (private), laid out the same way locall
 
 `scripts/dataset/sync.sh push pick` uploads both repos (pull and status work the same way); a push is
 refused when the Hub has more episodes or records than you have. The old per-material datasets
-(`cleany_plastic`, `cleany_metal`) are untouched. The item repo's README describes the layout.
+(`cleany_plastic`, `cleany_metal`) stay on the Hub but are not synced by this repository any more. The item repo's README describes the layout.
 
 **YOLO labels without a good YOLO.** With one item on the tray, the label box is the change from
 the empty-tray photo (`label_from: tray_change`), whatever YOLO sees: the old-setup YOLO is only
@@ -207,7 +207,7 @@ The full strategy (items, train/test split, how many episodes, evaluation) is in
 - **Running a pick model**: the box pipeline's `PolicyGrasper` still feeds a policy degrees and
   the 6-joint state. A model trained on this dataset needs the 8-value normalised state in and
   its actions turned back into degrees with the leader's calibration (`motor_state.Normaliser`).
-  Until then `run_policy.sh` and `replay.sh` refuse the pick dataset.
+  Until then `replay.sh` refuses the pick dataset.
 
 ## What the servos report
 

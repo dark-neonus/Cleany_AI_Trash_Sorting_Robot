@@ -31,9 +31,9 @@ from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-# sort_pipeline patches lerobot (camera FOV, servo limits, emergency stop) and opens the
+# pipeline_support patches lerobot (camera FOV, servo limits, emergency stop) and opens the
 # emergency stop window, as for every other run on the arm
-from sort_pipeline import Display, EventLog, FrameSource, Policy, watch_for_exit  # noqa: E402
+from pipeline_support import Display, EventLog, FrameSource, Policy, watch_for_exit  # noqa: E402
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 import estop  # noqa: E402
@@ -111,7 +111,7 @@ class SimulatedDoor:
 
 
 class PolicyGrasper:
-    """The pick model, stepped like sort_pipeline.Policy, but returning the command so the state
+    """The pick model, stepped like pipeline_support.Policy, but returning the command so the state
     machine can send it and compare it with the measured gripper."""
 
     def __init__(self, policy: Policy):

@@ -3,8 +3,8 @@ set -e
 
 # Replay an episode of an ACT dataset (or any local LeRobot dataset) on the follower arm.
 #
-# Usage: scripts/dataset/replay.sh [options] <plastic|metal|dataset_dir>
-#   scripts/dataset/replay.sh --episode 3 plastic
+# Usage: scripts/dataset/replay.sh [options] <dataset_dir>
+#   scripts/dataset/replay.sh --episode 3 recordings/<run>
 #   scripts/dataset/replay.sh --speed 0.5 recordings/rollout_<model>_<timestamp>
 #
 # Options:

@@ -3,7 +3,7 @@ set -e
 
 # Run the box pipeline: background trigger, YOLO boxes + DINO material, one grasp model,
 # scripted moves between named poses, ESP32 doors for everything that cannot be sorted.
-# See docs/box-pipeline.md and scripts/run/box_pipeline.py. Plan B is run_pipeline.sh.
+# See docs/box-pipeline.md and scripts/run/box_pipeline.py.
 #
 # Usage: scripts/run/run_box_pipeline.sh --recording true|false [options] [box_pipeline.py options...]
 #   scripts/run/run_box_pipeline.sh --recording false --dry-run --display        # no arm, front camera
@@ -19,7 +19,7 @@ set -e
 #   --dry-run              No arm: simulated arm and door, front camera (or --source <file>)
 #   --grasp scripted|policy  Fake grasp at the captured `grasp` pose (default), or the pick model
 #   --door esp32|simulated|none  Default: esp32 on the arm, simulated in --dry-run
-#   --max-velocity DEG_S, --acceleration N, --max-step DEG   Arm speed limits (as run_policy.sh)
+#   --max-velocity DEG_S, --acceleration N, --max-step DEG   Arm speed limits 
 #   Anything else goes to box_pipeline.py (e.g. --display, --grasp-model <repo>, --device cpu).
 #
 # Settings: config/box_pipeline.yaml. Poses: config/poses.yaml (scripts/tools/capture_poses.sh).

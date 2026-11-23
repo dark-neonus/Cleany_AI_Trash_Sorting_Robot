@@ -4,16 +4,16 @@ Part of the [Cleany README](../README.md).
 
 ## YOLO detector
 
-YOLO finds the items on the table in the front-camera image and says `metal` (class 0) or
-`plastic` (class 1); the pipeline uses it to pick which ACT to run.
+YOLO finds the items on the table in the front-camera image. The box pipeline uses its **boxes only**
+(its class is ignored: DINO decides the material). The current weights were trained on the old open-table
+setup (`setupv2`, metal and plastic classes) and are to be retrained on the box's own frames
+(`data/pick/items/yolo`, recorded by `record_pick.sh`).
 
 | | |
 | --- | --- |
 | Weights | Hub: [`cleany-ai/setupv2_yolo_20261020_2008`](https://huggingface.co/cleany-ai/setupv2_yolo_20261020_2008) (`best.pt`, 5 MB), `yolo` in [config/default.yaml](../config/default.yaml) |
-| Data | the first frame of each `cleany_plastic` (60) and `cleany_metal` (40) episode, one item per frame, plus 60 frames of the same episodes before the arm reaches the item; every 5th episode is held out for validation |
-| Validation (20 frames) | mAP50 0.995, mAP50-95 0.87 |
-| Unseen photo (8 items, another camera) | all 8 found with the right class at confidence 0.25 |
-| Limits | It has seen ~20 different items. New cans and bottles, especially crumpled transparent ones, may be missed or mixed up: record episodes with new items and retrain. |
+| Data | the old setup's labelled frames (`cleany-ai/cleany_yolo_frames`: one item per frame, 100 first frames of recorded episodes plus extra frames before the arm reaches the item) |
+| Limits | It has seen ~20 different items on another table. New cans and bottles, especially crumpled transparent ones, may be missed: retrain on the box's frames. |
 
 ### Use it
 
@@ -30,9 +30,6 @@ for cls, conf, box in zip(result.boxes.cls, result.boxes.conf, result.boxes.xyxy
 Run Python from `.venv` with `export YOLO_AUTOINSTALL=false` (`train.sh` sets it): otherwise
 Ultralytics may install an OpenCV that breaks LeRobot's. `python scripts/common/models.py yolo`
 prints the local path of the weights (downloading them on first use).
-
-To measure a model: `python scripts/yolo/evaluate.py` (validation frames + the unseen test
-photo, see [results/](../results/README.md); `make reproduce` runs it from a fresh download).
 
 ### Retrain it
 
@@ -57,9 +54,8 @@ scripts/yolo/train.sh epochs=5                 # smoke test
 `train.sh` fine-tunes the Kaggle-only YOLO (`yolo_base` in [config/default.yaml](../config/default.yaml)) for 150 epochs with strong colour
 augmentation (hue ±0.1, saturation, brightness), so that the material and not the label colour
 decides the class. Tried and found worse on the unseen photo: adding the Kaggle photos to the
-training set, and the bigger `yolo26s` model (see [results/experiments.md](../results/experiments.md)).
-To make a better model the default: compare it with `python scripts/yolo/evaluate.py --models
-current=yolo new=outputs/yolo/<job>/weights/best.pt`, upload its `best.pt` to a new Hub repo
+training set, and the bigger `yolo26s` model.
+To make a better model the default: upload its `best.pt` to a new Hub repo
 `cleany-ai/<setup>_yolo_<YYYYmmdd_HHMM>`, and point `yolo` in `config/default.yaml` at it.
 
 **Adding newly recorded episodes:**

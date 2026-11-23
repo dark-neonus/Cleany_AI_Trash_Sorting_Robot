@@ -3,7 +3,7 @@ set -e
 
 # Delete the last recorded episode from the local dataset of one ACT model.
 #
-# Usage: scripts/dataset/delete_last_episode.sh <plastic|metal>
+# Usage: scripts/dataset/delete_last_episode.sh <pick>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
