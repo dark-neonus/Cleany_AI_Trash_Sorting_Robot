@@ -46,8 +46,13 @@ grasp:
 
 motion:
   fps: 30
-  speed_deg_s: 45           # mean joint speed of a minimum-jerk move (peak 1.9x)
+  speed_deg_s: 45           # cruise speed of a scripted move (every move that is not teleoperation or the policy)
+  ramp_s: 0.15              # the speed rises linearly for this long at the start of a move and falls for it at the end
+                            # (docs/motion.md); remove the line for the old minimum-jerk bell
   min_move_s: 0.8
+  # approach:               # OFF: hold joints back on the way to a pose (box_logic.approach_waypoint, docs/motion.md).
+  #   home: {shoulder_lift: -80}   # Elbow-first into home measured slightly smoother, but 10 degrees further the
+  #                                # elbow is blocked (shoulder_lift -70: MoveError), so it is not on by default.
   gripper_open: 60          # 0-100
   release_s: 1.0
 

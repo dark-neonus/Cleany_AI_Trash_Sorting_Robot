@@ -13,7 +13,7 @@ Safety, the same as the pipeline's own moves:
 
 from __future__ import annotations
 
-from box_logic import GRIPPER, max_joint_distance, move_duration
+from box_logic import GRIPPER, approach_waypoint, max_joint_distance, move_duration
 from box_states import Clock, Stop
 from paced_move import LAG_DEG, SHORT_DEG, MoveError, run  # noqa: F401  (MoveError: re-exported)
 from pose_catalog import BY_NAME, NAMES
@@ -91,7 +91,7 @@ class Mover:
         return {**self.poses[name], GRIPPER: grip}
 
     def seconds(self, start: dict, name: str) -> float:
-        return move_duration(start, self.target(name), self.speed, self.motion["min_move_s"])
+        return move_duration(start, self.target(name), self.speed, self.motion["min_move_s"], self.motion.get("ramp_s"))
 
     def check(self):
         if self.paused():
@@ -104,9 +104,13 @@ class Mover:
         slows down smoothly as the arm lags. Returns when the arm has settled on the pose."""
         self.at = None
         m = self.motion
-        result = run(self.here(), self.target(name), speed=self.speed, min_s=m["min_move_s"], fps=m["fps"],
-                     observe=self.here, send=self.arm.send, clock=self.clock, lag_deg=self.lag_deg,
-                     check=self.check, include_gripper=True)
+        target = self.target(name)
+        waypoint = approach_waypoint(self.here(), target, self.poses, m.get("approach"))
+        result = None
+        for leg in ([waypoint] if waypoint else []) + [target]:
+            result = run(self.here(), leg, speed=self.speed, min_s=m["min_move_s"], fps=m["fps"],
+                         observe=self.here, send=self.arm.send, clock=self.clock, lag_deg=self.lag_deg,
+                         check=self.check, include_gripper=True, ramp_s=m.get("ramp_s"))
         self.errors[name] = max(self.errors.get(name, 0.0), result.error)
         if result.error > SHORT_DEG:
             self.say(f"  ! {name}: the arm stopped {result.error:.1f} degrees short ({result.joint}): "

@@ -278,7 +278,7 @@ class PickSession(BoxPipeline):
         start = self.leader.read()
         target = self.joints(self.observe())
         m = self.cfg["motion"]
-        for step in trajectory(start, target, m["speed_deg_s"], m["min_move_s"], m["fps"]):
+        for step in trajectory(start, target, m["speed_deg_s"], m["min_move_s"], m["fps"], m.get("ramp_s")):
             began = self.clock.now()
             self.check()
             self.leader.command(step)

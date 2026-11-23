@@ -30,6 +30,7 @@ from box_logic import (
     GraspCheck,
     Item,
     SettleGate,
+    approach_waypoint,
     choose_target,
     crop_box,
     group_detections,
@@ -135,10 +136,10 @@ class ScriptedGrasper:
         opened = {**self.poses["tray_low"], GRIPPER: m["gripper_open"]}
         closed = {**opened, GRIPPER: self.close_to}
         lifted = {**self.poses["hover"], GRIPPER: self.close_to}
-        self.plan = (trajectory(start, opened, m["speed_deg_s"], m["min_move_s"], m["fps"])
-                     + trajectory(opened, closed, m["speed_deg_s"], 0.8, m["fps"])
+        self.plan = (trajectory(start, opened, m["speed_deg_s"], m["min_move_s"], m["fps"], m.get("ramp_s"))
+                     + trajectory(opened, closed, m["speed_deg_s"], 0.8, m["fps"], m.get("ramp_s"))
                      + [closed] * int(0.3 * m["fps"])
-                     + trajectory(closed, lifted, m["speed_deg_s"], m["min_move_s"], m["fps"]))
+                     + trajectory(closed, lifted, m["speed_deg_s"], m["min_move_s"], m["fps"], m.get("ramp_s")))
         self.position, self.rate, self.last = 0.0, 1.0, None
 
     def action(self, obs: dict) -> dict:
@@ -222,11 +223,20 @@ class BoxPipeline:
             self.hooks.frame(obs, mode, state=self.state)
             return on_step(obs) if on_step is not None else None
 
-        result = paced_move.run(start, target, speed=m["speed_deg_s"], min_s=m["min_move_s"], fps=m["fps"],
-                                observe=self.observe, send=self.send, clock=self.clock, check=self.check,
-                                lag_deg=m.get("lag_deg", paced_move.LAG_DEG), on_tick=on_tick)
-        if not result.aborted and result.error > paced_move.SHORT_DEG:
-            self.log("arm_short", cls=mode, joint=result.joint, degrees=round(result.error, 1))
+        waypoint = approach_waypoint(start, target, self.poses, m.get("approach"))
+        for leg in ([waypoint] if waypoint else []) + [target]:
+            if waypoint and leg is target:  # the second leg starts from where the arm is
+                start = self.joints(self.observe())
+                if self.command is not None:
+                    start[GRIPPER] = self.command[GRIPPER]
+            result = paced_move.run(start, leg, speed=m["speed_deg_s"], min_s=m["min_move_s"], fps=m["fps"],
+                                    observe=self.observe, send=self.send, clock=self.clock, check=self.check,
+                                    lag_deg=m.get("lag_deg", paced_move.LAG_DEG), on_tick=on_tick,
+                                    ramp_s=m.get("ramp_s"))
+            if result.aborted:
+                break
+            if result.error > paced_move.SHORT_DEG:
+                self.log("arm_short", cls=mode, joint=result.joint, degrees=round(result.error, 1))
         return not result.aborted
 
     def hold(self, seconds: float, mode: str):

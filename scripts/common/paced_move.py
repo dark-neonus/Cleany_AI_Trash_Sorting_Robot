@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from box_logic import GRIPPER, interpolate, min_jerk, move_duration
+from box_logic import GRIPPER, interpolate, move_duration, profile
 
 LAG_DEG = 8  # the plan stands still at this lag (keep it below --max-step); half of it: no slowing yet
 STALL_S = 3.0  # standing still this long: the arm is not following (blocked? torque off?): stop
@@ -57,7 +57,8 @@ def pacing(lag: float, lag_deg: float = LAG_DEG) -> float:
 
 
 def run(start: dict, target: dict, *, speed: float, min_s: float, fps: float, observe, send, clock,
-        lag_deg: float = LAG_DEG, check=lambda: None, on_tick=None, include_gripper: bool = False) -> Result:
+        lag_deg: float = LAG_DEG, check=lambda: None, on_tick=None, include_gripper: bool = False,
+        ramp_s: float | None = None) -> Result:
     """Move from start to target (joint dicts: "<joint>.pos" -> degrees), one command per tick.
 
     observe() -> what the arm reports (a dict with the joint keys; more is fine), called once per tick;
@@ -65,7 +66,7 @@ def run(start: dict, target: dict, *, speed: float, min_s: float, fps: float, ob
     emergency stop); on_tick(obs) runs every tick, also while settling, and returns False to abort
     (a slipped item). Raises MoveError when the arm does not follow for STALL_S."""
     tick = 1 / fps
-    total = move_duration(start, target, speed, min_s)
+    total = move_duration(start, target, speed, min_s, ramp_s)
     phase, rate, command, still, obs = 0.0, 1.0, None, 0.0, None
     while phase < 1.0:
         began = clock.now()
@@ -78,7 +79,7 @@ def run(start: dict, target: dict, *, speed: float, min_s: float, fps: float, ob
                 raise MoveError(f"The arm is not following: {joint} is {lag:.0f} degrees behind the command "
                                 f"after {STALL_S:g} s (blocked? torque off?)")
         phase = min(1.0, phase + rate * tick / total)
-        command = interpolate(start, target, min_jerk(phase))
+        command = interpolate(start, target, profile(phase, total, ramp_s))
         send(command)
         obs = observe()
         if on_tick is not None and on_tick(obs) is False:

@@ -60,21 +60,64 @@ def min_jerk(t: float) -> float:
     return t * t * t * (10 - 15 * t + 6 * t * t)
 
 
-def move_duration(start: dict, target: dict, speed_deg_s: float, min_s: float) -> float:
+def ramped(t: float, total_s: float, ramp_s: float) -> float:
+    """Trapezoidal velocity profile 0..1 over total_s seconds: the speed rises linearly for ramp_s, cruises,
+    and falls linearly for ramp_s (constant acceleration, so a start and a stop of a few tens of ms are
+    not a jump in speed). Short moves get ramps of half their length each: a triangle."""
+    t = min(max(t, 0.0), 1.0)
+    f = min(0.5, ramp_s / total_s) if total_s > 0 else 0.5
+    if f <= 0:
+        return t
+    top = 1 / (1 - f)  # cruise speed in units of the mean speed
+    if t < f:
+        return top * t * t / (2 * f)
+    if t > 1 - f:
+        return 1 - top * (1 - t) ** 2 / (2 * f)
+    return top * (t - f / 2)
+
+
+def profile(t: float, total_s: float, ramp_s: float | None = None) -> float:
+    """Position along a move, 0..1, at fraction t of its duration: trapezoidal with ramps of ramp_s seconds
+    (docs/motion.md), or minimum-jerk when ramp_s is None."""
+    return min_jerk(t) if ramp_s is None else ramped(t, total_s, ramp_s)
+
+
+def move_duration(start: dict, target: dict, speed_deg_s: float, min_s: float, ramp_s: float | None = None) -> float:
     """Seconds for a joint move: the largest joint distance at speed_deg_s, at least min_s.
-    A minimum-jerk move peaks at 1.875x its mean speed, so speed_deg_s is the mean."""
+    Minimum-jerk (ramp_s None): speed_deg_s is the mean speed (the peak is 1.875x). Trapezoidal: it is the
+    cruise speed, and the two ramps add ramp_s in all."""
     distance = max((abs(target[k] - start[k]) for k in target if k in start), default=0.0)
-    return max(distance / speed_deg_s, min_s)
+    return max(distance / speed_deg_s + (ramp_s or 0.0), min_s)
 
 
 def interpolate(start: dict, target: dict, s: float) -> dict:
     return {k: start[k] + (target[k] - start[k]) * s for k in target}
 
 
-def trajectory(start: dict, target: dict, speed_deg_s: float, min_s: float, fps: float) -> list[dict]:
-    """Joint targets, one per control step, from start to target along a minimum-jerk profile."""
-    steps = max(1, math.ceil(move_duration(start, target, speed_deg_s, min_s) * fps))
-    return [interpolate(start, target, min_jerk(i / steps)) for i in range(1, steps + 1)]
+def trajectory(start: dict, target: dict, speed_deg_s: float, min_s: float, fps: float,
+               ramp_s: float | None = None) -> list[dict]:
+    """Joint targets, one per control step, from start to target (minimum-jerk, or trapezoidal with ramp_s)."""
+    total = move_duration(start, target, speed_deg_s, min_s, ramp_s)
+    steps = max(1, math.ceil(total * fps))
+    return [interpolate(start, target, profile(i / steps, steps / fps, ramp_s)) for i in range(1, steps + 1)]
+
+
+def approach_waypoint(start: dict, target: dict, poses: dict, approach: dict | None) -> dict | None:
+    """The pose to go to first, when the arm should hold some joints back on its way to a pose.
+
+    approach: {pose name: {joint: value}} (motion.approach in box_pipeline.yaml). Going to `home`, the elbow
+    grinds against the shoulder's parts when both fold at once (measured on the arm 2026-11-23: the elbow's
+    speed went from steady to jerking over its last 25 degrees); folding the elbow first and the shoulder
+    last does not. So the waypoint is the target with those joints held at the given value, used while the
+    start is on the far side of it. None: go straight."""
+    for name, hold in (approach or {}).items():
+        pose = poses.get(name)
+        if pose is None or max(abs(pose[k] - target[k]) for k in pose if k in target and k != GRIPPER) > 1.0:
+            continue
+        held = {f"{joint}.pos": value for joint, value in hold.items()}
+        if all((start[k] - v) * (v - target[k]) > 0 for k, v in held.items()):
+            return {**target, **held}
+    return None
 
 
 def max_joint_distance(a: dict, b: dict, include_gripper: bool = False) -> float:

@@ -126,3 +126,40 @@ def test_observations_with_camera_frames_are_fine():
     arm = Arm(short=("shoulder_lift.pos", 4.0))
     result, _ = go(type("Seen", (), {"send": arm.send, "observe": lambda self: {**arm.observe(), "front": np.zeros((4, 4, 3))}})())
     assert result.error == pytest.approx(4.0, abs=0.1)
+
+
+def test_a_trapezoid_ramps_the_speed_up_and_down_linearly():
+    from box_logic import ramped
+    total, ramp = 2.0, 0.2
+    steps = [ramped(i / 200, total, ramp) for i in range(201)]
+    speeds = [(b - a) * 200 for a, b in zip(steps, steps[1:])]  # in units of the mean speed
+    assert steps[0] == 0 and steps[-1] == pytest.approx(1)
+    assert speeds[0] < 0.05 and speeds[-1] < 0.05  # starts and stops at rest
+    assert max(speeds) == pytest.approx(1 / (1 - ramp / total), rel=0.02)  # cruise
+    ramp_up = [s for s in speeds[:20]]
+    assert all(b >= a for a, b in zip(ramp_up, ramp_up[1:]))  # rising for the first ramp_s
+    assert speeds[100] == pytest.approx(max(speeds), rel=0.01)  # cruising in the middle
+    assert ramped(0.5, 0.1, 0.5) == pytest.approx(0.5)  # a move shorter than its ramps is a triangle
+
+
+def test_a_move_with_ramps_reaches_the_target_and_its_duration_adds_the_ramps():
+    from box_logic import move_duration
+    arm = Arm()
+    result, clock = go(arm, ramp_s=0.2)
+    assert result.error == 0 and arm.joints == TARGET
+    far = {"a": 0.0}
+    assert move_duration(far, {"a": 90.0}, 45.0, 0.1) == pytest.approx(2.0)
+    assert move_duration(far, {"a": 90.0}, 45.0, 0.1, 0.2) == pytest.approx(2.2)
+
+
+def test_going_home_the_shoulder_is_held_back_until_the_elbow_has_folded():
+    from box_logic import approach_waypoint
+    poses = {"home": {"shoulder_lift.pos": -104.0, "elbow_flex.pos": 98.0, "gripper.pos": 2.0},
+             "hover": {"shoulder_lift.pos": -23.0, "elbow_flex.pos": 8.0, "gripper.pos": 2.0}}
+    hold = {"home": {"shoulder_lift": -80}}
+    waypoint = approach_waypoint(poses["hover"], poses["home"], poses, hold)
+    assert waypoint == {**poses["home"], "shoulder_lift.pos": -80}  # the elbow goes all the way, the shoulder not yet
+    near = {**poses["home"], "shoulder_lift.pos": -90.0}
+    assert approach_waypoint(near, poses["home"], poses, hold) is None  # already past it: straight on
+    assert approach_waypoint(poses["home"], poses["hover"], poses, hold) is None  # other poses and directions: straight
+    assert approach_waypoint(poses["hover"], poses["home"], poses, None) is None
