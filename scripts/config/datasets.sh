@@ -21,6 +21,11 @@ declare -A MODEL_TASKS=(
     [pick]="Pick up the item"
 )
 
+# The pick dataset is two repos: the episodes (cleany_pick, data/pick/episodes) and the items side
+# (cleany_pick_items, data/pick/items: records, registry, crops, YOLO frames), synced together.
+PICK_ITEMS_REPO="$HF_NAMESPACE/cleany_pick_items"
+PICK_ITEMS_ROOT="$PROJECT_ROOT/data/pick/items"
+
 # Datasets whose positions are normalised (docs/pick-dataset.md), not in degrees: lerobot's
 # record and replay would mix them up with degrees. Usage: refuse_normalised_dataset "<what>"
 refuse_normalised_dataset() {
@@ -41,5 +46,6 @@ resolve_dataset() {
     fi
     DATASET_REPO_ID="$HF_NAMESPACE/cleany_$MODEL"
     DATASET_ROOT="$PROJECT_ROOT/data/cleany_$MODEL"
+    if [ "$MODEL" = "pick" ]; then DATASET_ROOT="$PROJECT_ROOT/data/pick/episodes"; fi
     TASK="${TASK:-${MODEL_TASKS[$MODEL]}}"
 }

@@ -9,10 +9,10 @@ settings in config/pick_recording.yaml (and the shared config/box_pipeline.yaml)
 config/poses.yaml. What is recorded and why: docs/pick-dataset.md.
 
 Writes:
-  data/cleany_pick/                LeRobot dataset (appended to when it exists)
-  data/pick_yolo/                  labelled front frames for YOLO
-  data/box_crops/<material>/       DINO gallery crops (scripts/tools/build_gallery.sh --crops)
-  data/pick_records.jsonl          one line per kept episode or `other` item (with the session)
+  data/pick/episodes/              LeRobot dataset (appended to when it exists)      -> HF cleany_pick
+  data/pick/items/yolo/            labelled front frames for YOLO                    -> HF cleany_pick_items
+  data/pick/items/crops/<class>/   DINO gallery crops (scripts/tools/build_gallery.sh --crops)
+  data/pick/items/records.jsonl    one line per kept episode or `other` item (with the session)
   logs/pick/pick_<time>.jsonl      every event of the session
 """
 

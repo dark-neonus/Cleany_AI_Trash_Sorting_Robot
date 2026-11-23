@@ -113,13 +113,13 @@ phase.
 
 | What | Where |
 | --- | --- |
-| **Pick other** (G): a pick episode for a generic object, class `generic`, released at `transit`; crops in `data/box_crops/generic/`, outside the gallery. **Other** (O) stays classify-and-drop | recorder panel |
+| **Pick other** (G): a pick episode for a generic object, class `generic`, released at `transit`; crops in `data/pick/items/crops/generic/`, outside the gallery. **Other** (O) stays classify-and-drop | recorder panel |
 | Counts per class against `targets` (phase `pilot` or `main`) | [pick_recording.yaml](../config/pick_recording.yaml), panel |
 | Item list with per-item counts, the least-recorded item per class, refusal of held-out items | [items.yaml](../config/items.yaml), panel |
 | Contact sheet per session, to label from | `scripts/tools/contact_sheet.sh` |
 | Labels: record time -> item | [item_labels.yaml](../config/item_labels.yaml) |
 | Split check over records, crops, YOLO frames and the gallery | `scripts/tools/check_split.sh` |
-| Gallery without held-out crops | `scripts/tools/build_gallery.sh --crops data/box_crops` |
+| Gallery without held-out crops | `scripts/tools/build_gallery.sh --crops data/pick/items/crops` |
 
 The held-out designs are already in `items.yaml`. Still to add: the held-out clear water bottle
 (pick one).

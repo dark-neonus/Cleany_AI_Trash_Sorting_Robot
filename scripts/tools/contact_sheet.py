@@ -8,7 +8,7 @@ Usage (through scripts/tools/contact_sheet.sh):
     contact_sheet.sh --session all --unlabelled   # everything not labelled yet
     contact_sheet.sh --items               # one tile per registered item (to match new crops against)
 
-Writes data/contact_sheets/<name>_<page>.jpg (48 tiles per page) and <name>.yaml: the records in
+Writes data/pick/sheets/<name>_<page>.jpg (48 tiles per page) and <name>.yaml: the records in
 tile order (number, time, class, typed name, episode, current item) to fill item_labels.yaml from.
 Records from before sessions were stored are grouped by day.
 """
@@ -120,7 +120,7 @@ def main():
     parser.add_argument("--session", default="latest", help="latest (default), all, or a session stamp / day prefix")
     parser.add_argument("--unlabelled", action="store_true", help="only records not resolved to an item yet")
     parser.add_argument("--items", action="store_true", help="one tile per registered item instead")
-    parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "data" / "contact_sheets")
+    parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "data" / "pick" / "sheets")
     args = parser.parse_args()
 
     reg = Registry.load(PROJECT_ROOT / items.get("registry", "config/items.yaml"),

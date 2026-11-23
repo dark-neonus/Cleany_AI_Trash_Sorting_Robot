@@ -60,7 +60,7 @@ of it is not planned.
 
 ```bash
 scripts/dataset/sync.sh pull pick        # the shared copy (skip for the first session)
-scripts/dataset/record_pick.sh           # record; appends to data/cleany_pick
+scripts/dataset/record_pick.sh           # record; appends to data/pick/episodes
 scripts/dataset/sync.sh push pick        # upload
 ```
 
@@ -126,7 +126,7 @@ it is finalized at the end of a session; a session that ended any other way (the
 exit, was killed) left a dataset that could not be opened, and the next start failed with a Hugging Face
 "Repository Not Found". The recorder now finalizes and reopens the dataset after every saved episode
 ([pick_dataset.py](../scripts/common/pick_dataset.py), about 0.4 s while READY), so at most the episode
-being recorded is lost. A dataset that cannot be read anyway is renamed to `data/cleany_pick.unusable_<time>`
+being recorded is lost. A dataset that cannot be read anyway is renamed to `data/pick/episodes.unusable_<time>`
 (never deleted) and a new one is started, with the reason printed. The session log
 (`logs/pick/pick_<time>.jsonl`) ends with `shutdown` steps and `end`: if `end` is missing the process died
 after the last step shown.
@@ -155,26 +155,33 @@ Overload flag (the gripper squeezing a glass bottle), lerobot raised before it d
 process aborted ("exception not rethrown"); [safe_disconnect.py](../scripts/common/safe_disconnect.py) now does each
 step on its own.
 
-### What a session writes
+### Where it lives: locally and on the Hub
 
-| Where | What |
-| --- | --- |
-| `data/cleany_pick/` | the LeRobot dataset; the material is the episode's task |
-| `data/pick_yolo/` | `images/`, `labels/` (YOLO format, classes in `classes.txt`: metal, plastic, other), `frames.jsonl` with every box found; one negative (empty tray) frame per session |
-| `data/box_crops/<material>/<item>_<time>.jpg` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/box_crops` |
-| `data/box_crops/generic/` | Pick other crops: not a gallery class, so `build_gallery.sh` leaves them out |
-| `data/pick_records.jsonl` | one line per kept episode or Other item: session, length, how it ended, DINO's opinion |
-| `logs/pick/pick_<time>.jsonl` | every event |
+The pick dataset is two repos in the org (private), laid out the same way locally under `data/pick/`:
+
+| Local | Hub (`cleany-ai/`) | What |
+| --- | --- | --- |
+| `data/pick/episodes/` | `cleany_pick` | the LeRobot dataset: both cameras, joints, current/load/temperature, item embedding; the material is the episode's task |
+| `data/pick/items/records.jsonl` | `cleany_pick_items` | one line per kept episode or Other item: session, episode index, material, boxes, DINO's opinion |
+| `data/pick/items/registry/` | `cleany_pick_items` | copies of `config/items.yaml` and `config/item_labels.yaml` made at push (config/ stays the source) |
+| `data/pick/items/crops/<class>/` | `cleany_pick_items` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/pick/items/crops`; generic is not a gallery class |
+| `data/pick/items/yolo/` | `cleany_pick_items` | `images/`, `labels/` (YOLO format, `classes.txt`), `frames.jsonl` with every box found; one empty-tray frame per session |
+| `data/pick/sheets/` | (local) | contact sheets of a session |
+| `logs/pick/pick_<time>.jsonl` | (local) | every event of a session |
+
+`scripts/dataset/sync.sh push pick` uploads both repos (pull and status work the same way); a push is
+refused when the Hub has more episodes or records than you have. The old per-material datasets
+(`cleany_plastic`, `cleany_metal`) are untouched. The item repo's README describes the layout.
 
 **YOLO labels without a good YOLO.** With one item on the tray, the label box is the change from
 the empty-tray photo (`label_from: tray_change`), whatever YOLO sees: the old-setup YOLO is only
 a cross-check. Record the first sessions with **one item at a time**, retrain YOLO on
-`data/pick_yolo` (as a one-class `item` detector is the plan), then several items are fine.
+`data/pick/items/yolo` (as a one-class `item` detector is the plan), then several items are fine.
 
 ### After a session: label the items
 
 ```bash
-scripts/tools/contact_sheet.sh     # data/contact_sheets/session_<stamp>_1.jpg + .yaml
+scripts/tools/contact_sheet.sh     # data/pick/sheets/session_<stamp>_1.jpg + .yaml
 scripts/tools/check_split.sh       # fails when a held-out item got into the training data
 ```
 

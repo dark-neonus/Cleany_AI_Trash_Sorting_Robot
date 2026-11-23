@@ -16,7 +16,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `view.sh`                | Browse a recorded episode in Rerun (no robot needed)          |
 |                        | `replay.sh`              | Replay a recorded episode on the follower arm                 |
 |                        | `delete_last_episode.sh` | Drop the last episode (e.g. a failed demo)                    |
-|                        | `sync.sh`                | Push/pull datasets to/from the Hugging Face Hub               |
+|                        | `sync.sh`                | Push/pull datasets to/from the Hub (`pick` = cleany_pick + cleany_pick_items) |
 | `scripts/train/`       | `train_act.sh`           | Train the ACT model of one material (type `exit` to stop and save) |
 |                        | `upload_model.sh`        | Upload a trained checkpoint to the Hugging Face Hub           |
 | `scripts/run/`         | `run_policy.sh`          | Run a trained ACT model (Hub repo or local folder) on the follower arm |

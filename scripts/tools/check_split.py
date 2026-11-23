@@ -5,9 +5,9 @@ Usage (through scripts/tools/check_split.sh):
 
 Reads config/items.yaml (which items are held out: split test, by design) and
 config/item_labels.yaml (which item each record is), and looks at:
-  data/pick_records.jsonl   every kept episode and Other item
-  data/box_crops/           the gallery crops (build_gallery.sh skips held-out ones anyway)
-  data/pick_yolo/           the labelled YOLO frames
+  data/pick/items/records.jsonl   every kept episode and Other item
+  data/pick/items/crops/           the gallery crops (build_gallery.sh skips held-out ones anyway)
+  data/pick/items/yolo/          the labelled YOLO frames
   models/dino/gallery.npz   the gallery the pipeline uses
 
 Exit code 1 when held-out data is found, or a label points at no item. Records that are not

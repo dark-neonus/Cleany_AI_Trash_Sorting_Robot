@@ -5,7 +5,7 @@ set -e
 # See docs/pick-dataset.md (how to record) and scripts/dataset/record_pick.py.
 #
 # Usage: scripts/dataset/record_pick.sh [--push] [--door none] [options]
-#   scripts/dataset/record_pick.sh                 # appends to data/cleany_pick
+#   scripts/dataset/record_pick.sh                 # appends to data/pick/episodes
 #   scripts/dataset/record_pick.sh --push          # upload to the Hub when done
 #   scripts/dataset/record_pick.sh --door none     # no drop mechanism: empty the tray by hand
 #

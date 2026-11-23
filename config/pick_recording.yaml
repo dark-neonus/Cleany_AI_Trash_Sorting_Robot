@@ -5,7 +5,7 @@ box_pipeline: config/box_pipeline.yaml
 
 dataset:
   repo_id: cleany-ai/cleany_pick
-  root: data/cleany_pick
+  root: data/pick/episodes     # HF: <namespace>/cleany_pick (scripts/dataset/sync.sh push pick)
   fps: 30
   # The material is stored as the episode's task (ACT ignores the text)
   tasks:
@@ -56,7 +56,8 @@ items:
   registry: config/items.yaml
   labels: config/item_labels.yaml
 
+# data/pick/items goes to the Hub as <namespace>/cleany_pick_items (the registry and labels from config/ with it)
 outputs:
-  yolo_frames: data/pick_yolo     # images/, labels/ (YOLO format, classes.txt), frames.jsonl
-  crops: data/box_crops           # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh (generic/ is left out)
-  records: data/pick_records.jsonl  # one line per kept episode or `other` item
+  yolo_frames: data/pick/items/yolo  # images/, labels/ (YOLO format, classes.txt), frames.jsonl
+  crops: data/pick/items/crops       # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh (generic/ is left out)
+  records: data/pick/items/records.jsonl  # one line per kept episode or `other` item

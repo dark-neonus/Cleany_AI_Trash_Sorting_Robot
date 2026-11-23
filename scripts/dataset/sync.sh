@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Sync ACT datasets with their private Hugging Face Hub repos (<HF_NAMESPACE>/cleany_<model>).
+# Sync ACT datasets with their private Hugging Face Hub repos (<HF_NAMESPACE>/cleany_<model>). `pick` also
+# syncs its items side (<HF_NAMESPACE>/cleany_pick_items: records, registry, crops, YOLO frames).
 #
 # Usage: scripts/dataset/sync.sh <push|pull|status> [plastic|metal|all] [--force]
 #   scripts/dataset/sync.sh status             # episode counts, local vs Hub, for every model
@@ -40,5 +41,9 @@ for target in "${TARGETS[@]}"; do
     unset TASK
     resolve_dataset "$target"
     python "$PROJECT_ROOT/scripts/common/dataset_sync.py" "$COMMAND" "$DATASET_REPO_ID" "$DATASET_ROOT" "${FORCE[@]}" || STATUS=1
+    if [ "$target" = "pick" ]; then  # the items side of the pick dataset goes with its episodes
+        python "$PROJECT_ROOT/scripts/common/items_sync.py" "$COMMAND" "$PICK_ITEMS_REPO" "$PICK_ITEMS_ROOT" \
+            --registry "$PROJECT_ROOT/config/items.yaml" --registry "$PROJECT_ROOT/config/item_labels.yaml" "${FORCE[@]}" || STATUS=1
+    fi
 done
 exit $STATUS
