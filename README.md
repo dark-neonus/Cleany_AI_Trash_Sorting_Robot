@@ -1,9 +1,17 @@
 # 🤖 Cleany: AI trash sorting robot
 
-An SO-101 robot arm that looks at an item on the table, recognises whether it is **metal** or
-**plastic** with YOLO, and puts it into the matching bin with an ACT imitation-learning policy
-trained on our own teleoperated demonstrations. Built with [LeRobot](https://github.com/huggingface/lerobot)
-from [`ucu-ai-course/project-template`](https://github.com/ucu-ai-course/project-template).
+An SO-101 robot arm in a closed box that takes an item from a tray, decides whether it is **metal**,
+**plastic** or something else, and puts it into the matching bin (or lets the trap doors drop it into a
+mixed bin). Built with [LeRobot](https://github.com/huggingface/lerobot) from
+[`ucu-ai-course/project-template`](https://github.com/ucu-ai-course/project-template).
+
+There are two pipelines in this repository:
+
+| | Box pipeline (current, setup v3) | Two-ACT pipeline (plan B, setup v2) |
+|---|---|---|
+| Idea | models only say *what an item is* (YOLO boxes + DINOv3 embeddings) and *grasp it* (one pick model); every other move is a scripted motion between named poses, driven by a state machine and the ESP32 doors | YOLO picks one of two ACT policies, each one carries a metal or plastic item all the way to its bin |
+| State | state machine, classifier, recorder and tools done and tested; **dry-run on recorded video checked, not yet run on the arm; the pick model is not trained yet** (its dataset is being recorded) | ran on the arm: plastic 9/10, metal 8/10 |
+| Read | [docs/box-pipeline.md](docs/box-pipeline.md) | [docs/pipeline.md](docs/pipeline.md) |
 
 ![lint](https://github.com/dark-neonus/Cleany_AI_Trash_Sorting_Robot/actions/workflows/lint.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -15,7 +23,12 @@ from [`ucu-ai-course/project-template`](https://github.com/ucu-ai-course/project
 > [docs/recording-a-demo.md](docs/recording-a-demo.md). Until then, the workspace and what the
 > detector sees:
 
-![The setup: SO-101 arm, the metal (left) and plastic (right) bins, front and wrist cameras](assets/setup_v2_workspace_labeled.png)
+![The v3 box: top camera and light, trash entry and tray with the drop-down mechanism, metal and plastic bins, follower arm with its wrist camera](assets/setup_v3_workspace_labeled.png)
+
+*Setup v3 (current): the item enters at the top, the front camera looks down at the tray, the arm
+lifts it to a bin, and doors under the tray drop what cannot be sorted into a mixed bin.*
+
+![Setup v2 (plan B): SO-101 arm, the metal (left) and plastic (right) bins, front and wrist cameras](assets/setup_v2_workspace_labeled.png)
 
 ![Old Kaggle-only YOLO (left) finds nothing on a photo it never saw; our YOLO (right) finds all 8 items with the right class](results/figures/yolo_test_photo.jpg)
 
@@ -45,6 +58,17 @@ Recorded by us on the arm (no external data in the final models):
 | [`cleany-ai/cleany_metal`](https://huggingface.co/datasets/cleany-ai/cleany_metal) | 80 episodes, 43 030 frames | metal ACT |
 | [`cleany-ai/cleany_yolo_frames`](https://huggingface.co/datasets/cleany-ai/cleany_yolo_frames) (private) | 100 labelled front-camera frames + 1 unseen test photo | YOLO |
 
+The **pick dataset** of the box pipeline (hover pose to item lifted, all materials) is recorded with
+`scripts/dataset/record_pick.sh` and kept as two private Hub repos, laid out the same way locally under `data/pick/`:
+
+| Repo | Local | Contents |
+|---|---|---|
+| [`cleany-ai/cleany_pick`](https://huggingface.co/datasets/cleany-ai/cleany_pick) (private) | `data/pick/episodes/` | LeRobot episodes: front and wrist camera, normalised joint positions, velocity / current / load / temperature / voltage, the item's DINO embedding and box; task = material. **6 test episodes so far**; the real collection ([plan](docs/collection-plan.md): 23 / 22 / 15 episodes for the pilot, then 90 / 90 / 60 metal / plastic / generic) has not started |
+| [`cleany-ai/cleany_pick_items`](https://huggingface.co/datasets/cleany-ai/cleany_pick_items) (private) | `data/pick/items/` | `records.jsonl`, `registry/` (items, their train/test split, which record is which item), `crops/` for the DINO gallery, `yolo/` labelled frames |
+
+The train/test split is by item design: held-out items are refused by the recorder and checked by `scripts/tools/check_split.sh`.
+What is recorded and what ACT trains on: [docs/pick-dataset.md](docs/pick-dataset.md).
+
 License CC BY 4.0. Full data card (schema, splits, limitations, revisions): [data/README.md](data/README.md).
 
 > [!note] Data and weights are not in git
@@ -52,6 +76,22 @@ License CC BY 4.0. Full data card (schema, splits, limitations, revisions): [dat
 > live on the Hugging Face Hub, versioned by commit, and the scripts download them.
 
 ## Approach
+
+### Box pipeline (current)
+
+![The state machine of the box pipeline, split by the model that does the work](assets/box_pipeline_workflow.png)
+
+- **See and decide.** The front camera is compared with a photo of the empty tray; when something
+  changed and sits still, YOLO26n draws a box around every item (its class is ignored) and DINOv3
+  embeds each crop. The material is the class of the nearest crops in a gallery built in the box;
+  an item that is not clearly one of them is `other`. A wrong bin is worse than the mixed bin.
+- **Pick.** One pick model (ACT with a frozen DINO encoder, `act_dino`) grasps the item from the
+  `hover` pose. A grasp check (fingers blocked by the item, arm lifted) decides if it worked.
+- **Place.** No model: scripted moves between poses captured by hand (`home`, `hover`, `transit`,
+  `metal_bin`, `plastic_bin`) with a trapezoidal speed profile, a slip check while carrying, the
+  ESP32 doors for `other` items, and a red emergency stop that releases the torque.
+
+### Plan B: two-ACT pipeline (setup v2)
 
 ```mermaid
 flowchart TD
@@ -88,6 +128,9 @@ photos), and two ACT policies (LeRobot 0.6.1, ResNet-18 backbone, action chunks 
 
 ## Results
 
+> [!note]
+> The numbers below are for setup v2 (the two-ACT pipeline). The box pipeline has no arm results yet.
+
 **YOLO**, generated by `python scripts/yolo/evaluate.py` on 2026-10-23 (`make reproduce`):
 validation = 20 held-out episodes; test photo = 8 items shot with another camera on another
 table, never used for training.
@@ -120,12 +163,24 @@ make setup                    # system packages, .venv (Python 3.12, LeRobot, YO
 make reproduce                # downloads frames + models, prints the YOLO results table above
 ```
 
-With the hardware (follower arm, front and wrist cameras) plugged in:
+No arm needed (a simulated arm and door, the front camera or a recorded video):
 
 ```bash
-scripts/run/run_pipeline.sh --recording false --dry-run --display    # camera + YOLO only, the arm does not move
-scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # the full pipeline; stay next to the arm
+scripts/run/run_box_pipeline.sh --recording false --dry-run --display
+scripts/tools/capture_poses.sh --list      # which poses are captured and whether they look right
+scripts/tools/check_split.sh               # no held-out item in the pick data
 ```
+
+With the hardware plugged in (follower and leader arms, front and wrist cameras, ESP32 doors for the drop):
+
+```bash
+scripts/tools/capture_poses.sh             # once per setup: the arm's named poses
+scripts/dataset/record_pick.sh             # record the pick dataset, with a panel
+scripts/run/run_box_pipeline.sh --recording true --display   # the box pipeline (scripted grasp until the pick model exists)
+scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # plan B, the two-ACT pipeline
+```
+
+Everything is in [Commands](#commands) below.
 
 ## Documentation
 
@@ -136,7 +191,10 @@ scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # the
 | [docs/dataset-collection.md](docs/dataset-collection.md) | Recording, reviewing and cleaning demonstrations |
 | [docs/training.md](docs/training.md) | Training ACT, resuming, sharing models |
 | [docs/running-models.md](docs/running-models.md) | Available models, downloading, running one ACT on the arm |
-| [docs/box-pipeline.md](docs/box-pipeline.md) | The final box pipeline: DINO classifier, one grasp model, scripted moves, doors |
+| [docs/box-pipeline.md](docs/box-pipeline.md) | The final box pipeline: DINO classifier, one grasp model, scripted moves, doors; poses, gallery, running |
+| [docs/pick-dataset.md](docs/pick-dataset.md) | The pick dataset: what is recorded, the recorder panel step by step, labelling, Hub layout |
+| [docs/collection-plan.md](docs/collection-plan.md) | How much data of which items, the train/test split by item design, the tools |
+| [docs/motion.md](docs/motion.md) | Scripted arm moves: acceleration ramps, approach paths, what was measured |
 | [docs/pipeline.md](docs/pipeline.md) | The two-ACT sorting pipeline (plan B): dry run, on the arm, options |
 | [docs/yolo.md](docs/yolo.md) | Using and retraining the detector, labelling new frames |
 | [docs/cloud-storage.md](docs/cloud-storage.md) | Hugging Face Hub setup, dataset sync, team rules |
@@ -148,9 +206,10 @@ scripts/run/run_pipeline.sh --recording true --max-velocity 60 --display   # the
 .
 ├── scripts/              # all code, by task: setup/ calibration/ teleop/ dataset/ train/ run/ yolo/ tools/,
 │                         #   shared config/ (ports, cameras, datasets) and common/ (helpers)
-├── config/default.yaml   # which models and datasets the scripts use
+├── config/               # default.yaml (models, datasets), box_pipeline.yaml (trigger, classifier, motion, doors),
+│                         #   pick_recording.yaml (recorder), poses.yaml (captured poses), items.yaml + item_labels.yaml
 ├── tests/                # pytest: pipeline decisions, YOLO data split, config
-├── data/                 # datasets NOT committed; data/README.md (data card) IS
+├── data/                 # datasets NOT committed; data/README.md (data card) IS. data/pick/{episodes,items,sheets}: the pick dataset
 ├── models/               # weights NOT committed; models/README.md (Hub instructions) IS
 ├── results/              # metrics.json, experiments.md, figures/ — committed, small
 ├── docs/                 # guides, CONTRIBUTING.md, proposal/, poster/, slides/
@@ -222,7 +281,70 @@ Download one on another machine (or pass the repo id directly as `--policy.path`
 .venv/bin/hf download cleany-ai/setupv2_act_plastic_20261020_1432 --local-dir outputs/models/setupv2_act_plastic_20261020_1432
 ```
 
-## Running a trained model
+## Commands
+
+All scripts can be run from any directory. Details of each: [docs/scripts.md](docs/scripts.md).
+
+### Set up the box (once per setup)
+
+```bash
+make setup                                 # system packages, .venv, LeRobot, YOLO, transformers (DINO)
+scripts/calibration/calibrate_follower.sh  # and calibrate_leader.sh
+scripts/tools/tune_cameras.sh              # lock exposure / white balance to the box light
+scripts/tools/capture_poses.sh             # a live panel; --hand: torque off, move the follower by hand; --list: check them
+scripts/tools/show_poses.sh walk           # the arm visits every pose: the first real test (--dry-run without the arm)
+```
+
+DINOv3 is a gated model: accept its licence on the Hub and run `hf auth login`, otherwise DINOv2 is used with a warning.
+
+### Record the pick dataset
+
+```bash
+scripts/dataset/sync.sh pull pick          # the shared copy (skip for the first session)
+scripts/dataset/record_pick.sh             # panel: both cameras live, item picker, progress against the targets
+scripts/tools/contact_sheet.sh             # after a session: one image of every record's crop, to label the items
+scripts/tools/check_split.sh               # fails if a held-out item got into the data
+scripts/dataset/sync.sh push pick          # cleany_pick (episodes) + cleany_pick_items (records, registry, crops, YOLO frames)
+```
+
+Options: `--door none` (no drop mechanism: empty the tray by hand), `--max-velocity`, `--acceleration`,
+`--max-step`. The panel's buttons are Metal (M), Plastic (P), **Pick other** (G, generic objects) and Other (O);
+Space / Esc / Backspace start, cancel and discard; the red button is the emergency stop; **S** takes a
+screenshot of both cameras. The leader's gripper servo is a 12 V model on a 5 V supply and is never driven by the
+script (`start.drive_leader_gripper: false`): the follower's gripper opens to 30 by itself and then follows your
+trigger. Step by step and what the panel shows: [docs/pick-dataset.md](docs/pick-dataset.md).
+
+### Run the box pipeline
+
+```bash
+scripts/tools/build_gallery.sh --crops data/pick/items/crops   # DINO gallery from the recorded crops; prints how far to set max_distance
+scripts/run/run_box_pipeline.sh --recording false --dry-run --display             # simulated arm and door
+scripts/run/run_box_pipeline.sh --recording true --display                        # on the arm, scripted grasp (needs the tray_low pose)
+GRASP_MODEL=cleany-ai/<pick model> scripts/run/run_box_pipeline.sh --recording true --grasp policy --display
+scripts/train/train_act_dino.sh metal --steps=2000                               # the pick model (needs the pick dataset)
+```
+
+`--recording true|false` is required; `--door none` without the doors. Stop with `exit` + Enter or Ctrl+C: the arm goes
+home first. Every event is logged to `logs/pipeline/box_<timestamp>.jsonl`. Tuning (tray region, gallery thresholds,
+speeds, `motion.ramp_s`): [docs/box-pipeline.md](docs/box-pipeline.md), [docs/motion.md](docs/motion.md).
+
+### Tools
+
+| Command | What it does |
+|---|---|
+| `scripts/tools/capture_poses.sh [--hand \| --list \| --migrate]` | Capture, check and list the arm's named poses |
+| `scripts/tools/show_poses.sh walk \| slideshow \| go <pose>` | Move the arm through the poses |
+| `scripts/tools/contact_sheet.sh [--session S] [--items]` | Contact sheets of a session's crops, to label items |
+| `scripts/tools/check_split.sh` | Verify the train/test split by item design |
+| `scripts/tools/build_gallery.sh --crops DIR` | Build the DINO gallery and print the held-out evaluation |
+| `scripts/dataset/view.sh <dataset dir> [episode]` | Browse an episode (both cameras, joints, actions) in Rerun |
+| `scripts/dataset/sync.sh status \| push \| pull [plastic \| metal \| pick \| all]` | Sync datasets with the Hub (`pick` = both pick repos) |
+| `scripts/tools/tune_cameras.sh`, `start_frames.sh`, `preview_augmentation.sh` | Cameras and augmentation helpers |
+
+To look at the parquet files of a dataset, a desktop viewer such as [Tad](https://github.com/antonycourtney/tad)
+works well; `scripts/dataset/view.sh` shows an episode with its videos.
+
+## Running a trained model (plan B)
 
 ### Available models
 
@@ -297,9 +419,9 @@ The cameras are shown in Rerun as during teleoperation (`DISPLAY_DATA=false` tur
 The speed limits are written to the servos' RAM when the arm connects, so they last until
 the arm is power-cycled or another script connects with its own limits.
 
-## Running the sorting pipeline
+## Running the two-ACT sorting pipeline (plan B)
 
-`scripts/run/run_pipeline.sh` puts the models together as in [Model Pipeline](#model-pipeline):
+`scripts/run/run_pipeline.sh` puts the models together as in [the two-ACT pipeline](#plan-b-two-act-pipeline-setup-v2):
 YOLO watches the front camera, and once it is sure about an item it runs the `metal` or
 `plastic` ACT, waits until the arm is back in its start pose and looks again. It uses the
 models from [Available models](#available-models) (downloaded from the Hub on the first run).
@@ -508,4 +630,4 @@ scripts/dataset/sync.sh pull all            # download Hub → local, every mode
   (`HF_NAMESPACE=<your-user> scripts/dataset/sync.sh push plastic`), and the two datasets
   are merged afterwards with `lerobot-edit-dataset --operation.type=merge`.
 - Trained models are shared as Hub **model** repos, see
-  [Sharing trained models](#sharing-trained-models) and [Running a trained model](#running-a-trained-model).
+  [Sharing trained models](#sharing-trained-models) and [Running a trained model](#running-a-trained-model-plan-b).

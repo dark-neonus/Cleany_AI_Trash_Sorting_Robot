@@ -6,8 +6,8 @@ set -e
 #
 # Usage: scripts/tools/build_gallery.sh [--yolo-dataset DIR] [--crops DIR]
 #   scripts/tools/build_gallery.sh                                 # the labelled YOLO frames (old setup)
-#   scripts/tools/build_gallery.sh --crops data/box_crops          # <class>/<item>_<n>.jpg from the box
-#   scripts/tools/build_gallery.sh --yolo-dataset yolo/dataset_cleany --crops data/box_crops
+#   scripts/tools/build_gallery.sh --crops data/pick/items/crops          # <class>/<item>_<n>.jpg from the box
+#   scripts/tools/build_gallery.sh --yolo-dataset yolo/dataset_cleany --crops data/pick/items/crops
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

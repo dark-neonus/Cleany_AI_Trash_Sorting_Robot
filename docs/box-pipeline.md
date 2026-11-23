@@ -117,11 +117,11 @@ items with distractor demos, the one-class YOLO, and the target item's DINO embe
 2. **Tray region.** Set `trigger.tray_region` in [box_pipeline.yaml](../config/box_pipeline.yaml)
    to the tray in the 640×480 front image, so the bins and walls are not watched.
 3. **Gallery.** Take front-camera crops of the items in the box, as
-   `data/box_crops/<metal|plastic|other>/<item>_<n>.jpg` (several per item, items named so the
+   `data/pick/items/crops/<metal|plastic|other>/<item>_<n>.jpg` (several per item, items named so the
    evaluation can hold out whole items), then:
 
    ```bash
-   scripts/tools/build_gallery.sh --crops data/box_crops
+   scripts/tools/build_gallery.sh --crops data/pick/items/crops
    ```
 
    It prints, per `max_distance`, how many held-out crops land in the right bin, the wrong bin,
@@ -272,7 +272,7 @@ What this means for the box:
   glass into a bin.
 - **A few `other` examples fix most of it**: 20 per kind cuts the unknowns that get into a
   bin from 16 % to 5 % at 0.5 (from 35 % to 7 % at 0.6), without costing recyclables. Put glass bottles, paper and cardboard into
-  `data/box_crops/other/` when building the box gallery.
+  `data/pick/items/crops/other/` when building the box gallery.
 - **The threshold is a trade-off to choose on box crops**: around 0.5 on these photos, but the
   scale depends on the camera, so measure it again on the box gallery.
 
