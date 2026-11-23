@@ -31,6 +31,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(PROJECT_ROOT / "scripts" / "common"), str(PROJECT_ROOT / "scripts" / "run")]
 import arm_estop  # noqa: E402
+import clamp_log  # noqa: E402
 import estop  # noqa: E402
 from box_logic import REQUIRED_POSES, load_poses, load_yaml  # noqa: E402
 from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
@@ -45,6 +46,7 @@ from pick_session import Commands, PickSession, PickStore, Status  # noqa: E402
 import lerobot_wide_fov  # noqa: E402,F401
 
 arm_estop.install()  # the red button in the panel releases the follower's torque
+clamps = clamp_log.install()  # the follower limits what it is told when it lags behind the leader: counted, not printed
 
 
 class EventLog:
@@ -219,7 +221,7 @@ def main():
     store = PickStore(PROJECT_ROOT, recording["outputs"],
                       lambda path, rgb: cv2.imwrite(str(path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)))
     status, commands, stop = Status(), Commands(), threading.Event()
-    session = PickSession(Follower(robot), Leader(teleop), detector, embedder, check, door, recorder, store, poses,
+    session = PickSession(Follower(robot), Leader(teleop, recording["start"].get("leader_gripper_torque", 40)), detector, embedder, check, door, recorder, store, poses,
                           config, recording, Hooks(log), commands, status, should_stop=stop.is_set,
                           paused=estop.is_active, registry=registry)
     errors = []
@@ -250,6 +252,10 @@ def main():
         teleop.disconnect()
         log("end", counts=status.counts, session=status.session)
     print(f"\nKept this session: {status.session}. Totals: {status.counts}")
+    if clamps.count:
+        print(f"{clamps.count} follower commands were limited by --max-step {args.max_step:g}: the follower lagged "
+              f"behind the leader (a grasp: the fingers blocked by the item; a fast move: the arm). Their cause is "
+              f"normal in teleoperation; a high count in a quiet episode is not.")
     print("Upload with: scripts/dataset/sync.sh push pick")
     print("Label the items: scripts/tools/contact_sheet.sh (then the agent fills config/items.yaml and item_labels.yaml)")
     if errors:

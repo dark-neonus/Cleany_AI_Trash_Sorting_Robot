@@ -113,6 +113,14 @@ and a line under them shows the rate the dataset is actually recorded at (red be
 and wrist only (bigger), **B** toggles the boxes, **S** (or the button) saves a screenshot of both
 cameras to `recordings/screenshots/`. Leader servo error flags (overload) appear as the red warning.
 
+**Leader gripper overload.** Grabbing the leader's handle squeezes its trigger against the gripper
+goal the leader holds at hover, and the servo reports Overload when the torque is released. The leader's
+gripper therefore holds with only `start.leader_gripper_torque` (40 %) of its force under script, and
+that Overload flag is only noted in the log (`leader_note`). Any other servo flag shows as the red
+warning. **Follower limited commands:** when the follower lags behind the leader (the fingers blocked
+by the item at the grasp, or a fast move) lerobot limits the command to `--max-step`; they are counted
+and reported once at the end of the session instead of printed for every command.
+
 ### What a session writes
 
 | Where | What |

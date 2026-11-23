@@ -9,6 +9,11 @@ Two things learned on the arm (2026-11-23):
   * The gripper must not be commanded to the very ends of its range: its calibrated minimum and
     maximum are the mechanical stops, and holding a goal against a stop overloads the servo. The
     gripper goal is kept GRIPPER_MARGIN percent inside.
+  * A person who grabs the handle while the leader holds a pose squeezes the trigger against the
+    held gripper goal, which overloads the servo too (that was the Overload at the start of every
+    recording). While the leader is held by script its gripper therefore pushes with only
+    `gripper_torque` percent of its force, and an Overload flag seen when the torque goes off, which is
+    that same hand, is only noted in `notes`, not shown as a warning.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from motor_state import JOINTS
 
 GRIPPER = "gripper"
 GRIPPER_MARGIN = 3.0  # percent of the gripper range kept clear of each end stop
+FULL_TORQUE = 1000  # Torque_Limit register: 0-1000
 
 
 def inside_range(value: float, margin: float = GRIPPER_MARGIN) -> float:
@@ -26,10 +32,13 @@ def inside_range(value: float, margin: float = GRIPPER_MARGIN) -> float:
 class Leader:
     """teleop: lerobot's SO101Leader (its .bus and get_action()). Torque on holds it where it is first."""
 
-    def __init__(self, teleop):
+    def __init__(self, teleop, gripper_torque: float = 40):
+        """gripper_torque: percent of its force the gripper holds with while the leader is held by script."""
         self.teleop, self.bus = teleop, teleop.bus
         self.torque = False
-        self.warnings: list[str] = []  # servo error flags seen while switching torque (overload, ...)
+        self.gripper_limit = round(FULL_TORQUE * min(max(gripper_torque, 5), 100) / 100)
+        self.warnings: list[str] = []  # servo error flags worth showing (an overload that is not a hand)
+        self.notes: list[str] = []  # expected ones: an overload when the torque goes off
 
     def read(self) -> dict:
         return self.teleop.get_action()
@@ -45,8 +54,10 @@ class Leader:
             self.bus.write(name, motor, value)
         except RuntimeError as error:  # the servo answered with an error flag (ConnectionError is not one)
             text = f"leader {motor}: {name} {value}: {str(error).strip()}"
-            if text not in self.warnings:
-                self.warnings.append(text)
+            hand = name == "Torque_Enable" and value == 0 and "Overload" in text  # a person fought the hold
+            seen = self.notes if hand else self.warnings
+            if text not in seen:
+                seen.append(text)
 
     def set_torque(self, on: bool):
         if on and not self.torque:
@@ -56,8 +67,10 @@ class Leader:
             for motor in self.bus.motors:
                 self._write("Torque_Enable", motor, 1)
                 self._write("Lock", motor, 1)
+            self._write("Torque_Limit", GRIPPER, self.gripper_limit)  # a hand on the trigger moves it, not overloads it
         elif not on and self.torque:
             for motor in self.bus.motors:
                 self._write("Torque_Enable", motor, 0)
                 self._write("Lock", motor, 0)
+            self._write("Torque_Limit", GRIPPER, FULL_TORQUE)
         self.torque = on

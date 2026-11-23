@@ -312,10 +312,12 @@ class PickSession(BoxPipeline):
 
     def leader_torque(self, on: bool):
         """Torque on or off for the leader; servo error flags it reports (overload) are shown, not fatal."""
-        seen = len(getattr(self.leader, "warnings", ()))
+        seen, noted = len(getattr(self.leader, "warnings", ())), len(getattr(self.leader, "notes", ()))
         self.leader.set_torque(on)
         for text in getattr(self.leader, "warnings", ())[seen:]:
             self.warn(text)
+        for text in getattr(self.leader, "notes", ())[noted:]:
+            self.log("leader_note", text=text)  # expected (a hand on the trigger): in the log only
 
     def commit_pending(self):
         if self.pending is None:
