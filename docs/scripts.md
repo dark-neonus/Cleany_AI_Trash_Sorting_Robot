@@ -33,6 +33,7 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 |                        | `draw_poses.py`          | Draw the poses in the v3 box (`assets/poses_workspace.svg`) |
 |                        | `contact_sheet.sh`       | One image per pick session with every record's crop, to label the items ([collection-plan.md](collection-plan.md)) |
 |                        | `export_csv.sh`          | Flatten the pick dataset's parquet files to CSV (one column per joint) to read in VS Code |
+|                        | `install_parquet_viewer.sh` | Double click / Open With opens .parquet files in `parquet_view.py` (sortable, filterable flat table) |
 |                        | `check_split.sh`         | Fail when a held-out test item is in the pick records, crops, YOLO frames or gallery |
 |                        | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |
