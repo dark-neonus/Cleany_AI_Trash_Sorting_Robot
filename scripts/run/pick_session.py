@@ -183,7 +183,8 @@ class Status:
     elapsed: float = 0.0
     timeout: float | None = None
     last: str = ""
-    frame: np.ndarray | None = None
+    frame: np.ndarray | None = None  # front camera
+    wrist: np.ndarray | None = None  # wrist camera
     target_box: list | None = None
     change_box: list | None = None
     yolo_boxes: list = field(default_factory=list)
@@ -261,6 +262,7 @@ class PickSession(BoxPipeline):
 
     def show(self, obs: dict):
         self.status.frame = obs.get("front")
+        self.status.wrist = obs.get("wrist")
 
     def front_frames(self, n=None):
         for obs in super().front_frames(n):
@@ -271,7 +273,7 @@ class PickSession(BoxPipeline):
         """Torque on the leader where it is, then a minimum-jerk move onto the follower's pose, so
         mirroring starts without a jump."""
         self.mirror = False
-        self.leader.set_torque(True)
+        self.leader_torque(True)
         start = self.leader.read()
         target = self.joints(self.observe())
         m = self.cfg["motion"]
@@ -306,6 +308,13 @@ class PickSession(BoxPipeline):
         if item is not None and material != "other" and item.cls != material:
             return f"{item.id} is a {item.cls} item in config/items.yaml, not {material}: check the item or the button"
         return None
+
+    def leader_torque(self, on: bool):
+        """Torque on or off for the leader; servo error flags it reports (overload) are shown, not fatal."""
+        seen = len(getattr(self.leader, "warnings", ()))
+        self.leader.set_torque(on)
+        for text in getattr(self.leader, "warnings", ())[seen:]:
+            self.warn(text)
 
     def commit_pending(self):
         if self.pending is None:
@@ -350,7 +359,7 @@ class PickSession(BoxPipeline):
                        target_box=None, change_box=None, yolo_boxes=[])
         if self.mirror:  # the leader rests at home: no torque while waiting
             self.mirror = False
-            self.leader.set_torque(False)
+            self.leader_torque(False)
         for _ in self.front_frames():
             command = self.commands.get()
             if command == "discard":
@@ -455,7 +464,7 @@ class PickSession(BoxPipeline):
             self.set_phase("ARMED", "Grab the leader and push it to start (or Space). Cancel: back home")
         else:
             self.mirror = False
-            self.leader.set_torque(False)
+            self.leader_torque(False)
             self.set_phase("ARMED", "Hold the leader, then Space to start. Cancel: back home")
         started, baseline = self.clock.now(), None
         for _ in self.front_frames():
@@ -477,7 +486,7 @@ class PickSession(BoxPipeline):
     def record_episode(self):
         e, g = self.rec_cfg["episode"], self.cfg["grasp"]
         self.mirror = False
-        self.leader.set_torque(False)
+        self.leader_torque(False)
         task = self.rec_cfg["dataset"]["tasks"][self.material]
         self.recorder.begin(task, self.item)
         self.recording = True
@@ -549,7 +558,7 @@ class PickSession(BoxPipeline):
             self.store.discard(self.record)
             self.warn("Emergency stop: the episode being recorded was discarded")
         self.mirror = False
-        self.leader.set_torque(False)
+        self.leader_torque(False)
         self.status.phase, self.status.message = "E-STOP", "Arm torque off. Press the red button again to resume"
         self.wait_while_paused()  # until released, then the follower re-engages where it is
         return "HOME"
@@ -596,7 +605,7 @@ class PickSession(BoxPipeline):
         finally:
             self.mirror = False
             try:
-                self.leader.set_torque(False)
+                self.leader_torque(False)
             except Exception as error:  # noqa: BLE001
                 self.log("shutdown_error", error=f"{error.__class__.__name__}: {error}")
             self.set_phase("STOPPED", "Session stopped")

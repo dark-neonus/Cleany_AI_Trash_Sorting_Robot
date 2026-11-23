@@ -35,7 +35,8 @@ import estop  # noqa: E402
 from box_logic import REQUIRED_POSES, load_poses, load_yaml  # noqa: E402
 from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
 from item_registry import Registry, RegistryError  # noqa: E402
-from motor_state import JOINTS, Normaliser, dataset_features, read_extras, training_state  # noqa: E402
+from leader_arm import Leader  # noqa: E402
+from motor_state import Normaliser, dataset_features, read_extras, training_state  # noqa: E402
 from pick_session import Commands, PickSession, PickStore, Status  # noqa: E402
 
 # Importing lerobot_wide_fov patches lerobot as for every other run on the arm: full-FOV camera
@@ -72,28 +73,6 @@ class Follower:
 
     def extras(self) -> dict:
         return read_extras(self.robot.bus)
-
-
-class Leader:
-    """The leader arm, driven by script or by hand. Torque on holds it where it is first."""
-
-    def __init__(self, teleop):
-        self.teleop, self.bus = teleop, teleop.bus
-        self.torque = False
-
-    def read(self) -> dict:
-        return self.teleop.get_action()
-
-    def command(self, degrees: dict):
-        self.bus.sync_write("Goal_Position", {j: degrees[f"{j}.pos"] for j in JOINTS})
-
-    def set_torque(self, on: bool):
-        if on and not self.torque:
-            self.bus.sync_write("Goal_Position", self.bus.sync_read("Present_Position"))
-            self.bus.enable_torque()
-        elif not on and self.torque:
-            self.bus.disable_torque()
-        self.torque = on
 
 
 class DatasetRecorder:

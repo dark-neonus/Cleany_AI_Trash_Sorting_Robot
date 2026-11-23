@@ -30,6 +30,7 @@ PHASE_COLORS = {"READY": "#1565c0", "ARMED": "#6a1b9a", "RECORDING": "#2e7d32", 
                 "STOPPED": "#546e7a"}
 PREVIEW = (400, 300)  # the 640x480 front image at 5/8
 SCALE = PREVIEW[0] / 640
+WRIST = (400, 225)  # the wrist camera (16:9) beside it, as in the Rerun view of the old recorder
 
 # command, label, key shown, phases it is enabled in
 BUTTONS = [
@@ -64,18 +65,25 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
 
     phase_label = tk.Label(root, font=("Sans", 18, "bold"))
     phase_label.pack(padx=16, pady=(8, 0), anchor="w")
-    message_label = tk.Label(root, font=("Sans", 11), justify="left", wraplength=420)
+    message_label = tk.Label(root, font=("Sans", 11), justify="left", wraplength=800)
     message_label.pack(padx=16, anchor="w")
-    warning_label = tk.Label(root, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=420)
+    warning_label = tk.Label(root, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=800)
     warning_label.pack(padx=16, anchor="w")
 
     bar = tk.Canvas(root, width=PREVIEW[0], height=18, highlightthickness=0, bg="#dddddd")
     bar.pack(padx=16, pady=(6, 0))
-    preview = tk.Label(root, bg="#222222", width=PREVIEW[0], height=PREVIEW[1])
-    preview.pack(padx=16, pady=6)
+    cameras = tk.Frame(root)
+    cameras.pack(padx=16, pady=6)
+    preview = tk.Label(cameras, bg="#222222", width=PREVIEW[0], height=PREVIEW[1])
+    preview.grid(row=0, column=0, padx=(0, 6))
+    wrist_view = tk.Label(cameras, bg="#222222", width=WRIST[0], height=WRIST[1])
+    wrist_view.grid(row=0, column=1, sticky="n")
+    tk.Label(cameras, text="front (boxes: YOLO blue, tray change orange, target green)", font=("Sans", 8),
+             fg="#666666").grid(row=1, column=0)
+    tk.Label(cameras, text="wrist", font=("Sans", 8), fg="#666666").grid(row=1, column=1)
     counts_label = tk.Label(root, font=("Sans", 11))
     counts_label.pack(padx=16, anchor="w")
-    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=420)
+    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=800)
     suggest_label.pack(padx=16, anchor="w")
     last_label = tk.Label(root, font=("Sans", 10), fg="#444444")
     last_label.pack(padx=16, anchor="w")
@@ -138,6 +146,10 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
         photo["image"] = ImageTk.PhotoImage(image)
         preview.config(image=photo["image"], width=PREVIEW[0], height=PREVIEW[1])
 
+    def draw_wrist(frame: np.ndarray):
+        photo["wrist"] = ImageTk.PhotoImage(Image.fromarray(frame).resize(WRIST))
+        wrist_view.config(image=photo["wrist"], width=WRIST[0], height=WRIST[1])
+
     def refresh():
         if not is_running():
             root.destroy()
@@ -159,6 +171,8 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
             bar.create_text(PREVIEW[0] / 2, 9, text=f"{s.elapsed:4.1f} s / {s.timeout:g} s")
         if s.frame is not None:
             draw(s.frame)
+        if s.wrist is not None:
+            draw_wrist(s.wrist)
         for command, _, _, phases in BUTTONS:
             enabled = s.phase in phases and (command != "discard" or s.phase == "RECORDING" or bool(s.pending))
             widgets[command].config(state=tk.NORMAL if enabled else tk.DISABLED)
