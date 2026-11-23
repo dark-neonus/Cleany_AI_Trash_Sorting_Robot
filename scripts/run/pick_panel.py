@@ -202,7 +202,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
         state, fps = feed.state(now)
         recording = status.elapsed if status.phase == "RECORDING" else None
         image = render(feed.frame, size, badge_text(name, state, fps, feed.size),
-                       boxes() if name == "front" else (), recording)
+                       boxes() if name == "front" else (), recording, rotate180=name == "front")
         photo[name] = ImageTk.PhotoImage(image)
         views[name].config(image=photo[name], width=size[0], height=size[1])
 

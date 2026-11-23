@@ -71,3 +71,14 @@ def test_a_view_has_the_asked_size_badge_boxes_and_a_recording_frame():
     assert recording.getpixel((0, 200)) == (255, 23, 68)  # the red frame
     wrist = render(np.zeros((360, 640, 3), np.uint8), (512, 288), ("WRIST", GREEN))
     assert wrist.size == (512, 288)
+
+
+def test_the_front_view_can_be_shown_upside_down_with_its_boxes():
+    import numpy as np
+    from pick_view import render
+    frame = np.zeros((480, 640, 3), np.uint8)
+    frame[:100, :200] = (255, 255, 255)  # a white patch top left
+    image = render(frame, (640, 480), ("X", "#00c853"), [((10, 20, 110, 70), "#ff0000", 1)], rotate180=True)
+    assert image.getpixel((600, 450)) == (255, 255, 255)  # now bottom right
+    assert image.getpixel((40, 40)) == (0, 0, 0)
+    assert image.getpixel((530, 440)) == (255, 0, 0)  # the box (10,20,110,70) -> (530,410,630,460), left edge x=530

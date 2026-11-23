@@ -8,6 +8,7 @@ coordinates whatever size the camera frame has.
 
 from __future__ import annotations
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 GREEN, AMBER, RED, GREY = "#00c853", "#ffab00", "#ff1744", "#888888"
@@ -29,9 +30,14 @@ def badge_text(name: str, state: str, fps: float, size) -> tuple[str, str]:
     return f"{name.upper()}  {fps:4.1f} fps  {size[0]}x{size[1]}", GREEN if fps >= GOOD_FPS else AMBER
 
 
-def render(frame, size: tuple[int, int], badge: tuple[str, str], boxes=(), recording: float | None = None) -> Image.Image:
+def render(frame, size: tuple[int, int], badge: tuple[str, str], boxes=(), recording: float | None = None,
+           rotate180: bool = False) -> Image.Image:
     """frame: RGB array; size: (w, h) of the view; boxes: [(box, colour, line width)] in 640x480;
-    recording: seconds into the episode, or None."""
+    recording: seconds into the episode, or None; rotate180: show the camera upside down (the camera is mounted
+    that way up: only the picture is turned, the boxes follow it, the recorded frames are not touched)."""
+    if rotate180:
+        frame = np.ascontiguousarray(frame[::-1, ::-1])
+        boxes = [((640 - b[2], 480 - b[3], 640 - b[0], 480 - b[1]) if b is not None else None, c, w) for b, c, w in boxes]
     image = Image.fromarray(frame).resize(size, Image.BILINEAR)
     draw = ImageDraw.Draw(image)
     sx, sy = size[0] / 640, size[1] / 480

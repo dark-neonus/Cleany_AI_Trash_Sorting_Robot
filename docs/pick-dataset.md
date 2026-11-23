@@ -109,7 +109,7 @@ camera's real fps (green from 24, amber below, red NO SIGNAL after a second with
 its resolution; the front view also shows the session's boxes (tray region grey, YOLO blue, tray
 change orange, target green). While recording, both views get a red frame and the episode time,
 and a line under them shows the rate the dataset is actually recorded at (red below 90 % of the
-30 fps target: frames are being lost). Keys **1 / 2 / 3** switch between both cameras, front only
+30 fps target: frames are being lost). The front view is shown upside down (rotated 180°, the boxes with it; the recorded frames and the screenshots keep the camera's own orientation). Keys **1 / 2 / 3** switch between both cameras, front only
 and wrist only (bigger), **B** toggles the boxes, **S** (or the button) saves a screenshot of both
 cameras to `recordings/screenshots/`. Leader servo error flags (overload) appear as the red warning.
 
