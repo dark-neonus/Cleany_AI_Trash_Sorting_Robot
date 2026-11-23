@@ -167,7 +167,6 @@ The pick dataset is two repos in the org (private), laid out the same way locall
 | `data/pick/items/crops/<class>/` | `cleany_pick_items` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/pick/items/crops`; generic is not a gallery class |
 | `data/pick/items/yolo/` | `cleany_pick_items` | `images/`, `labels/` (YOLO format, `classes.txt`), `frames.jsonl` with every box found; one empty-tray frame per session |
 | `data/pick/sheets/` | (local) | contact sheets of a session |
-| `data/pick/export/` | (local) | `scripts/tools/export_csv.sh`: the parquet files as flat CSV (`frames.csv`, `episodes.csv`, `tasks.csv`) to read in VS Code |
 | `logs/pick/pick_<time>.jsonl` | (local) | every event of a session |
 
 `scripts/dataset/sync.sh push pick` uploads both repos (pull and status work the same way); a push is
