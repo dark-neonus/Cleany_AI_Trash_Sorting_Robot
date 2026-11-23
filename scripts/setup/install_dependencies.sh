@@ -58,6 +58,8 @@ echo "=== 7. Installing YOLO (Ultralytics) ==="
 # which keeps cv2.imshow working for the YOLO test windows.
 OPENCV_VERSION="$(uv pip show opencv-python-headless | awk '/^Version:/ {print $2}')"
 uv pip install ultralytics "opencv-python==$OPENCV_VERSION"
+# The DINO embedder of the box pipeline (scripts/common/dino_classifier.py)
+uv pip install transformers
 uv pip install --reinstall --no-deps "opencv-python==$OPENCV_VERSION"
 
 echo "=== 8. Verifying Installation ==="

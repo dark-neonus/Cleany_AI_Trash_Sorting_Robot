@@ -12,6 +12,8 @@ lerobot[core_scripts,training,feetech]==0.6.1
 ultralytics==8.4.178
 opencv-python-headless==4.13.0.92
 huggingface_hub==1.33.0
+# The DINO embedder of the box pipeline (scripts/common/dino_classifier.py)
+transformers==5.24.0
 rerun-sdk==0.33.1
 av==15.1.0
 numpy==2.2.6
