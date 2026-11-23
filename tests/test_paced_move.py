@@ -89,11 +89,11 @@ def test_an_arm_that_does_not_follow_is_a_move_error_after_a_few_seconds():
     assert 3.0 < clock.t < 8.0
 
 
-def test_an_arm_that_stops_short_is_waited_for_then_reported():
+def test_an_arm_that_stops_short_is_reported_once_it_stands_still():
     arm = Arm(short=("shoulder_lift.pos", 4.0))
     result, clock = go(arm)
     assert result.error == pytest.approx(4.0, abs=0.1) and result.joint == "shoulder_lift"
-    assert clock.t >= ARRIVE_S  # it gave the arm the whole time to settle
+    assert clock.t < ARRIVE_S  # it is not waited for the whole settle time: it stood still, it will not get closer
 
 
 def test_on_tick_can_abort_and_check_can_stop():
@@ -119,3 +119,10 @@ def test_worst_joint_names_the_joint_and_skips_the_gripper_by_default():
     a, b = {**HOME, "wrist_flex.pos": 9.0, GRIPPER: 50.0}, dict(HOME)
     assert worst_joint(a, b) == ("wrist_flex", 9.0)
     assert worst_joint({**HOME, GRIPPER: 50.0}, b, include_gripper=True) == ("gripper", 50.0)
+
+
+def test_observations_with_camera_frames_are_fine():
+    import numpy as np
+    arm = Arm(short=("shoulder_lift.pos", 4.0))
+    result, _ = go(type("Seen", (), {"send": arm.send, "observe": lambda self: {**arm.observe(), "front": np.zeros((4, 4, 3))}})())
+    assert result.error == pytest.approx(4.0, abs=0.1)

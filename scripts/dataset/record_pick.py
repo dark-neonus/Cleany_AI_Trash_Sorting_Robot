@@ -40,6 +40,7 @@ from leader_arm import Leader  # noqa: E402
 from motor_state import Normaliser, read_extras  # noqa: E402
 from pick_dataset import DatasetError, DatasetRecorder, open_dataset  # noqa: E402
 from pick_session import Commands, PickSession, PickStore, Status  # noqa: E402
+from safe_disconnect import release  # noqa: E402
 
 # Importing lerobot_wide_fov patches lerobot as for every other run on the arm: full-FOV camera
 # capture, follower speed limits (SERVO_* env vars), staggered torque-on.
@@ -95,6 +96,7 @@ def main():
 
     recording = load_yaml(args.config)
     config = load_yaml(PROJECT_ROOT / recording["box_pipeline"])
+    config["motion"].update(recording.get("motion") or {})  # the recorder's own pace for hover, place and home
     config["motion"]["lag_deg"] = 0.8 * args.max_step  # paced motion: stay inside the follower's step limit
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     try:
@@ -144,11 +146,7 @@ def main():
         run(args, recording, config, poses, log, robot, teleop, detector, embedder, check, registry)
     finally:  # whatever happened: release the arms and cameras (an exit with their threads running aborts)
         for name, device in (("follower", robot), ("leader", teleop)):
-            try:
-                if device.is_connected:
-                    device.disconnect()
-            except Exception as error:  # noqa: BLE001
-                log("shutdown_error", device=name, error=f"{error.__class__.__name__}: {error}")
+            release(device, lambda text, name=name: log("shutdown_error", device=name, error=text))
 
 
 def run(args, recording, config, poses, log, robot, teleop, detector, embedder, check, registry):

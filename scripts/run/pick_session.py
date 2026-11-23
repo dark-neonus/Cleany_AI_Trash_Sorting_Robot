@@ -456,40 +456,38 @@ class PickSession(BoxPipeline):
     def hover(self):
         self.set_phase("HOVER", "Both arms to the hover pose: hands off the leader")
         self.align_leader()
-        self.move_to({**self.poses["hover"], GRIPPER: self.cfg["motion"]["gripper_open"]}, self.material)
+        opening = self.rec_cfg["start"].get("hover_gripper", self.cfg["motion"]["gripper_open"])
+        self.move_to({**self.poses["hover"], GRIPPER: opening}, self.material)
         return "ARMED"
 
     def armed(self):
         s = self.rec_cfg["start"]
         hold = s.get("leader_hold", True)
         self.commands.clear()  # presses made before the arms got to hover do not count
-        # A leader whose gripper the script cannot drive (a 12 V servo on 5 V): the person opens its
-        # trigger to match the follower's open gripper before starting, or the follower would snap shut
-        need = None if s.get("drive_leader_gripper", True) else self.cfg["motion"]["gripper_open"]
-        tolerance = s.get("gripper_match", 15)
+        # A leader whose gripper the script cannot drive (a 12 V servo on 5 V): the follower's gripper
+        # follows the trigger from here on, a few units per frame, so it is where the trigger is when
+        # the episode starts (no snap, and the first recorded frames agree with the action)
+        follow = not s.get("drive_leader_gripper", True)
+        step = s.get("gripper_follow_step", 4)
         if hold:
             self.set_phase("ARMED", "Grab the leader and push it to start (or Space). Cancel: back home")
         else:
             self.mirror = False
             self.leader_torque(False)
             self.set_phase("ARMED", "Hold the leader, then Space to start. Cancel: back home")
-        keys = JOINT_KEYS if need is None else tuple(k for k in JOINT_KEYS if k != GRIPPER)  # the trigger is not a push
-        started, baseline, mismatch = self.clock.now(), None, False
+        if follow:
+            self.status.message += ". The follower's gripper follows your trigger"
+        keys = tuple(k for k in JOINT_KEYS if k != GRIPPER) if follow else JOINT_KEYS  # the trigger is not a push
+        started, baseline = self.clock.now(), None
         for _ in self.front_frames():
             command = self.commands.get()
             if command == "cancel":
                 self.store.discard(self.record)  # nothing recorded with it: keep the files only with an episode
                 return "HOME"
-            now = self.leader.read() if (hold or need is not None) else None
-            if need is not None:
-                off = abs(now[GRIPPER] - need) > tolerance
-                if off != mismatch:
-                    mismatch = off
-                    self.status.warning = (f"Open the leader's gripper (trigger) to about {need:g} to match the "
-                                           f"follower's, then start" if off else "")
-                if off:
-                    baseline = None  # moving the trigger is not a push
-                    continue
+            now = self.leader.read() if (hold or follow) else None
+            if follow:
+                held = self.command[GRIPPER]
+                self.command[GRIPPER] = held + max(-step, min(step, now[GRIPPER] - held))
             if command == "start":
                 break
             if hold:
@@ -498,7 +496,6 @@ class PickSession(BoxPipeline):
                     continue
                 if max(abs(now[k] - baseline[k]) for k in keys) > s["push_deg"]:
                     break
-        self.status.warning = ""
         return "RECORDING"
 
     def record_episode(self):

@@ -306,15 +306,21 @@ class Stiff(World):
         return super().read()
 
 
-def test_the_episode_waits_until_the_person_opens_a_leader_gripper_the_script_cannot_drive(tmp_path):
-    world = Stiff([("READY", "metal", (300, 200))], trigger=0, stop_after=4)  # trigger shut, follower open
+def test_the_followers_gripper_opens_by_itself_to_the_hover_opening_then_follows_the_trigger(tmp_path):
+    world = Stiff([("READY", "metal", (300, 200))], trigger=10, stop_after=4)
+    seen = []
+    send = world.send
+    world.send = lambda action: (seen.append((world.phase, action[GRIPPER])), send(action))[1]
     world.run(tmp_path)
-    assert world.episodes["begun"] == 0  # the push after 1.5 s did not start it
-    assert "Open the leader's gripper" in world.status.warning
+    opening = RECORDING["start"].get("hover_gripper", 60)
+    armed = [g for phase, g in seen if phase == "ARMED"]
+    assert armed[0] == opening  # the follower opened to the hover opening on its own
+    assert armed[-1] == 10  # then it followed the trigger
+    assert max(abs(b - a) for a, b in zip(armed, armed[1:])) <= 4  # a few units a frame
 
 
-def test_with_the_trigger_already_open_the_episode_starts_as_usual(tmp_path):
-    world = Stiff([("READY", "metal", (300, 200)), ("READY", "stop", None)], trigger=60, dino="metal")
+def test_pushing_the_leader_starts_the_episode_wherever_the_trigger_is(tmp_path):
+    world = Stiff([("READY", "metal", (300, 200)), ("READY", "stop", None)], trigger=0, dino="metal")
     store = world.run(tmp_path)
     [record] = world.kept(store)
     assert record["ended"] == "lifted" and world.status.warning == ""

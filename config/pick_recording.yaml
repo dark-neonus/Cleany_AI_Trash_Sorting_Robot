@@ -25,10 +25,19 @@ start:
   leader_gripper_torque: 40 # percent of its force the leader's gripper holds with under script: a hand on the trigger must not overload it
   # The script drives the leader's arm joints (home, hover, place). The leader's gripper servo is a 12 V model on the
   # leader's 5 V: it cannot move the handle (stalls, then Overload / Input voltage errors). false: the gripper is
-  # never driven; you open the trigger yourself to match the follower's open gripper (the panel says so), then start.
-  # true: needs a 7.4 V servo in the leader's gripper (or 7.4 V on the leader).
+  # never driven: the follower's gripper opens to hover_gripper on its own on the way to hover, then follows your
+  # trigger (gripper_follow_step units a frame) until the episode starts, so there is no snap.
+  # true: needs a 7.4 V servo in the leader's gripper.
   drive_leader_gripper: false
-  gripper_match: 15         # how close (0-100) the leader's trigger must be to the follower's open gripper to start
+  hover_gripper: 30         # 0-100: how far the follower's gripper opens on its own at hover (the box pipeline uses 60)
+  gripper_follow_step: 4
+
+# The scripted moves (ready -> hover, place, home) over the box pipeline's: the follower's own limits (90 deg/s,
+# acceleration 40, 10 deg/step) are what hold them back, so more than ~70 gains nothing; the teleoperated part
+# keeps the limits the pipeline will run with, so the demonstrations match its dynamics.
+motion:
+  speed_deg_s: 70
+  min_move_s: 0.6
 
 release:
   where: transit            # transit: let go above the tray, the item falls back onto it (no hands for the next episode); bin: carry it to its bin

@@ -26,6 +26,8 @@ LAG_DEG = 8  # the plan stands still at this lag (keep it below --max-step); hal
 STALL_S = 3.0  # standing still this long: the arm is not following (blocked? torque off?): stop
 ARRIVE_S = 4.0  # after the last command, wait up to this long for the arm to settle on the target
 ARRIVE_DEG = 2.5  # settled: every joint this close to the target
+IDLE_DEG = 0.3  # an arm that moved less than this in a tick is standing still
+IDLE_S = 0.5  # standing still this long after the last command: it will not get closer, stop waiting
 SHORT_DEG = 5.0  # further off than this after ARRIVE_S: the arm stopped short
 SMOOTH = 0.6  # how much of the previous rate is kept each tick (no chatter)
 
@@ -82,15 +84,18 @@ def run(start: dict, target: dict, *, speed: float, min_s: float, fps: float, ob
         if on_tick is not None and on_tick(obs) is False:
             return Result(aborted=True)
         clock.sleep(tick - (clock.now() - began))
-    deadline = clock.now() + ARRIVE_S
+    deadline, idle, before = clock.now() + ARRIVE_S, 0.0, {k: obs[k] for k in target}  # observations carry camera frames too
     while True:
         joint, error = worst_joint(target, obs, include_gripper)
-        if error <= ARRIVE_DEG or clock.now() >= deadline:
+        if error <= ARRIVE_DEG or idle >= IDLE_S or clock.now() >= deadline:
             return Result(error=error, joint=joint)
         began = clock.now()
         check()
         send(target)
         obs = observe()
+        now = {k: obs[k] for k in target}
+        idle = idle + tick if worst_joint(before, now, include_gripper)[1] < IDLE_DEG else 0.0
+        before = now
         if on_tick is not None and on_tick(obs) is False:
             return Result(aborted=True)
         clock.sleep(tick - (clock.now() - began))

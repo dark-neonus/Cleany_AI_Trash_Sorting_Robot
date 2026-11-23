@@ -141,10 +141,19 @@ place) but not its gripper: that servo is a **12 V** model (Max_Voltage_Limit 14
 7.4 V models, limit 8.0 V) on the leader's 5 V supply, and it cannot move the handle: measured 2026-11-23 it
 stalls at arbitrary angles with almost no current, then reports Overload and Input voltage errors. Plain
 teleoperation is unaffected (your hand moves it). With `start.drive_leader_gripper: false` (the default) the
-gripper stays free; at ARMED the panel asks you to open the trigger to about the follower's open gripper
-(`start.gripper_match`) before a push or Space starts the episode, so the follower does not snap shut. To
-make the leader hold its gripper again, fit a 7.4 V servo as its gripper (or power the leader at 7.4 V) and set
-`drive_leader_gripper: true`.
+leader's gripper stays free. The follower's gripper opens by itself to `start.hover_gripper` (30) on the way
+to hover, and at ARMED it follows your trigger (`start.gripper_follow_step` units a frame), so it is where the
+trigger is when the episode starts: no snap, and nothing for you to match. To make the leader hold its gripper
+again, fit a 7.4 V servo as its gripper and set `drive_leader_gripper: true`.
+
+**Pace and shutdown.** The scripted moves (ready to hover, place, home) use `motion:` in
+pick_recording.yaml (70 deg/s): the follower's own limits (90 deg/s, acceleration 40, 10 deg/step, the ones the
+box pipeline runs with) hold them back, and the teleoperated part keeps them so the demonstrations match the
+pipeline's dynamics. A move no longer waits 4 s for an arm that stopped 2-3 degrees short and stands
+still ([paced_move.py](../scripts/common/paced_move.py)). When a servo answers the torque-off at exit with an
+Overload flag (the gripper squeezing a glass bottle), lerobot raised before it disconnected the cameras and the
+process aborted ("exception not rethrown"); [safe_disconnect.py](../scripts/common/safe_disconnect.py) now does each
+step on its own.
 
 ### What a session writes
 

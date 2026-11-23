@@ -6,10 +6,10 @@
 # captured: the pipeline refuses to move the arm while one is missing).
 poses: config/poses.yaml
 
-# Where to look for items: X0,Y0,X1,Y1 in the 640x480 front image. UNCALIBRATED: the whole
-# image until the front camera is fixed in the box; then set it to the tray.
+# Where to look for items: X0,Y0,X1,Y1 in the 640x480 front image: the tray (the black door openings left and
+# right of it are not part of it: YOLO took the left one for an item). Set 2026-11-23.
 trigger:
-  tray_region: [0, 0, 640, 480]
+  tray_region: [150, 90, 450, 480]
   pixel_diff: 25            # brightness change (0-255, after a 4x4 blur) that counts as changed
   occupied_fraction: 0.004  # share of changed tray pixels vs the empty reference: "something is there"
   still_fraction: 0.002     # share changed between consecutive frames below which the scene is still
