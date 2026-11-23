@@ -9,6 +9,10 @@ Two things learned on the arm (2026-11-23):
   * The gripper must not be commanded to the very ends of its range: its calibrated minimum and
     maximum are the mechanical stops, and holding a goal against a stop overloads the servo. The
     gripper goal is kept GRIPPER_MARGIN percent inside.
+  * The leader's gripper servo can be a 12 V model: on the leader's 5 V it cannot drive the handle
+    (measured 2026-11-23: it stalls with almost no current, then reports Overload and Input voltage
+    errors; the other five servos are 7.4 V models). With drive_gripper=False the script never
+    commands or enables the gripper: it stays free in the person's hand, as in plain teleoperation.
   * A person who grabs the handle while the leader holds a pose squeezes the trigger against the
     held gripper goal, which overloads the servo too (that was the Overload at the start of every
     recording). While the leader is held by script its gripper therefore pushes with only
@@ -33,9 +37,11 @@ def inside_range(value: float, margin: float = GRIPPER_MARGIN) -> float:
 class Leader:
     """teleop: lerobot's SO101Leader (its .bus and get_action()). Torque on holds it where it is first."""
 
-    def __init__(self, teleop, gripper_torque: float = 40):
-        """gripper_torque: percent of its force the gripper holds with while the leader is held by script."""
+    def __init__(self, teleop, gripper_torque: float = 40, drive_gripper: bool = True):
+        """gripper_torque: percent of its force the gripper holds with while the leader is held by script.
+        drive_gripper: False leaves the gripper alone (torque off, no goals), see above."""
         self.teleop, self.bus = teleop, teleop.bus
+        self.drive_gripper = drive_gripper
         self.torque = False
         self.gripper_limit = round(FULL_TORQUE * min(max(gripper_torque, 5), 100) / 100)
         self.warnings: list[str] = []  # servo error flags worth showing (an overload that is not a hand)
@@ -45,8 +51,9 @@ class Leader:
         return retry(self.teleop.get_action)
 
     def command(self, degrees: dict):
-        goal = {j: degrees[f"{j}.pos"] for j in JOINTS}
-        goal[GRIPPER] = inside_range(goal[GRIPPER])
+        goal = {j: degrees[f"{j}.pos"] for j in JOINTS if self.drive_gripper or j != GRIPPER}
+        if self.drive_gripper:
+            goal[GRIPPER] = inside_range(goal[GRIPPER])
         retry(self.bus.sync_write, "Goal_Position", goal)
 
     def _write(self, name: str, motor: str, value: int):
@@ -63,15 +70,20 @@ class Leader:
     def set_torque(self, on: bool):
         if on and not self.torque:
             present = dict(retry(self.bus.sync_read, "Present_Position"))
-            present[GRIPPER] = inside_range(present[GRIPPER]) if GRIPPER in present else None
-            retry(self.bus.sync_write, "Goal_Position", {m: v for m, v in present.items() if v is not None})
-            for motor in self.bus.motors:
+            if self.drive_gripper:
+                present[GRIPPER] = inside_range(present[GRIPPER])
+            else:
+                present.pop(GRIPPER, None)
+            retry(self.bus.sync_write, "Goal_Position", present)
+            for motor in present:
                 self._write("Torque_Enable", motor, 1)
                 self._write("Lock", motor, 1)
-            self._write("Torque_Limit", GRIPPER, self.gripper_limit)  # a hand on the trigger moves it, not overloads it
+            if self.drive_gripper:
+                self._write("Torque_Limit", GRIPPER, self.gripper_limit)  # a hand on the trigger moves it, not overloads it
         elif not on and self.torque:
             for motor in self.bus.motors:
                 self._write("Torque_Enable", motor, 0)
                 self._write("Lock", motor, 0)
-            self._write("Torque_Limit", GRIPPER, FULL_TORQUE)
+            if self.drive_gripper:
+                self._write("Torque_Limit", GRIPPER, FULL_TORQUE)
         self.torque = on

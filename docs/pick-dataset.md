@@ -136,6 +136,16 @@ once and raises, which ended a session at the start (2026-11-23). Every call the
 either arm is retried up to 4 times ([comm_retry.py](../scripts/common/comm_retry.py)); a call that keeps
 failing still stops the session. The session summary says how many calls needed a retry.
 
+**The leader's gripper is not driven (hardware).** The script moves the leader's arm joints (home, hover,
+place) but not its gripper: that servo is a **12 V** model (Max_Voltage_Limit 14.0 V; the other five are
+7.4 V models, limit 8.0 V) on the leader's 5 V supply, and it cannot move the handle: measured 2026-11-23 it
+stalls at arbitrary angles with almost no current, then reports Overload and Input voltage errors. Plain
+teleoperation is unaffected (your hand moves it). With `start.drive_leader_gripper: false` (the default) the
+gripper stays free; at ARMED the panel asks you to open the trigger to about the follower's open gripper
+(`start.gripper_match`) before a push or Space starts the episode, so the follower does not snap shut. To
+make the leader hold its gripper again, fit a 7.4 V servo as its gripper (or power the leader at 7.4 V) and set
+`drive_leader_gripper: true`.
+
 ### What a session writes
 
 | Where | What |

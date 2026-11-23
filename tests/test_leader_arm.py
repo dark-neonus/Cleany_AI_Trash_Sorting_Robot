@@ -90,3 +90,17 @@ def test_the_gripper_goal_stays_off_the_end_stops():
     bus2.sync_read = lambda name: {**dict.fromkeys(JOINTS, 0.0), "gripper": 0.0}
     Leader(Teleop(bus2)).set_torque(True)
     assert bus2.goals[-1]["gripper"] == GRIPPER_MARGIN and bus2.writes[0] == ("Torque_Enable", "shoulder_pan", 1)
+
+
+def test_a_leader_whose_gripper_is_not_driven_never_gets_a_gripper_goal_or_torque():
+    bus = Bus()
+    leader = Leader(Teleop(bus), drive_gripper=False)
+    leader.command(degrees(60))
+    assert "gripper" not in bus.goals[-1] and set(bus.goals[-1]) == set(JOINTS) - {"gripper"}
+    leader.set_torque(True)
+    assert "gripper" not in bus.goals[-1]
+    assert [w[1] for w in bus.writes if w[0] == "Torque_Enable"] == [j for j in JOINTS if j != "gripper"]
+    assert not [w for w in bus.writes if w[0] == "Torque_Limit"]
+    leader.set_torque(False)
+    assert [w[1] for w in bus.writes if w[0] == "Torque_Enable" and w[2] == 0] == list(JOINTS)  # all off, to be sure
+    assert not [w for w in bus.writes if w[0] == "Torque_Limit"]

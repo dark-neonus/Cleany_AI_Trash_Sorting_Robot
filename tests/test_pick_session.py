@@ -287,3 +287,41 @@ def test_the_recording_rate_is_published_for_the_panel(tmp_path):
     world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
     world.run(tmp_path)
     assert world.status.rec_fps == pytest.approx(30, abs=3)  # the fake clock ticks at 30 fps
+
+
+class Stiff(World):
+    """A leader whose gripper cannot be driven (a 12 V servo on 5 V): it stays where the person left it."""
+
+    def __init__(self, *a, trigger=0, stop_after=None, **k):
+        super().__init__(*a, **k)
+        self.leader = {**self.leader, GRIPPER: trigger}
+        self.stop_after = stop_after
+
+    def command(self, degrees):
+        super().command({**degrees, GRIPPER: self.leader[GRIPPER]})
+
+    def read(self):
+        if self.stop_after and self.phase == "ARMED" and self.clock.t - self.phase_since > self.stop_after:
+            self.stop = True
+        return super().read()
+
+
+def test_the_episode_waits_until_the_person_opens_a_leader_gripper_the_script_cannot_drive(tmp_path):
+    world = Stiff([("READY", "metal", (300, 200))], trigger=0, stop_after=4)  # trigger shut, follower open
+    world.run(tmp_path)
+    assert world.episodes["begun"] == 0  # the push after 1.5 s did not start it
+    assert "Open the leader's gripper" in world.status.warning
+
+
+def test_with_the_trigger_already_open_the_episode_starts_as_usual(tmp_path):
+    world = Stiff([("READY", "metal", (300, 200)), ("READY", "stop", None)], trigger=60, dino="metal")
+    store = world.run(tmp_path)
+    [record] = world.kept(store)
+    assert record["ended"] == "lifted" and world.status.warning == ""
+
+
+def test_the_script_can_still_drive_a_leader_whose_gripper_works(tmp_path):
+    recording = {**RECORDING, "start": {**RECORDING["start"], "drive_leader_gripper": True}}
+    world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
+    store = world.run(tmp_path, recording)
+    assert world.kept(store)[0]["ended"] == "lifted"

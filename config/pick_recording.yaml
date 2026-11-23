@@ -23,6 +23,12 @@ start:
   settle_s: 0.5             # the leader settles this long at hover before a push counts
   push_deg: 3               # any leader joint this far from where it settled: recording starts
   leader_gripper_torque: 40 # percent of its force the leader's gripper holds with under script: a hand on the trigger must not overload it
+  # The script drives the leader's arm joints (home, hover, place). The leader's gripper servo is a 12 V model on the
+  # leader's 5 V: it cannot move the handle (stalls, then Overload / Input voltage errors). false: the gripper is
+  # never driven; you open the trigger yourself to match the follower's open gripper (the panel says so), then start.
+  # true: needs a 7.4 V servo in the leader's gripper (or 7.4 V on the leader).
+  drive_leader_gripper: false
+  gripper_match: 15         # how close (0-100) the leader's trigger must be to the follower's open gripper to start
 
 release:
   where: transit            # transit: let go above the tray, the item falls back onto it (no hands for the next episode); bin: carry it to its bin

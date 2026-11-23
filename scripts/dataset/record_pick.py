@@ -185,7 +185,8 @@ def run(args, recording, config, poses, log, robot, teleop, detector, embedder, 
     store = PickStore(PROJECT_ROOT, recording["outputs"],
                       lambda path, rgb: cv2.imwrite(str(path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)))
     status, commands, stop = Status(), Commands(), threading.Event()
-    session = PickSession(Follower(robot), Leader(teleop, recording["start"].get("leader_gripper_torque", 40)), detector, embedder, check, door, recorder, store, poses,
+    session = PickSession(Follower(robot), Leader(teleop, recording["start"].get("leader_gripper_torque", 40),
+                                  recording["start"].get("drive_leader_gripper", True)), detector, embedder, check, door, recorder, store, poses,
                           config, recording, Hooks(log), commands, status, should_stop=stop.is_set,
                           paused=estop.is_active, registry=registry)
     errors = []
