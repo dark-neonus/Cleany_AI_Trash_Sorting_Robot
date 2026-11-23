@@ -121,6 +121,16 @@ warning. **Follower limited commands:** when the follower lags behind the leader
 by the item at the grasp, or a fast move) lerobot limits the command to `--max-step`; they are counted
 and reported once at the end of the session instead of printed for every command.
 
+**The dataset survives a crash.** lerobot writes the footers of the dataset's parquet files only when
+it is finalized at the end of a session; a session that ended any other way (the process aborted at
+exit, was killed) left a dataset that could not be opened, and the next start failed with a Hugging Face
+"Repository Not Found". The recorder now finalizes and reopens the dataset after every saved episode
+([pick_dataset.py](../scripts/common/pick_dataset.py), about 0.4 s while READY), so at most the episode
+being recorded is lost. A dataset that cannot be read anyway is renamed to `data/cleany_pick.unusable_<time>`
+(never deleted) and a new one is started, with the reason printed. The session log
+(`logs/pick/pick_<time>.jsonl`) ends with `shutdown` steps and `end`: if `end` is missing the process died
+after the last step shown.
+
 ### What a session writes
 
 | Where | What |

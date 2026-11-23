@@ -20,13 +20,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import threading
 from datetime import datetime
 from pathlib import Path
-
-import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(PROJECT_ROOT / "scripts" / "common"), str(PROJECT_ROOT / "scripts" / "run")]
@@ -38,7 +35,8 @@ from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
 from camera_feed import CameraFeed  # noqa: E402
 from item_registry import Registry, RegistryError  # noqa: E402
 from leader_arm import Leader  # noqa: E402
-from motor_state import Normaliser, dataset_features, read_extras, training_state  # noqa: E402
+from motor_state import Normaliser, read_extras  # noqa: E402
+from pick_dataset import DatasetError, DatasetRecorder, open_dataset  # noqa: E402
 from pick_session import Commands, PickSession, PickStore, Status  # noqa: E402
 
 # Importing lerobot_wide_fov patches lerobot as for every other run on the arm: full-FOV camera
@@ -78,71 +76,6 @@ class Follower:
         return read_extras(self.robot.bus)
 
 
-class DatasetRecorder:
-    """Episodes of the LeRobot dataset; an episode stays in the buffer until save() or cancel()."""
-
-    def __init__(self, dataset, follower_norm: Normaliser, leader_norm: Normaliser, protection_current: float,
-                 cameras: list[str]):
-        self.dataset, self.fn, self.ln, self.protection = dataset, follower_norm, leader_norm, protection_current
-        self.cameras = cameras
-        self.task, self.item = None, None
-
-    def begin(self, task: str, item: dict):
-        if self.dataset.has_pending_frames():
-            self.dataset.clear_episode_buffer()
-        dim = self.dataset.features["item.embedding"]["shape"][0]
-        embedding = item["embedding"] if item["embedding"] is not None else np.zeros(dim, np.float32)
-        self.task = task
-        self.item = {"item.embedding": np.asarray(embedding, np.float32),
-                     "item.box": np.asarray(item["box"], np.float32)}
-
-    def add(self, obs: dict, action: dict, extras: dict):
-        positions = self.fn.positions(obs)
-        frame = {"observation.state": training_state(positions, extras, self.protection),
-                 "action": self.ln.positions(action),
-                 **{f"observation.images.{c}": obs[c] for c in self.cameras},
-                 **{f"motors.{k}": v for k, v in extras.items()},
-                 **self.item, "task": self.task}
-        self.dataset.add_frame(frame)
-
-    def cancel(self):
-        if self.dataset.has_pending_frames():
-            self.dataset.clear_episode_buffer()
-
-    def save(self) -> int:
-        self.dataset.save_episode()
-        return self.dataset.meta.total_episodes - 1
-
-
-def open_dataset(cfg: dict, robot, embedding_dim: int):
-    from lerobot.configs.video import RGBEncoderConfig
-    from lerobot.datasets.lerobot_dataset import LeRobotDataset
-
-    root = PROJECT_ROOT / cfg["root"]
-    cameras = {name: (cam.height, cam.width) for name, cam in robot.config.cameras.items()}
-    features = dataset_features(cameras, embedding_dim)
-    encoder = RGBEncoderConfig(vcodec=os.environ.get("VIDEO_CODEC", "h264_nvenc"),
-                               crf=int(os.environ.get("VIDEO_QUALITY", "23")),
-                               extra_options=json.loads(os.environ.get("VIDEO_EXTRA_OPTIONS", '{"bf": 0}')))
-    common = dict(rgb_encoder=encoder, streaming_encoding=True, encoder_threads=2)
-    if (root / "meta" / "info.json").exists():
-        dataset = LeRobotDataset.resume(cfg["repo_id"], root=root, **common)
-        mismatch = {k for k in features if k not in dataset.features or
-                    tuple(dataset.features[k]["shape"]) != tuple(features[k]["shape"])}
-        if mismatch:
-            sys.exit(f"Error: {root} has different features ({sorted(mismatch)}): move it away or change dataset.root")
-        print(f"Appending to {root} ({dataset.meta.total_episodes} episodes)")
-    else:
-        if root.exists() and any(root.iterdir()):
-            moved = root.with_name(f"{root.name}.incomplete_{datetime.now():%Y%m%d_%H%M%S}")
-            root.rename(moved)
-            print(f"Moved an incomplete dataset (no meta/info.json) to {moved}")
-        dataset = LeRobotDataset.create(cfg["repo_id"], cfg["fps"], features, root=root, robot_type="so101_follower",
-                                        use_videos=True, **common)
-        print(f"New dataset at {root}")
-    return dataset, list(cameras)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", type=Path, default=PROJECT_ROOT / "config" / "pick_recording.yaml")
@@ -156,7 +89,6 @@ def main():
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
-    import cv2
     import torch
 
     recording = load_yaml(args.config)
@@ -206,10 +138,40 @@ def main():
     teleop = SO101Leader(SO101LeaderConfig(port=args.leader_port, id="leader_arm", calibration_dir=calibration_dir))
     teleop.connect()
     robot.connect()
-    dataset, camera_names = open_dataset(recording["dataset"], robot, embedder.model.config.hidden_size)
+    try:
+        run(args, recording, config, poses, log, robot, teleop, detector, embedder, check, registry)
+    finally:  # whatever happened: release the arms and cameras (an exit with their threads running aborts)
+        for name, device in (("follower", robot), ("leader", teleop)):
+            try:
+                if device.is_connected:
+                    device.disconnect()
+            except Exception as error:  # noqa: BLE001
+                log("shutdown_error", device=name, error=f"{error.__class__.__name__}: {error}")
+
+
+def run(args, recording, config, poses, log, robot, teleop, detector, embedder, check, registry):
+    import cv2
+
+    cameras = {name: (cam.height, cam.width) for name, cam in robot.config.cameras.items()}
+    root = PROJECT_ROOT / recording["dataset"]["root"]
+
+    def reopen():
+        return open_dataset(recording["dataset"], root, cameras, embedder.model.config.hidden_size, say=log_say)
+
+    def log_say(text):
+        print(text, flush=True)
+        log("dataset", text=text)
+
+    try:
+        dataset = reopen()
+    except DatasetError as error:
+        sys.exit(f"Error: {error}")
+    camera_names = list(cameras)
     protection = float(robot.bus.read("Protection_Current", "gripper", normalize=False))
     recorder = DatasetRecorder(dataset, Normaliser.from_calibration(robot.bus.calibration),
-                               Normaliser.from_calibration(teleop.bus.calibration), protection, camera_names)
+                               Normaliser.from_calibration(teleop.bus.calibration), protection, camera_names,
+                               reopen=lambda: open_dataset(recording["dataset"], root, cameras,
+                                                           embedder.model.config.hidden_size, say=lambda _: None))
 
     door = None
     if args.door == "esp32":
@@ -246,10 +208,10 @@ def main():
         pass
     finally:
         stop.set()
+        log("shutdown", step="waiting for the session")
         worker.join()
-        dataset.finalize()
-        robot.disconnect()
-        teleop.disconnect()
+        log("shutdown", step="finalizing the dataset")
+        recorder.close()
         log("end", counts=status.counts, session=status.session)
     print(f"\nKept this session: {status.session}. Totals: {status.counts}")
     if clamps.count:
