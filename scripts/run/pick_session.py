@@ -182,6 +182,7 @@ class Status:
     pending: str = ""  # what Discard would drop
     elapsed: float = 0.0
     timeout: float | None = None
+    rec_fps: float = 0.0  # frames per second the dataset is really recorded at (RECORDING)
     last: str = ""
     frame: np.ndarray | None = None  # front camera
     wrist: np.ndarray | None = None  # wrist camera
@@ -493,7 +494,8 @@ class PickSession(BoxPipeline):
         self.set_phase("RECORDING", "Lower, grasp, lift: it ends by itself once the item is lifted",
                        timeout=e["timeout_s"])
         check = GraspCheck(self.poses["hover"], g["blocked_deg"], g["lift_joint"], g["lift_deg"], g["hold_s"])
-        started, reason, discard = self.clock.now(), None, False
+        started, reason, discard, frames = self.clock.now(), None, False, 0
+        self.status.rec_fps = 0.0
         while reason is None:
             began = self.clock.now()
             self.check()
@@ -503,8 +505,11 @@ class PickSession(BoxPipeline):
             obs = self.observe()
             self.show(obs)
             self.recorder.add(obs, action, self.arm.extras())
+            frames += 1
             elapsed = self.clock.now() - started
             self.status.elapsed = elapsed
+            if elapsed > 0.5:
+                self.status.rec_fps = frames / elapsed
             if command == "end":
                 reason = "end"
             elif command == "discard":

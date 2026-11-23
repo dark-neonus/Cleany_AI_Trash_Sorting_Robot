@@ -101,6 +101,18 @@ one being recorded, and sends both arms home. The red **EMERGENCY STOP** release
 an episode being recorded is discarded; pressed again, the arms go home and you are back at
 READY. Without the doors: `record_pick.sh --door none` (take Other items out by hand).
 
+### The panel
+
+Both cameras are shown live, side by side, from the cameras' own capture buffers, so they keep
+running while the session waits for the doors or classifies. Each view has a badge with that
+camera's real fps (green from 24, amber below, red NO SIGNAL after a second without a frame) and
+its resolution; the front view also shows the session's boxes (tray region grey, YOLO blue, tray
+change orange, target green). While recording, both views get a red frame and the episode time,
+and a line under them shows the rate the dataset is actually recorded at (red below 90 % of the
+30 fps target: frames are being lost). Keys **1 / 2 / 3** switch between both cameras, front only
+and wrist only (bigger), **B** toggles the boxes, **S** (or the button) saves a screenshot of both
+cameras to `recordings/screenshots/`. Leader servo error flags (overload) appear as the red warning.
+
 ### What a session writes
 
 | Where | What |

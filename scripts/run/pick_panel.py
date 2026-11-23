@@ -1,5 +1,5 @@
 """Control panel of the pick recorder (scripts/dataset/record_pick.py): what the session is doing,
-the front camera with the boxes it found, and the buttons, each with a key.
+both cameras live, and the buttons, each with a key.
 
     M / P          Metal / Plastic: classify the item on the tray, then a pick episode (READY)
     G              Pick other: a generic object (sock, toy, tool), a pick episode for grasp variety
@@ -7,6 +7,15 @@ the front camera with the boxes it found, and the buttons, each with a key.
     Space          start the episode (ARMED), end it (RECORDING)
     Backspace      discard the last record (READY), or the episode being recorded
     Esc            cancel: back home without recording (ARMED)
+    1 / 2 / 3      view: both cameras / front only / wrist only (bigger)
+    B              boxes on the front view on / off
+    S              screenshot of both cameras (recordings/screenshots/)
+
+The views come from the cameras' own capture buffers (camera_feed.py), not from the session loop,
+so they stay live while the session waits for the doors or classifies. Each view has a badge with
+the camera's real fps (green from 24, amber below, red NO SIGNAL after a second without a frame),
+the front view the boxes of the session, and while recording both get a red frame and the episode
+time; under them is the rate the dataset is actually recorded at.
 
 Keys work while the panel has focus and the item field does not (Enter leaves the field).
 The item field takes any name (a hint for the labelling after the session) or, once
@@ -17,20 +26,23 @@ its own thread.
 
 from __future__ import annotations
 
+import time
 import tkinter as tk
 from tkinter import ttk
 
-import numpy as np
+from camera_feed import StatusFeed
 from estop import add_estop_button
 from item_registry import Registry, progress
 from pick_session import Commands, Status
-from screenshot import add_screenshot_button
+from pick_view import GREEN, GREY, RED, badge_text, render
+from screenshot import save_screenshots
 
 PHASE_COLORS = {"READY": "#1565c0", "ARMED": "#6a1b9a", "RECORDING": "#2e7d32", "E-STOP": "#b71c1c",
                 "STOPPED": "#546e7a"}
-PREVIEW = (400, 300)  # the 640x480 front image at 5/8
-SCALE = PREVIEW[0] / 640
-WRIST = (400, 225)  # the wrist camera (16:9) beside it, as in the Rerun view of the old recorder
+# (front, wrist) view sizes: both side by side, or one of them bigger
+VIEWS = {"both": ((512, 384), (512, 288)), "front": ((800, 600), None), "wrist": (None, (800, 450))}
+VIEW_KEYS = {"1": "both", "2": "front", "3": "wrist"}
+FEED_MS = 15  # how often the views look for a new camera frame (30 fps cameras: every frame is drawn)
 
 # command, label, key shown, phases it is enabled in
 BUTTONS = [
@@ -51,12 +63,24 @@ def item_choices(registry: Registry, counts: dict) -> list[str]:
     return [f"{it.id} · {it.label()} · {counts.get(it.id, 0)} ep" for it in items]
 
 
-def run_panel(status: Status, commands: Commands, stop, title: str, tray_region, warn_after_s: float,
-              is_running, registry: Registry | None = None) -> None:
-    """Tk main loop in the calling thread. stop(): ask the session to stop; is_running(): False once
-    it has finished, then the window closes."""
-    from PIL import Image, ImageDraw, ImageTk
+def rate_text(status: Status, target_fps: float) -> tuple[str, str]:
+    """The line under the views: the dataset's recording rate while recording."""
+    if status.phase == "RECORDING" and status.rec_fps:
+        ok = status.rec_fps >= 0.9 * target_fps
+        return (f"Recording {status.rec_fps:4.1f} fps (target {target_fps:g})"
+                + ("" if ok else "  slower than the target: the dataset gets fewer frames"), GREEN if ok else RED)
+    return "", GREY
 
+
+def run_panel(status: Status, commands: Commands, stop, title: str, tray_region, warn_after_s: float,
+              is_running, registry: Registry | None = None, feeds: dict | None = None, target_fps: float = 30) -> None:
+    """Tk main loop in the calling thread. stop(): ask the session to stop; is_running(): False once
+    it has finished, then the window closes. feeds: {"front": Feed, "wrist": Feed} (camera_feed.py);
+    without them the views show the frames the session publishes."""
+    from PIL import ImageTk
+
+    feeds = {"front": StatusFeed("front", status, "frame"), "wrist": StatusFeed("wrist", status, "wrist"),
+             **(feeds or {})}
     root = tk.Tk()
     root.title(title)
     root.resizable(False, False)
@@ -65,25 +89,36 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
 
     phase_label = tk.Label(root, font=("Sans", 18, "bold"))
     phase_label.pack(padx=16, pady=(8, 0), anchor="w")
-    message_label = tk.Label(root, font=("Sans", 11), justify="left", wraplength=800)
+    message_label = tk.Label(root, font=("Sans", 11), justify="left", wraplength=1000)
     message_label.pack(padx=16, anchor="w")
-    warning_label = tk.Label(root, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=800)
+    warning_label = tk.Label(root, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=1000)
     warning_label.pack(padx=16, anchor="w")
 
-    bar = tk.Canvas(root, width=PREVIEW[0], height=18, highlightthickness=0, bg="#dddddd")
+    bar = tk.Canvas(root, width=1000, height=18, highlightthickness=0, bg="#dddddd")
     bar.pack(padx=16, pady=(6, 0))
-    cameras = tk.Frame(root)
+
+    cameras = tk.Frame(root, bg="#101010")
     cameras.pack(padx=16, pady=6)
-    preview = tk.Label(cameras, bg="#222222", width=PREVIEW[0], height=PREVIEW[1])
-    preview.grid(row=0, column=0, padx=(0, 6))
-    wrist_view = tk.Label(cameras, bg="#222222", width=WRIST[0], height=WRIST[1])
-    wrist_view.grid(row=0, column=1, sticky="n")
-    tk.Label(cameras, text="front (boxes: YOLO blue, tray change orange, target green)", font=("Sans", 8),
-             fg="#666666").grid(row=1, column=0)
-    tk.Label(cameras, text="wrist", font=("Sans", 8), fg="#666666").grid(row=1, column=1)
+    views = {name: tk.Label(cameras, bg="#222222", bd=0) for name in ("front", "wrist")}
+    rate_label = tk.Label(root, font=("Sans", 10, "bold"))
+    rate_label.pack(padx=16, anchor="w")
+
+    view_var = tk.StringVar(value="both")
+    show_boxes = tk.BooleanVar(value=True)
+    options = tk.Frame(root)
+    options.pack(padx=16, pady=(2, 0), fill="x")
+    tk.Label(options, text="View:", font=("Sans", 10)).pack(side="left")
+    for key, name in VIEW_KEYS.items():
+        tk.Radiobutton(options, text=f"{name} [{key}]", value=name, variable=view_var, font=("Sans", 10),
+                       command=lambda: layout()).pack(side="left", padx=4)
+    tk.Checkbutton(options, text="boxes [B]", variable=show_boxes, font=("Sans", 10)).pack(side="left", padx=12)
+    screenshot_label = tk.Label(options, font=("Sans", 9), fg="#666666", wraplength=520, justify="left")
+    screenshot_label.pack(side="right")
+    tk.Button(options, text="Screenshot [S]", font=("Sans", 10), command=lambda: screenshot()).pack(side="right", padx=6)
+
     counts_label = tk.Label(root, font=("Sans", 11))
-    counts_label.pack(padx=16, anchor="w")
-    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=800)
+    counts_label.pack(padx=16, pady=(6, 0), anchor="w")
+    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=1000)
     suggest_label.pack(padx=16, anchor="w")
     last_label = tk.Label(root, font=("Sans", 10), fg="#444444")
     last_label.pack(padx=16, anchor="w")
@@ -111,16 +146,27 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
         widgets[command] = tk.Button(grid, text=f"{label}  [{key}]", width=13, font=("Sans", 11, "bold"),
                                      command=lambda c=command: commands.put(c))
         widgets[command].grid(row=i // 4, column=i % 4, padx=3, pady=3)
-    tk.Button(root, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 6), fill="x")
-    add_screenshot_button(root)
+    tk.Button(root, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 10), fill="x")
+
+    def screenshot():
+        screenshot_label.config(text=save_screenshots())
 
     def key(event):
         if root.focus_get() is entry:
             return
+        if event.keysym in VIEW_KEYS:
+            view_var.set(VIEW_KEYS[event.keysym])
+            layout()
+            return
+        if event.keysym.lower() == "b":
+            show_boxes.set(not show_boxes.get())
+            return
+        if event.keysym.lower() == "s":
+            screenshot()
+            return
         phase = status.phase
         name = {"m": "metal", "p": "plastic", "g": "generic", "o": "other", "BackSpace": "discard",
-                "Escape": "cancel"}.get(
-            event.keysym, event.keysym.lower())
+                "Escape": "cancel"}.get(event.keysym, event.keysym.lower())
         if event.keysym == "space":
             name = "start" if phase == "ARMED" else "end"
         enabled = next((b[3] for b in BUTTONS if b[0] == name), ())
@@ -129,26 +175,47 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
 
     root.bind("<Key>", key)
     root.focus_set()
-    photo = {}
+    photo = {}  # the images shown: Tk drops an image nobody refers to
+    sizes = {}
 
-    def draw(frame: np.ndarray):
-        image = Image.fromarray(frame).resize(PREVIEW)
-        d = ImageDraw.Draw(image)
+    def layout():
+        front, wrist = VIEWS[view_var.get()]
+        sizes.update(front=front, wrist=wrist)
+        for column, name in enumerate(("front", "wrist")):
+            if sizes[name] is None:
+                views[name].grid_remove()
+            else:
+                views[name].grid(row=0, column=column, padx=2, pady=2, sticky="n")
+        for name in feeds:  # redraw at the new size even before the next frame
+            feeds[name].redraw = True
 
-        def rect(box, color, width=2):
-            if box is not None:
-                d.rectangle([v * SCALE for v in box], outline=color, width=width)
-        rect(tray_region, "#888888", 1)
-        for box in status.yolo_boxes:
-            rect(box, "#42a5f5")
-        rect(status.change_box, "#ffa726")
-        rect(status.target_box, "#00e676", 3)
-        photo["image"] = ImageTk.PhotoImage(image)
-        preview.config(image=photo["image"], width=PREVIEW[0], height=PREVIEW[1])
+    def boxes():
+        if not show_boxes.get():
+            return []
+        return [(tray_region, GREY, 1), *((b, "#42a5f5", 2) for b in status.yolo_boxes),
+                (status.change_box, "#ffa726", 2), (status.target_box, "#00e676", 3)]
 
-    def draw_wrist(frame: np.ndarray):
-        photo["wrist"] = ImageTk.PhotoImage(Image.fromarray(frame).resize(WRIST))
-        wrist_view.config(image=photo["wrist"], width=WRIST[0], height=WRIST[1])
+    def draw(name: str, now: float):
+        feed, size = feeds[name], sizes[name]
+        if size is None or feed.frame is None:
+            return
+        state, fps = feed.state(now)
+        recording = status.elapsed if status.phase == "RECORDING" else None
+        image = render(feed.frame, size, badge_text(name, state, fps, feed.size),
+                       boxes() if name == "front" else (), recording)
+        photo[name] = ImageTk.PhotoImage(image)
+        views[name].config(image=photo[name], width=size[0], height=size[1])
+
+    def tick_feeds():
+        if not is_running():
+            return
+        now = time.perf_counter()
+        for name, feed in feeds.items():
+            fresh = feed.poll()
+            if fresh or feed.redraw or (feed.frame is not None and feed.state(now)[0] != "live"):
+                feed.redraw = False
+                draw(name, now)
+        root.after(FEED_MS, tick_feeds)
 
     def refresh():
         if not is_running():
@@ -164,19 +231,19 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
                              if s.suggest and s.phase == "READY" else "")
         last_label.config(text=(f"Last: {s.last}" if s.last else "") +
                           (f"   ·   Discard drops the last {s.pending}" if s.pending else ""))
+        text, color = rate_text(s, target_fps)
+        rate_label.config(text=text, fg=color if color != GREY else "#444444")
         bar.delete("all")
         if s.phase == "RECORDING" and s.timeout:
             color = "#2e7d32" if s.elapsed < warn_after_s else "#ef6c00"
-            bar.create_rectangle(0, 0, PREVIEW[0] * min(1.0, s.elapsed / s.timeout), 18, fill=color, width=0)
-            bar.create_text(PREVIEW[0] / 2, 9, text=f"{s.elapsed:4.1f} s / {s.timeout:g} s")
-        if s.frame is not None:
-            draw(s.frame)
-        if s.wrist is not None:
-            draw_wrist(s.wrist)
+            bar.create_rectangle(0, 0, 1000 * min(1.0, s.elapsed / s.timeout), 18, fill=color, width=0)
+            bar.create_text(500, 9, text=f"{s.elapsed:4.1f} s / {s.timeout:g} s")
         for command, _, _, phases in BUTTONS:
             enabled = s.phase in phases and (command != "discard" or s.phase == "RECORDING" or bool(s.pending))
             widgets[command].config(state=tk.NORMAL if enabled else tk.DISABLED)
         root.after(100, refresh)
 
+    layout()
+    tick_feeds()
     refresh()
     root.mainloop()

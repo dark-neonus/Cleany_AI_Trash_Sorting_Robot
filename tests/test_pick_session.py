@@ -281,3 +281,9 @@ def test_the_panel_shows_progress_and_the_least_recorded_item(tmp_path):
     s = world.status
     assert s.item_counts == {"m01": 1} and s.suggest["metal"].startswith("m02")
     assert s.target_phase == "pilot" and s.targets["pilot"]["metal"] == 23
+
+
+def test_the_recording_rate_is_published_for_the_panel(tmp_path):
+    world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
+    world.run(tmp_path)
+    assert world.status.rec_fps == pytest.approx(30, abs=3)  # the fake clock ticks at 30 fps

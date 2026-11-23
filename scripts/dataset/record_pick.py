@@ -34,6 +34,7 @@ import arm_estop  # noqa: E402
 import estop  # noqa: E402
 from box_logic import REQUIRED_POSES, load_poses, load_yaml  # noqa: E402
 from box_states import Clock, DoorSequencer, Hooks  # noqa: E402
+from camera_feed import CameraFeed  # noqa: E402
 from item_registry import Registry, RegistryError  # noqa: E402
 from leader_arm import Leader  # noqa: E402
 from motor_state import Normaliser, dataset_features, read_extras, training_state  # noqa: E402
@@ -230,6 +231,7 @@ def main():
             errors.append(error)
             log("error", error=f"{error.__class__.__name__}: {error}")
 
+    feeds = {name: CameraFeed(name, robot.cameras[name]) for name in camera_names if name in robot.cameras}
     worker = threading.Thread(target=run_session, name="pick_session")
     worker.start()
     from pick_panel import run_panel
@@ -237,7 +239,7 @@ def main():
     try:
         run_panel(status, commands, stop.set, f"Cleany pick recorder · {recording['dataset']['repo_id']}",
                   config["trigger"]["tray_region"], recording["episode"]["warn_after_s"], worker.is_alive,
-                  registry)
+                  registry, feeds, recording["dataset"]["fps"])
     except KeyboardInterrupt:
         pass
     finally:
