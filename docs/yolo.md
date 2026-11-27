@@ -58,6 +58,9 @@ training set, and the bigger `yolo26s` model.
 To make a better model the default: upload its `best.pt` to a new Hub repo
 `cleany-ai/<setup>_yolo_<YYYYmmdd_HHMM>`, and point `yolo` in `config/default.yaml` at it.
 
+The setup v2 datasets these frames come from are archived in `data/archive/setupv2/` (they are also
+on the Hub); the extractor finds them there.
+
 **Adding newly recorded episodes:**
 
 1. `.venv/bin/python scripts/yolo/extract_frames.py` takes the first frame of every episode

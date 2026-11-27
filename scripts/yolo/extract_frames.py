@@ -109,6 +109,8 @@ def main():
     total_boxes = 0
     for name in args.datasets:
         dataset_root = PROJECT_ROOT / "data" / name
+        if not dataset_root.exists():  # the setup v2 datasets
+            dataset_root = PROJECT_ROOT / "data" / "archive" / "setupv2" / name
         material = next((c for c in CLASSES if name.endswith(f"_{c}")), None)
         for episode, position, timestamp, video in episode_frames(dataset_root):
             stem = f"{name}_ep{episode:03d}_{position}"
