@@ -222,7 +222,7 @@ def run(args, recording, config, poses, log, robot, teleop, detector, embedder, 
     if COMM.count:
         print(f"{COMM.count} arm bus calls needed a retry (a reply went missing once: {COMM.last}).")
     print("Upload with: scripts/dataset/sync.sh push pick")
-    print("Label the items: scripts/tools/contact_sheet.sh (then the agent fills config/items.yaml and item_labels.yaml)")
+    print("Every record carries its object's id (objects/train); check the split: scripts/tools/check_split.sh")
     if errors:
         raise errors[0]
 

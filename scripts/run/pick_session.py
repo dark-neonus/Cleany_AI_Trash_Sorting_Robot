@@ -1,15 +1,16 @@
 """Pick recording session: the states behind scripts/dataset/record_pick.py (docs/pick-dataset.md).
 
     SETUP      doors open and close (the tray is empty), both arms home, empty-tray photo
-    READY      wait for Metal / Plastic / Pick other (generic) / Other; Discard drops the last
+    READY      wait for Metal / Plastic / Pick other / Save other; Discard drops the last
                record; the previous record is kept (episode saved) when the next one starts or the
-               session stops. A held-out test item (config/items.yaml) is refused
-    CLASSIFY   settle, YOLO boxes + the tray-change box over a few frames, DINO per item; the
-               target is the freest item DINO agrees with (or any). Saves a labelled YOLO frame
-               (box from the empty-tray difference, class from the button) and a gallery crop
-    DROP       Other: the doors drop it into the mixed bin, then READY
-               (Pick other: a generic object, socks, toys, tools, gets a pick episode like metal and
-               plastic, for grasp variety; its crops go to <crops>/generic, outside the gallery)
+               session stops. The item must be chosen in the object library (objects/train) first;
+               a held-out test item or one of another class is refused. Add new object: the
+               object on the tray becomes a new library entry (photo, class, name)
+    CLASSIFY   settle; the item's box is what differs from the empty tray (YOLO only cross-checks).
+               Saves a labelled YOLO frame (class from the button) and a gallery crop
+    DROP       Save other: no episode, the doors drop it into the mixed bin, then READY
+               (Pick other: an object that is neither metal nor plastic gets a pick episode too;
+               both are class `other`)
     HOVER      both arms to the hover pose, gripper open, as the pipeline starts its grasp
     ARMED      the leader holds hover until pushed push_deg (or Space): its torque goes off and
     RECORDING  the follower follows it; every frame goes to the dataset. Ends when the box
@@ -37,44 +38,22 @@ from box_logic import (
     GRIPPER,
     JOINT_KEYS,
     GraspCheck,
-    Item,
     SettleGate,
-    _gray,
+    changed_box,
     crop_box,
-    free_space,
     group_detections,
     hold_command,
     iou,
     trajectory,
 )
 from box_states import BoxPipeline, Paused, Stop
-from item_registry import Registry, read_records, slug
+from item_registry import TYPES, Registry, RegistryError, read_records, slug
 
-MATERIALS = ("metal", "plastic", "other", "generic")
-YOLO_CLASSES = {"metal": 0, "plastic": 1, "other": 2, "generic": 3}  # generic: pick-only objects
-
-
-# --- tray-change box -----------------------------------------------------------------------------
-
-def changed_box(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: float,
-                min_cells: int = 6) -> list[float] | None:
-    """Bounding box (640x480 coordinates) of what differs from the empty tray, or None.
-    With one item on the tray this is that item's box, independent of any detector. Cells are
-    the 4x4-blurred pixels of box_logic._gray; isolated cells (noise) are ignored."""
-    diff = np.abs(_gray(reference, region) - _gray(frame, region)) > pixel_diff
-    if diff.sum() < min_cells:
-        return None
-    # keep cells with at least 2 changed neighbours (drops single-cell speckle)
-    padded = np.pad(diff, 1)
-    neighbours = sum(np.roll(np.roll(padded, dy, 0), dx, 1) for dy in (-1, 0, 1) for dx in (-1, 0, 1))[1:-1, 1:-1]
-    cells = diff & (neighbours >= 3)
-    if cells.sum() < min_cells:
-        return None
-    ys, xs = np.nonzero(cells)
-    x0, y0 = region[0], region[1]
-    sx = (region[2] - region[0]) / (diff.shape[1] * 4) * 4
-    sy = (region[3] - region[1]) / (diff.shape[0] * 4) * 4
-    return [x0 + xs.min() * sx, y0 + ys.min() * sy, x0 + (xs.max() + 1) * sx, y0 + (ys.max() + 1) * sy]
+MATERIALS = ("metal", "plastic", "other")
+YOLO_CLASSES = {"metal": 0, "plastic": 1, "other": 2}
+# READY's buttons: command -> (material, with a pick episode). "other" only saves the picture and drops it
+ACTIONS = {"metal": ("metal", True), "plastic": ("plastic", True), "pick_other": ("other", True),
+           "other": ("other", False)}
 
 
 # --- files: YOLO frames, gallery crops, records ------------------------------------------------
@@ -159,9 +138,10 @@ class PickStore:
         return read_records(self.records)
 
     def counts(self) -> dict[str, int]:
-        counts = dict.fromkeys(MATERIALS, 0)
+        """Episodes per material, and under "saved" the pictures saved without one."""
+        counts = dict.fromkeys((*MATERIALS, "saved"), 0)
         for record in self.read():
-            counts[record["material"]] = counts.get(record["material"], 0) + 1
+            counts[record["material"] if record.get("kind") == "episode" else "saved"] += 1
         return counts
 
 
@@ -173,7 +153,7 @@ class Status:
     message: str = "Connecting to the arms, cameras and doors"
     warning: str = ""
     material: str | None = None
-    counts: dict = field(default_factory=lambda: dict.fromkeys(MATERIALS, 0))
+    counts: dict = field(default_factory=lambda: dict.fromkeys((*MATERIALS, "saved"), 0))
     session: int = 0  # records kept in this session
     targets: dict = field(default_factory=dict)  # phase -> {class: episodes} (docs/collection-plan.md)
     target_phase: str = ""
@@ -189,6 +169,7 @@ class Status:
     target_box: list | None = None
     change_box: list | None = None
     yolo_boxes: list = field(default_factory=list)
+    library_version: int = 0  # bumped when an object is added to the library: the panel redraws it
 
 
 class Commands:
@@ -196,7 +177,8 @@ class Commands:
 
     def __init__(self):
         self.queue: queue.Queue[str] = queue.Queue()
-        self.item = "item"  # current item name from the panel
+        self.item = ""  # id of the library object chosen in the panel
+        self.new_object = ("metal can", "")  # Add new object: (type, one of item_registry.TYPES; name)
 
     def put(self, command: str):
         self.queue.put(command)
@@ -232,11 +214,13 @@ class PickSession(BoxPipeline):
         self.rec_cfg, self.commands, self.status = recording, commands, status
         self.mirror = False  # the leader repeats every follower command
         self.material: str | None = None
+        self.pick = True  # False: save the picture only, no episode
         self.record: Record | None = None  # classification of the current item
         self.item: dict | None = None  # embedding and box recorded with the episode
         self.pending: tuple[str, Record, dict] | None = None  # last record, kept unless discarded
         self.recording = False
         self.registry = registry or Registry()
+        self.require_item = (recording.get("items") or {}).get("required", True)
         targets = recording.get("targets") or {}
         self.status.targets = {k: v for k, v in targets.items() if isinstance(v, dict)}
         self.status.target_phase = targets.get("phase", "")
@@ -292,8 +276,12 @@ class PickSession(BoxPipeline):
         reg, records = self.registry, self.store.read()
         counts = reg.item_counts(records)
         self.status.item_counts = dict(counts)
+        try:
+            reg.write_counts(counts)  # N/target in each object's item.yaml
+        except OSError as error:
+            self.log("library_error", error=str(error))
         self.status.suggest = {}
-        for cls in ("metal", "plastic", "generic"):
+        for cls in MATERIALS:
             item = reg.suggest(cls, records)
             if item is not None:
                 self.status.suggest[cls] = f"{item.id} {item.label()} ({counts[item.id]})"
@@ -301,14 +289,48 @@ class PickSession(BoxPipeline):
     def refuse(self, material: str) -> str | None:
         """Why this item may not be recorded as `material`, or None."""
         name = self.commands.item
-        held = self.registry.held_out(name)
+        held = self.registry.held_out(name) if name else None
         if held is not None:
             return (f"'{name}' is held out for testing ({held.id}: {held.label()}): it must not be recorded. "
                     f"Put it back in the test bag")
-        item = self.registry.by_name(name)
-        if item is not None and material != "other" and item.cls != material:
-            return f"{item.id} is a {item.cls} item in config/items.yaml, not {material}: check the item or the button"
+        item = self.registry.by_name(name) if name else None
+        if item is None and self.require_item:
+            return ("Choose the item in the library first (click its picture), or put it on the tray and "
+                    "Add new object")
+        if item is not None and item.cls != material:
+            return f"{item.id} is a {item.cls} object in the library, not {material}: check the item or the button"
         return None
+
+    def add_object(self):
+        """The object on the tray becomes a new training object in the library, chosen at once."""
+        kind_name, name = self.commands.new_object
+        if kind_name not in TYPES:
+            self.warn(f"Unknown object type {kind_name!r}")
+            return
+        cls, kind = TYPES[kind_name]
+        t, c = self.cfg["trigger"], self.cfg["classifier"]
+        last = list(self.front_frames(3))[-1]["front"]
+        box = changed_box(self.trigger.reference, last, self.region, t["item_diff"])
+        if box is None:
+            self.warn("Add new object: nothing on the tray. Put the object in the box, hands out, then Add again")
+            return
+        self.status.change_box = box
+        crop = crop_box(last, box, c.get("crop_pad", 0.15))
+        try:  # the front camera is mounted upside down: the library pictures are turned upright
+            item = self.registry.add_object(cls, kind, name, np.ascontiguousarray(np.rot90(crop, 2)),
+                                            self.store.save_image, np.ascontiguousarray(np.rot90(last, 2)),
+                                            {"photo": "recorder", "session": self.store.session,
+                                             "box": [round(float(v), 1) for v in box]},
+                                            taken={r.get("item_id") for r in self.store.read()})
+        except (RegistryError, OSError) as error:
+            self.warn(f"Add new object failed: {error}")
+            return
+        self.commands.item = item.id
+        self.status.library_version += 1
+        self.status.warning = ""
+        self.status.last = f"added {item.id} ({kind_name}) to the library: it is the chosen item now"
+        self.refresh_items()
+        self.log("object_added", id=item.id, cls=cls, kind=kind, name=item.name, box=box)
 
     def leader_torque(self, on: bool):
         """Torque on or off for the leader; servo error flags it reports (overload) are shown, not fatal."""
@@ -326,7 +348,8 @@ class PickSession(BoxPipeline):
         if kind == "episode":
             extra = {**extra, "episode": self.recorder.save()}
         self.store.commit(rec, kind=kind, **extra)
-        self.status.counts[rec.material] = self.status.counts.get(rec.material, 0) + 1
+        key = rec.material if kind == "episode" else "saved"
+        self.status.counts[key] = self.status.counts.get(key, 0) + 1
         self.status.session += 1
         self.pending, self.status.pending = None, ""
         self.refresh_items()
@@ -358,7 +381,8 @@ class PickSession(BoxPipeline):
         return "READY"
 
     def ready(self):
-        self.set_phase("READY", "Put an item on the tray, name it, then Metal, Plastic, Pick other or Other",
+        self.set_phase("READY", "Put an item on the tray, choose it in the library, then Metal, Plastic, "
+                                "Pick other or Other",
                        target_box=None, change_box=None, yolo_boxes=[])
         if self.mirror:  # the leader rests at home: no torque while waiting
             self.mirror = False
@@ -367,14 +391,18 @@ class PickSession(BoxPipeline):
             command = self.commands.get()
             if command == "discard":
                 self.discard_pending()
-            elif command in MATERIALS:
-                reason = self.refuse(command)
+            elif command == "add_object":
+                self.add_object()
+                return "READY"  # READY again: its message, and the leader stays limp
+            elif command in ACTIONS:
+                material, pick = ACTIONS[command]
+                reason = self.refuse(material)
                 if reason is not None:
                     self.warn(reason)
                     continue
                 self.commit_pending()
-                self.material = command
-                self.status.warning, self.status.material = "", command
+                self.material, self.pick = material, pick
+                self.status.warning, self.status.material = "", material
                 return "CLASSIFY"
 
     def classify_item(self):
@@ -389,58 +417,56 @@ class PickSession(BoxPipeline):
                 self.warn(f"The tray did not settle in {t['settle_timeout_s']} s: try again")
                 return "READY"
 
-        frames, last = [], None
+        frames, seen = [], []
         for obs in self.front_frames(t["classify_frames"]):
-            detections = self.detector(obs["front"])
-            for d in detections:
-                d["crop"] = crop_box(obs["front"], d["box"], c.get("crop_pad", 0.15))
-            frames.append(detections)
-            last = obs["front"]
-        items = group_detections(frames)
-        change = changed_box(self.trigger.reference, last, self.region, t["pixel_diff"])
-        self.status.change_box, self.status.yolo_boxes = change, [it.box for it in items]
-        if not items and change is None:
-            self.warn("Nothing on the tray (no YOLO box, no change from the empty tray)")
+            seen.append(self.detector(obs["front"]))
+            frames.append(obs["front"])
+        last = frames[-1]
+        # The item is what differs from the empty tray. YOLO is only a cross-check: it takes the arm,
+        # which hangs into the view, for an item, so its boxes that are not on the change are dropped
+        change = changed_box(self.trigger.reference, last, self.region, t["item_diff"])
+        if change is None:
+            self.status.change_box, self.status.yolo_boxes = None, []
+            self.warn("Nothing on the tray (no change from the empty tray)")
             return "READY"
+        yolo = [it.box for it in group_detections(seen) if iou(change, it.box) > 0.3]
+        self.status.change_box, self.status.yolo_boxes = change, yolo
 
         notes = []
-        for item in items:
-            vectors = self.embed([cr for cr in item.crops if cr is not None])
-            item.info["embedding"] = vectors.mean(axis=0) if len(vectors) else None
-            decision = self.decide(item.info["embedding"]) if item.info["embedding"] is not None else None
-            item.cls = decision.cls if decision is not None else "unknown"
-            item.info["decision"] = decision
-        if items:
-            agree = [it for it in items if it.cls == self.material]
-            target = max(agree or items, key=lambda it: free_space(it, items))
-            if len(items) > 1:
-                notes.append(f"{len(items)} items on the tray: grasp the one in the green box")
-        else:
-            target = Item(box=change, crops=[crop_box(last, change, c.get("crop_pad", 0.15))])
-            vectors = self.embed([target.crops[0]] if target.crops[0] is not None else [])
-            target.info["embedding"] = vectors.mean(axis=0) if len(vectors) else None
-            target.info["decision"] = None
-            notes.append("YOLO found no box: using the change from the empty tray")
-        decision = target.info["decision"]
+        crops = [crop_box(f, change, c.get("crop_pad", 0.15)) for f in frames]
+        crops = [cr for cr in crops if cr is not None]
+        vectors = self.embed(crops) if crops else []
+        embedding = vectors.mean(axis=0) if len(vectors) else None
+        decision = self.decide(embedding) if embedding is not None else None
         if decision is not None and decision.cls != self.material:
             notes.append(f"DINO says {decision.cls} ({decision.reason}), you said {self.material}")
 
-        # YOLO label: with one item, the tray change is the item's box; otherwise the target's YOLO box
-        single = len(items) <= 1 and change is not None and (not items or iou(change, target.box) > 0.3)
-        label_box = change if single else target.box
-        crop = crop_box(last, target.box, c.get("crop_pad", 0.15))
-        meta = {"label_from": "tray_change" if single else "yolo", "change_box": change,
-                "yolo_boxes": [it.box for it in items], "target_box": target.box,
+        crop = crop_box(last, change, c.get("crop_pad", 0.15))
+        meta = {"label_from": "tray_change", "change_box": change, "yolo_boxes": yolo, "target_box": change,
                 "dino": None if decision is None else {"cls": decision.cls, "reason": decision.reason,
                                                       "distances": decision.distances}}
-        self.record = self.store.classification(self.material, self.commands.item, last, label_box, crop, meta)
-        embedding = target.info["embedding"]
-        self.item = {"embedding": embedding, "box": np.array(target.box, dtype=np.float32) / [640, 480, 640, 480]}
-        self.status.target_box = target.box
+        chosen = self.registry.by_name(self.commands.item) if self.commands.item else None
+        if chosen is not None:
+            meta["item_id"] = chosen.id
+            self.tray_picture(chosen, crop)
+        self.record = self.store.classification(self.material, self.commands.item or "item", last, change, crop, meta)
+        self.item = {"embedding": embedding, "box": np.array(change, dtype=np.float32) / [640, 480, 640, 480]}
+        self.status.target_box = change
         if notes:
             self.warn(" · ".join(notes))
         self.log("classified", material=self.material, **meta)
-        return "DROP" if self.material == "other" else "HOVER"
+        return "HOVER" if self.pick else "DROP"
+
+    def tray_picture(self, item, crop):
+        """The first time an object is recorded, its crop on the tray becomes its library picture
+        (tray.jpg: shown instead of the cut-out from the shelf photo)."""
+        if crop is None or item.path is None or (item.path / "tray.jpg").exists():
+            return
+        try:
+            self.store.save_image(item.path / "tray.jpg", np.ascontiguousarray(np.rot90(crop, 2)))
+            self.status.library_version += 1
+        except OSError as error:
+            self.log("library_error", error=str(error))
 
     def drop(self):
         self.set_phase("DROP", "The doors drop the item into the mixed bin")
@@ -556,7 +582,7 @@ class PickSession(BoxPipeline):
         self.align_leader()
         holding = hold_command(self.joints(self.observe())[GRIPPER], self.cfg["grasp"]["squeeze_deg"])
         self.move_to({**self.poses["transit"], GRIPPER: holding}, self.material)
-        if r["where"] == "bin" and f"{self.material}_bin" in self.poses:  # generic: no bin, let go at transit
+        if r["where"] == "bin" and f"{self.material}_bin" in self.poses:  # other: no bin, let go at transit
             self.move_to({**self.poses[f"{self.material}_bin"], GRIPPER: holding}, self.material)
         self.move_to({**self.joints(self.observe()), GRIPPER: r["gripper"]}, self.material)
         self.hold(r["hold_s"], self.material)

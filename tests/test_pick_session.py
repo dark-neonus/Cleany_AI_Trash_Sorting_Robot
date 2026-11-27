@@ -43,6 +43,17 @@ def tray(items=()):
     return frame
 
 
+def library(root=None):
+    """One training object per button: the session refuses a record without a chosen object."""
+    from item_registry import Item, Registry
+
+    items = {i: Item(i, cls, i) for i, cls in (("m01", "metal"), ("p01", "plastic"), ("o01", "other"))}
+    return Registry(items, root=root)
+
+
+CHOICE = {"metal": "m01", "plastic": "p01", "pick_other": "o01", "other": "o01"}
+
+
 class World:
     """Tray, follower, leader with a person's hand on it, doors, dataset recorder and button presses.
 
@@ -61,6 +72,7 @@ class World:
         self.episodes = {"begun": 0, "frames": 0, "saved": 0, "cancelled": 0}
         self.commands = Commands()
         self.events = []
+        self.registry = library()
 
     # follower
     def observe(self):
@@ -143,6 +155,8 @@ class World:
                 if command == "stop":
                     self.stop = True
                 else:
+                    if command in CHOICE and self.commands.item == "":
+                        self.commands.item = CHOICE[command]  # the object chosen in the panel
                     self.commands.put(command)
 
     def paused(self):
@@ -153,7 +167,8 @@ class World:
         self.status = Status()
         session = PickSession(self, self, self.detector, self.embed, self.decide, self, self, store, POSES, CONFIG,
                               recording, Hooks(self.log), self.commands, self.status, clock=self.clock,
-                              should_stop=lambda: self.stop or self.clock.t > 600, paused=self.paused)
+                              should_stop=lambda: self.stop or self.clock.t > 600, paused=self.paused,
+                              registry=self.registry)
         session.run()
         return store
 
@@ -172,7 +187,7 @@ def test_metal_episode_is_recorded_from_hover_until_lifted(tmp_path):
     labels = list((store.yolo / "labels").glob("pick_*.txt"))
     assert len(labels) == 1 and labels[0].read_text().startswith("0 ")  # class metal
     assert list((store.yolo / "labels").glob("empty_*.txt"))  # negative frame of the empty tray
-    assert len(list((store.crops / "metal").glob("item_*.jpg"))) == 1
+    assert len(list((store.crops / "metal").glob("m01_*.jpg"))) == 1 and record["item_id"] == "m01"
     assert world.drops == 1  # only at setup: the item went back onto the tray
     assert world.follower == POSES["home"] and not world.leader_torque
 
@@ -236,15 +251,35 @@ def test_item_names_are_safe_gallery_prefixes():
     assert safe_name("Red Bull_can 2") == "red-bull-can-2" and safe_name("  ") == "item"
 
 
-def test_pick_other_records_a_generic_episode_kept_out_of_the_gallery_classes(tmp_path):
-    world = World([("READY", "generic", (300, 200)), ("READY", "stop", None)])
+def test_pick_other_records_an_episode_of_class_other(tmp_path):
+    world = World([("READY", "pick_other", (300, 200)), ("READY", "stop", None)])
     store = world.run(tmp_path)
     [record] = world.kept(store)
-    assert record["material"] == "generic" and record["kind"] == "episode" and record["ended"] == "lifted"
+    assert record["material"] == "other" and record["kind"] == "episode" and record["ended"] == "lifted"
     assert record["session"] == store.session
-    assert len(list((store.crops / "generic").glob("*.jpg"))) == 1  # build_gallery reads metal/plastic/other only
-    assert list((store.yolo / "labels").glob("pick_*.txt"))[0].read_text().startswith("3 ")
-    assert world.drops == 1 and world.status.counts["generic"] == 1
+    assert len(list((store.crops / "other").glob("o01_*.jpg"))) == 1
+    assert list((store.yolo / "labels").glob("pick_*.txt"))[0].read_text().startswith("2 ")
+    assert world.drops == 1 and world.status.counts["other"] == 1 and world.status.counts["saved"] == 0
+
+
+def test_the_arm_in_view_is_never_taken_for_the_item(tmp_path):
+    world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
+    detect = world.detector
+    arm = {"box": [215, 2, 415, 100], "class": "item", "conf": 0.99}  # YOLO sees the arm, with or without an item
+    world.detector = lambda frame: [arm, *detect(frame)]
+    [record] = world.kept(world.run(tmp_path))
+    assert record["target_box"] == pytest.approx([300, 200, 360, 260], abs=4)
+    assert record["yolo_boxes"] == [[300, 200, 360, 260]]
+
+    empty = World([("READY", "metal", None), ("READY", "stop", None)])
+    empty.detector = lambda frame: [arm]
+    assert empty.kept(empty.run(tmp_path / "empty")) == [] and empty.episodes["begun"] == 0
+
+
+def test_slivers_of_shifted_edges_do_not_stretch_the_box():
+    frame = tray([(300, 200)])
+    frame[20:460, 600:608] = 255  # a tray wall slot that moved
+    assert changed_box(tray(), frame, (0, 0, 640, 480), 25) == pytest.approx([300, 200, 360, 260], abs=4)
 
 
 def test_held_out_items_and_a_wrong_class_are_refused(tmp_path):
@@ -263,8 +298,8 @@ def test_held_out_items_and_a_wrong_class_are_refused(tmp_path):
     assert world.episodes["begun"] == 0 and world.kept(store) == []
     assert "held out" in " ".join(str(d) for e, d in world.events if e == "warning")
     world.commands.item = "m01"
-    assert "a metal item" in session.refuse("plastic") and session.refuse("metal") is None
-    assert session.refuse("other") is None  # anything may go through Other
+    assert "a metal object" in session.refuse("plastic") and session.refuse("metal") is None
+    assert session.refuse("other")  # a can is not saved as class other
 
 
 def test_the_panel_shows_progress_and_the_least_recorded_item(tmp_path):
@@ -280,7 +315,7 @@ def test_the_panel_shows_progress_and_the_least_recorded_item(tmp_path):
                 should_stop=lambda: world.stop, registry=reg).run()
     s = world.status
     assert s.item_counts == {"m01": 1} and s.suggest["metal"].startswith("m02")
-    assert s.target_phase == "pilot" and s.targets["pilot"]["metal"] == 23
+    assert s.target_phase == "pilot" and s.targets["pilot"]["metal"] == 23 and s.targets["pilot"]["other"] == 15
 
 
 def test_the_recording_rate_is_published_for_the_panel(tmp_path):
@@ -331,3 +366,49 @@ def test_the_script_can_still_drive_a_leader_whose_gripper_works(tmp_path):
     world = World([("READY", "metal", (300, 200)), ("READY", "stop", None)], dino="metal")
     store = world.run(tmp_path, recording)
     assert world.kept(store)[0]["ended"] == "lifted"
+
+
+def test_a_record_needs_an_object_chosen_in_the_library(tmp_path):
+    world = World([("READY", "metal", (300, 200))])
+    world.commands.item = "something typed"
+    world.estop_at, world.stop = None, False
+    store = PickStore(tmp_path, RECORDING["outputs"], lambda path, rgb: Path(path).write_bytes(b"jpg"))
+    world.status = Status()
+    PickSession(world, world, world.detector, world.embed, world.decide, world, world, store, POSES, CONFIG,
+                RECORDING, Hooks(world.log), world.commands, world.status, clock=world.clock,
+                should_stop=lambda: world.clock.t > 5, registry=world.registry).run()
+    assert world.episodes["begun"] == 0 and world.kept(store) == []
+    assert "Choose the item in the library" in world.status.warning
+    optional = {**RECORDING, "items": {**RECORDING["items"], "required": False}}
+    session = PickSession(world, world, world.detector, world.embed, world.decide, world, world, store, POSES,
+                          CONFIG, optional, Hooks(world.log), world.commands, world.status, clock=world.clock,
+                          registry=world.registry)
+    assert session.refuse("metal") is None
+
+
+def test_add_new_object_photographs_the_tray_and_chooses_the_new_object(tmp_path):
+    import yaml as _yaml
+    from item_registry import Registry
+
+    world = World([("READY", "add_object", (300, 200)), ("READY", "metal", None), ("READY", "stop", None)],
+                  dino="metal")
+    world.registry = Registry(root=tmp_path / "objects")
+    world.commands.new_object = ("metal can", "Hell Cola")
+    store = world.run(tmp_path)
+    folder = tmp_path / "objects" / "train" / "m-hell-cola"
+    assert (folder / "thumb.jpg").exists() and (folder / "photo.jpg").exists() and (folder / "tray.jpg").exists()
+    saved = _yaml.safe_load((folder / "item.yaml").read_text())
+    assert saved["class"] == "metal" and saved["kind"] == "can" and saved["name"] == "Hell Cola"
+    assert saved["recorded"] == 1 and saved["source"]["photo"] == "recorder"
+    [record] = world.kept(store)
+    assert record["item_id"] == "m-hell-cola" and record["kind"] == "episode"
+    assert Registry.load(tmp_path / "objects").items["m-hell-cola"].recorded == 1
+
+
+def test_add_new_object_with_an_empty_tray_adds_nothing(tmp_path):
+    from item_registry import Registry
+
+    world = World([("READY", "add_object", None), ("READY", "stop", None)])
+    world.registry = Registry(root=tmp_path / "objects")
+    world.run(tmp_path)
+    assert not (tmp_path / "objects" / "train").exists() and "nothing on the tray" in world.status.warning

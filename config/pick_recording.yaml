@@ -11,7 +11,7 @@ dataset:
   tasks:
     metal: "Pick up the metal item"
     plastic: "Pick up the plastic item"
-    generic: "Pick up the item"   # Pick other: socks, toys, tools, for grasp variety
+    other: "Pick up the item"     # Pick other: anything that is neither metal nor plastic
 
 episode:
   timeout_s: 20
@@ -47,17 +47,19 @@ release:
 # Episodes to record (docs/collection-plan.md), cumulative; the panel shows the counts against `phase`
 targets:
   phase: pilot
-  pilot: {metal: 23, plastic: 22, generic: 15}
-  main: {metal: 90, plastic: 90, generic: 60}
+  pilot: {metal: 23, plastic: 22, other: 15}
+  main: {metal: 90, plastic: 90, other: 60}
 
-# Item registry and labels, written by the agent after each session (scripts/tools/contact_sheet.py);
-# held-out test items are refused, the panel offers the training items with their counts
+# The object library (objects/README.md): objects/train is shown in the panel with N/target records, and
+# choosing one is required before each record (required: false allows records without one);
+# objects/test is held out and refused. labels: record time -> id for records made before the library
 items:
-  registry: config/items.yaml
+  registry: objects
   labels: config/item_labels.yaml
+  required: true
 
 # data/pick/items goes to the Hub as <namespace>/cleany_pick_items (the registry and labels from config/ with it)
 outputs:
   yolo_frames: data/pick/items/yolo  # images/, labels/ (YOLO format, classes.txt), frames.jsonl
-  crops: data/pick/items/crops       # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh (generic/ is left out)
+  crops: data/pick/items/crops       # <material>/<item>_<time>.jpg, for scripts/tools/build_gallery.sh 
   records: data/pick/items/records.jsonl  # one line per kept episode or `other` item
