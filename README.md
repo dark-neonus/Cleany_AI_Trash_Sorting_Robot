@@ -52,10 +52,10 @@ private Hub repos, laid out the same way locally under `data/pick/`:
 
 | Repo | Local | Contents |
 |---|---|---|
-| [`cleany-ai/cleany_pick`](https://huggingface.co/datasets/cleany-ai/cleany_pick) (private) | `data/pick/episodes/` | LeRobot episodes: front and wrist camera, normalised joint positions, velocity / current / load / temperature / voltage, the item's DINO embedding and box; task = material. **6 test episodes so far**; the real collection ([plan](docs/collection-plan.md): 23 / 22 / 15 episodes for the pilot, then 90 / 90 / 60 metal / plastic / generic) has not started |
-| [`cleany-ai/cleany_pick_items`](https://huggingface.co/datasets/cleany-ai/cleany_pick_items) (private) | `data/pick/items/` | `records.jsonl`, `registry/` (items, their train/test split, which record is which item), `crops/` for the DINO gallery, `yolo/` labelled frames |
+| [`cleany-ai/cleany_pick`](https://huggingface.co/datasets/cleany-ai/cleany_pick) (private) | `data/pick/episodes/` | LeRobot episodes: front and wrist camera, normalised joint positions, velocity / current / load / temperature / voltage, the item's DINO embedding and box; task = material. **6 test episodes so far**; the real collection ([plan](docs/collection-plan.md): 23 / 22 / 15 episodes for the pilot, then 90 / 90 / 60 metal / plastic / other) has not started |
+| [`cleany-ai/cleany_pick_items`](https://huggingface.co/datasets/cleany-ai/cleany_pick_items) (private) | `data/pick/items/` | `records.jsonl` (each record's `item_id`), `registry/` (the [object library](objects/README.md) and its train/test split), `crops/` for the DINO gallery, `yolo/` labelled frames |
 
-The train/test split is by item design: held-out items are refused by the recorder and checked by `scripts/tools/check_split.sh`.
+The train/test split is by item design ([objects/](objects/README.md): `train/` is shown in the recorder's object library and must be chosen for every record, `test/` is held out): held-out items are refused by the recorder and checked by `scripts/tools/check_split.sh`.
 What is recorded and what ACT trains on: [docs/pick-dataset.md](docs/pick-dataset.md).
 
 ## Approach
@@ -122,10 +122,11 @@ Everything is in [Commands](#commands) below.
 ├── scripts/              # all code, by task: setup/ calibration/ teleop/ dataset/ train/ run/ yolo/ tools/,
 │                         #   shared config/ (ports, cameras, datasets) and common/ (helpers)
 ├── config/               # default.yaml (models, datasets), box_pipeline.yaml (trigger, classifier, motion, doors),
-│                         #   pick_recording.yaml (recorder), poses.yaml (captured poses), items.yaml + item_labels.yaml
+│                         #   pick_recording.yaml (recorder), poses.yaml (captured poses), item_labels.yaml
 ├── tests/                # pytest: state machine, recorder, classifier, poses, motion, config
-├── data/                 # datasets NOT committed; data/pick/{episodes,items,sheets}: the pick dataset
+├── data/                 # datasets NOT committed; data/pick/{episodes,items,sheets}: the pick dataset; data/archive/: older setups
 ├── models/               # weights NOT committed; models/README.md (Hub instructions) IS
+├── objects/              # the object library: train/<id>/ and test/<id>/ (picture + item.yaml), objects/README.md
 ├── docs/                 # guides, CONTRIBUTING.md, proposal/, poster/, slides/
 ├── calibration/          # arm calibration, shared by everyone using the same arms
 ├── electronics/          # wiring and power
@@ -170,13 +171,13 @@ DINOv3 is a gated model: accept its licence on the Hub and run `hf auth login`, 
 ```bash
 scripts/dataset/sync.sh pull pick          # the shared copy (skip for the first session)
 scripts/dataset/record_pick.sh             # panel: both cameras live, item picker, progress against the targets
-scripts/tools/contact_sheet.sh             # after a session: one image of every record's crop, to label the items
+scripts/tools/contact_sheet.sh             # after a session: one image of every record's crop, to check them
 scripts/tools/check_split.sh               # fails if a held-out item got into the data
 scripts/dataset/sync.sh push pick          # cleany_pick (episodes) + cleany_pick_items (records, registry, crops, YOLO frames)
 ```
 
 Options: `--door none` (no drop mechanism: empty the tray by hand), `--max-velocity`, `--acceleration`,
-`--max-step`. The panel's buttons are Metal (M), Plastic (P), **Pick other** (G, generic objects) and Other (O);
+`--max-step`. The panel's buttons are Metal (M), Plastic (P), **Pick other** (G, a pick episode) and Save other (O, picture only);
 Space / Esc / Backspace start, cancel and discard; the red button is the emergency stop; **S** takes a
 screenshot of both cameras. The leader's gripper servo is a 12 V model on a 5 V supply and is never driven by the
 script (`start.drive_leader_gripper: false`): the follower's gripper opens to 30 by itself and then follows your
@@ -202,7 +203,8 @@ speeds, `motion.ramp_s`): [docs/box-pipeline.md](docs/box-pipeline.md), [docs/mo
 |---|---|
 | `scripts/tools/capture_poses.sh [--hand \| --list \| --migrate]` | Capture, check and list the arm's named poses |
 | `scripts/tools/show_poses.sh walk \| slideshow \| go <pose>` | Move the arm through the poses |
-| `scripts/tools/contact_sheet.sh [--session S] [--items]` | Contact sheets of a session's crops, to label items |
+| `scripts/tools/contact_sheet.sh [--session S] [--items]` | Contact sheets of a session's crops, to check items |
+| `python scripts/tools/draw_objects.py` | Draw the object library's boxes on the setup photos (train green, test red) |
 | `scripts/tools/check_split.sh` | Verify the train/test split by item design |
 | `scripts/tools/build_gallery.sh --crops DIR` | Build the DINO gallery and print the held-out evaluation |
 | `scripts/dataset/view.sh <dataset dir> [episode]` | Browse an episode (both cameras, joints, actions) in Rerun |
