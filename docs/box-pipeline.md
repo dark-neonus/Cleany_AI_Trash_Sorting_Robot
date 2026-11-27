@@ -160,6 +160,9 @@ results, slips, drops. With `--recording true`, `showcase.mp4` shows the state t
 
 - **Trigger.** Share of tray pixels that differ from the empty reference (after a 4×4 blur)
   above `occupied_fraction`, or any YOLO box. Independent of what the item is.
+- **YOLO boxes** count only where something is new: a box with less than `min_changed_share` of its
+  area changed in colour since the empty reference is dropped (`item_diff`, since 2026-11-28). YOLO
+  takes the arm, which hangs into the front view and is in the reference too, for an item.
 - **Classify.** YOLO only gives boxes (any class, conf ≥ 0.25). Boxes from `classify_frames`
   settled frames are grouped by overlap; each item's crops are embedded and averaged, then
   compared with the gallery: mean distance to the k nearest crops per class. Metal or plastic
