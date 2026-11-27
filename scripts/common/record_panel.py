@@ -24,9 +24,9 @@ import threading
 import time
 import tkinter as tk
 
+from drop_panel import DropController, add_drop_section, get_controller
 from estop import add_estop_button
 from screenshot import add_screenshot_button
-from drop_panel import DropController, add_drop_section, get_controller
 
 from lerobot.utils.keyboard_input import apply_recording_control
 

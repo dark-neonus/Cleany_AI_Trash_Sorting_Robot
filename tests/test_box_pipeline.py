@@ -6,10 +6,23 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import yaml
-
-from box_logic import (GRIPPER, JOINT_KEYS, BackgroundTrigger, GraspCheck, Item, SettleGate, choose_target,
-                       group_detections, load_poses, min_jerk, move_duration, record_failure, slipped, trajectory,
-                       yolo_vote)
+from box_logic import (
+    GRIPPER,
+    JOINT_KEYS,
+    BackgroundTrigger,
+    GraspCheck,
+    Item,
+    SettleGate,
+    choose_target,
+    group_detections,
+    load_poses,
+    min_jerk,
+    move_duration,
+    record_failure,
+    slipped,
+    trajectory,
+    yolo_vote,
+)
 from box_states import BoxPipeline, DoorError, DoorSequencer, Hooks, ScriptedGrasper, Stop
 from dino_classifier import Gallery, decide, normalise
 
