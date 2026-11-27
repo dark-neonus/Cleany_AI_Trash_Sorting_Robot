@@ -5,7 +5,8 @@ The pick dataset is two repos (docs/pick-dataset.md):
   cleany_pick_items    what says which item is in which episode, and the vision data:
       README.md          this layout
       records.jsonl      one line per kept episode or Other item (session, episode, material, boxes, DINO)
-      registry/          items.yaml and item_labels.yaml: the items, their split and each record's item
+      registry/          objects/ (the object library: train/<id>/ with pictures, test/<id>/item.yaml without)
+                         and item_labels.yaml: the objects, their split and each old record's object
       crops/<class>/     gallery crops (DINO)
       yolo/              images/, labels/, classes.txt, frames.jsonl (YOLO training frames)
 
@@ -39,10 +40,10 @@ of the Cleany trash-sorting robot (SO-101 arms, front and wrist camera).
 
 | Path | What |
 | --- | --- |
-| `records.jsonl` | one line per kept episode or Other item: `session`, `episode` (index in cleany_pick), `material` (metal, plastic, generic, other), `item` as typed, boxes, DINO's opinion |
-| `registry/items.yaml` | the physical items: id, class, design, `split` (train/test), brand. Held-out (test) items are never recorded |
-| `registry/item_labels.yaml` | record `time` -> item id (filled in after each session) |
-| `crops/<class>/` | item crops for the DINO gallery (generic is not a gallery class) |
+| `records.jsonl` | one line per kept episode or Other item: `session`, `episode` (index in cleany_pick), `material` (metal, plastic, other), `item` as typed, boxes, DINO's opinion |
+| `registry/objects/` | the object library: `train/<id>/item.yaml` + pictures, `test/<id>/item.yaml` (held out: never recorded, no pictures here) |
+| `registry/item_labels.yaml` | record `time` -> item id, for records made before the library (newer records carry `item_id`) |
+| `crops/<class>/` | item crops for the DINO gallery (metal, plastic, other) |
 | `yolo/` | front frames with YOLO labels (`images/`, `labels/`, `classes.txt`, `frames.jsonl`) |
 
 The train/test split is by item design: no held-out design appears in any file here.
@@ -54,11 +55,17 @@ def count_records(path: Path) -> int | None:
 
 
 def stage(root: Path, registry: list[Path]) -> None:
-    """Copy the registry files (kept in config/) next to the data they describe."""
+    """Copy the registry (the object library folder and label files) next to the data they describe.
+    Held-out objects go as item.yaml only: no picture of a test object is uploaded."""
     target = root / "registry"
     target.mkdir(parents=True, exist_ok=True)
     for file in registry:
-        if file.exists():
+        if file.is_dir():
+            shutil.rmtree(target / file.name, ignore_errors=True)
+            shutil.copytree(file, target / file.name,
+                            ignore=lambda d, names: [n for n in names if Path(d).parent.name == "test"
+                                                     and n.endswith((".jpg", ".png"))])
+        elif file.exists():
             shutil.copy2(file, target / file.name)
 
 

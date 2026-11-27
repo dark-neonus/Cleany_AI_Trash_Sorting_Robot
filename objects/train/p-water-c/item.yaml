@@ -1,0 +1,16 @@
+id: p-water-c
+class: plastic
+kind: bottle
+name: Clear water bottle C (small, lower left)
+design: water-c
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 105
+    - 640
+    - 330
+    - 775

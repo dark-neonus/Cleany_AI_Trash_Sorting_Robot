@@ -1,0 +1,17 @@
+id: m-nonstop-zero
+class: metal
+kind: can
+name: Non Stop Original Zero Sugar
+brand: Non Stop
+design: nonstop-zero
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 570
+    - 572
+    - 628
+    - 716

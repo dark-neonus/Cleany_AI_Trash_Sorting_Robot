@@ -1,0 +1,17 @@
+id: c-zhyvchyk
+class: plastic
+kind: cap
+name: Zhyvchyk cap (yellow, printed)
+brand: Живчик
+design: zhyvchyk
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 918
+    - 268
+    - 1002
+    - 355

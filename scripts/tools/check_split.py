@@ -3,7 +3,7 @@
 Usage (through scripts/tools/check_split.sh):
     check_split.sh            # records, gallery crops, YOLO frames and the DINO gallery
 
-Reads config/items.yaml (which items are held out: split test, by design) and
+Reads the object library objects/ (which items are held out: split test, by design) and
 config/item_labels.yaml (which item each record is), and looks at:
   data/pick/items/records.jsonl   every kept episode and Other item
   data/pick/items/crops/           the gallery crops (build_gallery.sh skips held-out ones anyway)
@@ -37,12 +37,12 @@ def main():
     args = parser.parse_args()
 
     try:
-        reg = Registry.load(PROJECT_ROOT / items.get("registry", "config/items.yaml"),
+        reg = Registry.load(PROJECT_ROOT / items.get("registry", "objects"),
                             PROJECT_ROOT / items.get("labels", "config/item_labels.yaml"))
     except RegistryError as error:
         sys.exit(f"Error: {error}")
     if not reg.items:
-        sys.exit("Error: config/items.yaml has no items: nothing to check against")
+        sys.exit("Error: the object library (objects/) has no items: nothing to check against")
     groups = None
     if args.gallery.exists():
         with np.load(args.gallery, allow_pickle=False) as data:

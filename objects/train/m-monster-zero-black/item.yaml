@@ -1,0 +1,17 @@
+id: m-monster-zero-black
+class: metal
+kind: can
+name: Monster Zero (black/green)
+brand: Monster
+design: monster-zero-black
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 684
+    - 566
+    - 734
+    - 711

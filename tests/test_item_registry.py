@@ -57,10 +57,10 @@ def test_counts_and_the_least_recorded_suggestion(tmp_path):
     assert reg.item_counts(records) == {"m01": 2, "m02": 1}
     assert reg.suggest("metal", records).id == "m02"
     assert reg.suggest("plastic", records).id == "p01"
-    assert reg.suggest("generic", records) is None  # no test item is ever suggested
-    text = progress({"metal": 3, "plastic": 0, "generic": 0, "other": 1},
-                    {"pilot": {"metal": 23, "plastic": 22, "generic": 15}}, "pilot")
-    assert text == "metal 3/23 · plastic 0/22 · generic 0/15 · other 1  (pilot)"
+    assert reg.suggest("other", records) is None  # no test item is ever suggested
+    text = progress({"metal": 3, "plastic": 0, "other": 0, "saved": 1},
+                    {"pilot": {"metal": 23, "plastic": 22, "other": 15}}, "pilot")
+    assert text == "metal 3/23 · plastic 0/22 · other 0/15 · saved only 1  (pilot)"
 
 
 def test_bad_registries_are_rejected(tmp_path):
@@ -130,8 +130,56 @@ def test_contact_sheet_numbers_the_records_of_a_session(tmp_path):
     assert saved[1]["item"] is None and tiles[1][0] is None  # no image yet, not labelled yet
 
 
-def test_the_shipped_registry_loads_and_holds_out_the_agreed_designs():
-    reg = Registry.load(ROOT / "config" / "items.yaml", ROOT / "config" / "item_labels.yaml")
+def test_the_shipped_library_loads_and_holds_out_the_agreed_designs():
+    reg = Registry.load(ROOT / "objects", ROOT / "config" / "item_labels.yaml")
     assert {"redbull-peach", "kvas-taras-pryanyi", "hell-peach-lemon", "mojo-lemonade"} <= reg.test_designs()
+    assert all(it.thumb is not None for it in reg.items.values())  # every object has its picture
+    assert not reg.test_designs() & {it.design for it in reg.train_items()}
     assert reg.held_out("Red Bull Peach") and not reg.held_out("hell classic") and not reg.held_out("water green")
     assert read_records(ROOT / "nothing.jsonl") == []
+
+
+def test_the_object_library_is_folders_and_keeps_its_counts(tmp_path):
+    from item_registry import Item
+
+    lib = tmp_path / "objects"
+    Item("m-hell", "metal", "hell", kind="can", name="Hell", path=lib / "train" / "m-hell").save()
+    Item("c-green", "plastic", "cap-green", kind="cap", copies=3, path=lib / "train" / "c-green").save()
+    Item("p-mojo", "plastic", "mojo", path=lib / "test" / "p-mojo").save()
+    reg = Registry.load(lib)
+    assert reg.items["p-mojo"].split == "test" and reg.items["m-hell"].split == "train"  # the folder is the split
+    assert reg.items["c-green"].copies == 3 and reg.items["m-hell"].label() == "Hell"
+    assert reg.held_out("p-mojo") and reg.by_name("m-hell").kind == "can"
+    records = [{"time": "T1", "material": "metal", "item": "m-hell", "item_id": "m-hell", "kind": "episode"},
+               {"time": "T2", "material": "other", "item": "m-hell", "item_id": "m-hell", "kind": "other"}]
+    counts = reg.item_counts(records)
+    assert counts == {"m-hell": 1}  # a can put through Other is no pick
+    assert reg.write_counts(counts) == ["m-hell"] and reg.write_counts(counts) == []
+    assert Registry.load(lib).items["m-hell"].recorded == 1
+
+
+def test_new_objects_get_unique_ids_by_class_and_kind(tmp_path):
+    reg = Registry(root=tmp_path / "objects")
+    saved = []
+    save = lambda path, rgb: (saved.append(path.name), path.write_bytes(b"jpg"))  # noqa: E731
+    first = reg.add_object("plastic", "cap", "Green", "rgb", save)
+    second = reg.add_object("plastic", "cap", "green", "rgb", save, photo="rgb")
+    third = reg.add_object("other", "object", "", "rgb", save)
+    assert (first.id, second.id, third.id) == ("c-green", "c-green-2", "o-1")
+    assert saved == ["thumb.jpg", "thumb.jpg", "photo.jpg", "thumb.jpg"] and first.thumb.name == "thumb.jpg"
+    assert set(Registry.load(tmp_path / "objects").items) == {"c-green", "c-green-2", "o-1"}
+    with pytest.raises(RegistryError):
+        Registry().add_object("metal", "can", "x", "rgb", save)  # no library folder
+
+
+def test_a_deleted_object_keeps_its_id_reserved_while_records_carry_it(tmp_path):
+    import shutil
+
+    reg = Registry(root=tmp_path / "objects")
+    save = lambda path, rgb: path.write_bytes(b"jpg")  # noqa: E731
+    first = reg.add_object("metal", "can", "Cola", "rgb", save)
+    shutil.rmtree(first.path)  # deleting an object is deleting its folder
+    reg = Registry.load(tmp_path / "objects")
+    records = [{"time": "T1", "material": "metal", "item": "m-cola", "item_id": "m-cola", "kind": "episode"}]
+    assert reg.items == {} and reg.item_counts(records) == {} and check_split(reg, records)[0] == []
+    assert reg.add_object("metal", "can", "Cola", "rgb", save, taken={"m-cola"}).id == "m-cola-2"

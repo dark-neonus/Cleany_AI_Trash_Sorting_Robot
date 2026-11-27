@@ -1,0 +1,17 @@
+id: p-zhyvchyk
+class: plastic
+kind: bottle
+name: Zhyvchyk
+brand: Живчик
+design: zhyvchyk
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 800
+    - 270
+    - 1010
+    - 530

@@ -1,0 +1,17 @@
+id: m-hell-black-cherry
+class: metal
+kind: can
+name: Hell Black Cherry
+brand: Hell
+design: hell-black-cherry
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 459
+    - 577
+    - 518
+    - 731

@@ -1,0 +1,17 @@
+id: p-water-yellow-cap
+class: plastic
+kind: bottle
+name: Clear water bottle (yellow cap)
+design: water-yellow-cap
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 420
+    - 600
+    - 600
+    - 905
+notes: the held-out clear water bottle of docs/collection-plan.md

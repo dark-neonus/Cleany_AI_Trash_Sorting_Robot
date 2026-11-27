@@ -1,0 +1,17 @@
+id: m-hell-green-camo
+class: metal
+kind: can
+name: Hell green art
+brand: Hell
+design: hell-green-camo
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 434
+    - 311
+    - 494
+    - 415

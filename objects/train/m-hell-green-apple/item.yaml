@@ -1,0 +1,17 @@
+id: m-hell-green-apple
+class: metal
+kind: can
+name: Hell Green Apple
+brand: Hell
+design: hell-green-apple
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 354
+    - 899
+    - 406
+    - 1053

@@ -1,0 +1,20 @@
+id: m-hell-peach-lemon
+class: metal
+kind: can
+name: Hell Peach-Lemon
+brand: Hell
+design: hell-peach-lemon
+copies: 1
+crushed: false
+names:
+- hell-peach-lemon
+- hell-peach
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 394
+    - 959
+    - 481
+    - 1189

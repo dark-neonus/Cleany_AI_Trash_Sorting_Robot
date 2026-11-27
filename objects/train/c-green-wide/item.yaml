@@ -1,0 +1,16 @@
+id: c-green-wide
+class: plastic
+kind: cap
+name: Wide green cap
+design: green-wide
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 110
+    - 588
+    - 218
+    - 680

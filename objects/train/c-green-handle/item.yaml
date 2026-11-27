@@ -1,0 +1,16 @@
+id: c-green-handle
+class: plastic
+kind: cap
+name: Green cap with carry handle
+design: green-handle
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 905
+    - 748
+    - 1075
+    - 950

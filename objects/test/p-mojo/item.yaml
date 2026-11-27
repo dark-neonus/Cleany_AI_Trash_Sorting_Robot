@@ -1,0 +1,23 @@
+id: p-mojo
+class: plastic
+kind: bottle
+name: Mojo lemonade
+brand: Mojo
+design: mojo-lemonade
+copies: 2
+crushed: false
+names:
+- mojo
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 330
+    - 455
+    - 512
+    - 642
+  - - 880
+    - 483
+    - 1140
+    - 665

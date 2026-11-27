@@ -1,0 +1,17 @@
+id: m-nonstop-orange
+class: metal
+kind: can
+name: Non Stop orange/green
+brand: Non Stop
+design: nonstop-orange
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 721
+    - 566
+    - 756
+    - 746

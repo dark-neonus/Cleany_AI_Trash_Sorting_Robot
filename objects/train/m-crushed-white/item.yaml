@@ -1,0 +1,16 @@
+id: m-crushed-white
+class: metal
+kind: can
+name: Crushed white can
+design: crushed-white
+copies: 1
+crushed: true
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 214
+    - 315
+    - 252
+    - 420

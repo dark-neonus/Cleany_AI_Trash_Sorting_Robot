@@ -1,5 +1,5 @@
 """Contact sheets of a pick recording session: every record's gallery crop with its number, so the
-agent (Claude) can recognise the items and write config/items.yaml and config/item_labels.yaml
+agent (Claude) can recognise the items and match old records (no item_id) to objects/ in config/item_labels.yaml
 (docs/collection-plan.md).
 
 Usage (through scripts/tools/contact_sheet.sh):
@@ -27,7 +27,7 @@ from box_logic import load_yaml  # noqa: E402
 from item_registry import Registry, crop_files, read_records  # noqa: E402
 
 TILE, CAPTION, COLUMNS, PER_PAGE = 200, 34, 8, 48
-COLORS = {"metal": "#90a4ae", "plastic": "#4fc3f7", "generic": "#ffb74d", "other": "#a1887f"}
+COLORS = {"metal": "#90a4ae", "plastic": "#4fc3f7", "other": "#a1887f"}
 
 
 def session_of(record: dict) -> str:
@@ -123,7 +123,7 @@ def main():
     parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "data" / "pick" / "sheets")
     args = parser.parse_args()
 
-    reg = Registry.load(PROJECT_ROOT / items.get("registry", "config/items.yaml"),
+    reg = Registry.load(PROJECT_ROOT / items.get("registry", "objects"),
                         PROJECT_ROOT / items.get("labels", "config/item_labels.yaml"))
     crops, yolo = PROJECT_ROOT / outputs["crops"], PROJECT_ROOT / outputs["yolo_frames"]
     records = read_records(PROJECT_ROOT / outputs["records"])

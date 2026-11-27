@@ -22,3 +22,15 @@ def test_the_registry_files_are_copied_next_to_the_data(tmp_path):
 
 def test_the_card_names_its_companion():
     assert "cleany-ai/cleany_pick" in README.format(namespace="cleany-ai")
+
+
+def test_the_object_library_is_copied_without_pictures_of_held_out_objects(tmp_path):
+    lib = tmp_path / "objects"
+    for split in ("train", "test"):
+        (lib / split / "x").mkdir(parents=True)
+        (lib / split / "x" / "item.yaml").write_text("id: x\n")
+        (lib / split / "x" / "thumb.jpg").write_bytes(b"jpg")
+    stage(tmp_path / "items", [lib])
+    staged = tmp_path / "items" / "registry" / "objects"
+    assert (staged / "train" / "x" / "thumb.jpg").exists() and (staged / "test" / "x" / "item.yaml").exists()
+    assert not (staged / "test" / "x" / "thumb.jpg").exists()

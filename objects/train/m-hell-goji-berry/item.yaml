@@ -1,0 +1,21 @@
+id: m-hell-goji-berry
+class: metal
+kind: can
+name: Hell Goji Berry
+brand: Hell
+design: hell-goji-berry
+copies: 2
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 154
+    - 959
+    - 246
+    - 1181
+  - - 192
+    - 927
+    - 271
+    - 1126

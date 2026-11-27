@@ -1,0 +1,20 @@
+id: m-nonstop-boost
+class: metal
+kind: can
+name: Non Stop Boost
+brand: Non Stop
+design: nonstop-boost
+copies: 1
+crushed: false
+names:
+- nonstop-boost
+- non-stop-boost
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 625
+    - 569
+    - 686
+    - 713

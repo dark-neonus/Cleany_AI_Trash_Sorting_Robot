@@ -1,0 +1,17 @@
+id: m-nonstop-stalker
+class: metal
+kind: can
+name: Non Stop Stalker edition
+brand: Non Stop
+design: nonstop-stalker
+copies: 1
+crushed: false
+target: 3
+recorded: 3
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 471
+    - 899
+    - 544
+    - 1086

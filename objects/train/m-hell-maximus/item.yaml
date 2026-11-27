@@ -1,0 +1,17 @@
+id: m-hell-maximus
+class: metal
+kind: can
+name: Hell Gladiator Maximus
+brand: Hell
+design: hell-maximus
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 351
+    - 577
+    - 401
+    - 726

@@ -1,0 +1,17 @@
+id: c-1886
+class: plastic
+kind: cap
+name: 1886 cap (white)
+brand: '1886'
+design: cap-1886
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 760
+    - 588
+    - 832
+    - 672

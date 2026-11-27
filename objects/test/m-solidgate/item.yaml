@@ -1,0 +1,20 @@
+id: m-solidgate
+class: metal
+kind: can
+name: Solidgate Lemonade
+brand: Solidgate
+design: solidgate-lemonade
+copies: 1
+crushed: false
+names:
+- solidgate
+- solidgate-lemonade
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 132
+    - 620
+    - 216
+    - 802

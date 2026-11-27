@@ -1,0 +1,16 @@
+id: m-orange-tall
+class: metal
+kind: can
+name: Tall orange can
+design: orange-tall
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 749
+    - 234
+    - 785
+    - 401

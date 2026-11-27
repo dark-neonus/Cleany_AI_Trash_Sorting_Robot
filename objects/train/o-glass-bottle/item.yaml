@@ -1,0 +1,16 @@
+id: o-glass-bottle
+class: other
+kind: glass
+name: Glass bottle, black cap
+design: glass-bottle
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 748
+    - 295
+    - 800
+    - 455

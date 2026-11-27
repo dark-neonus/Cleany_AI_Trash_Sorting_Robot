@@ -1,0 +1,41 @@
+id: c-green
+class: plastic
+kind: cap
+name: Green water bottle cap
+design: green
+copies: 7
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 0
+    - 378
+    - 90
+    - 462
+  - - 518
+    - 455
+    - 600
+    - 532
+  - - 110
+    - 688
+    - 200
+    - 770
+  - - 734
+    - 468
+    - 812
+    - 546
+  - - 700
+    - 828
+    - 800
+    - 912
+  - - 1170
+    - 765
+    - 1270
+    - 858
+  - - 125
+    - 836
+    - 200
+    - 882
+notes: plain green caps of the water bottles, near identical

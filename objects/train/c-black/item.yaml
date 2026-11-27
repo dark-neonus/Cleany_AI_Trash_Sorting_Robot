@@ -1,0 +1,16 @@
+id: c-black
+class: plastic
+kind: cap
+name: Black cap (loose)
+design: black
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 100
+    - 775
+    - 172
+    - 850

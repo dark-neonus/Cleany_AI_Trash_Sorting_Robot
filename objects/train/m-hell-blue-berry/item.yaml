@@ -1,0 +1,17 @@
+id: m-hell-blue-berry
+class: metal
+kind: can
+name: Hell blue berry
+brand: Hell
+design: hell-blue-berry
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 232
+    - 585
+    - 296
+    - 736

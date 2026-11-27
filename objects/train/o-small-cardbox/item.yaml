@@ -1,0 +1,17 @@
+id: o-small-cardbox
+class: other
+kind: object
+name: small-cardbox
+design: small-cardbox
+copies: 1
+crushed: false
+target: 3
+recorded: 3
+source:
+  photo: recorder
+  session: 20261128T002553128
+  box:
+  - 250.0
+  - 222.0
+  - 406.0
+  - 410.0

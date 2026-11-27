@@ -1,0 +1,16 @@
+id: p-water-b
+class: plastic
+kind: bottle
+name: Clear water bottle B (left, wide green cap)
+design: water-b
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 110
+    - 480
+    - 330
+    - 685
