@@ -120,6 +120,7 @@ phase.
 | Counts per class against `targets` (phase `pilot` or `main`) | [pick_recording.yaml](../config/pick_recording.yaml), panel |
 | Object library with pictures and N/3 per object, required choice, Add new object | [objects/](../objects/README.md), panel |
 | Boxes of the library on the setup photos | `python scripts/tools/draw_objects.py` |
+| Report of what was collected, per model, with its results on the held-out objects | `scripts/tools/data_report.sh --name <model>`, committed in `docs/reports/` |
 | Contact sheet per session, to check by eye | `scripts/tools/contact_sheet.sh` |
 | Labels for records made before the library: record time -> object | [item_labels.yaml](../config/item_labels.yaml) |
 | Split check over records, crops, YOLO frames and the gallery | `scripts/tools/check_split.sh` |

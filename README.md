@@ -173,6 +173,7 @@ scripts/dataset/sync.sh pull pick          # the shared copy (skip for the first
 scripts/dataset/record_pick.sh             # panel: both cameras live, item picker, progress against the targets
 scripts/tools/contact_sheet.sh             # after a session: one image of every record's crop, to check them
 scripts/tools/check_split.sh               # fails if a held-out item got into the data
+scripts/tools/data_report.sh               # docs/reports/data_<date>.md: records per object, to commit next to a model
 scripts/dataset/sync.sh push pick          # cleany_pick (episodes) + cleany_pick_items (records, registry, crops, YOLO frames)
 ```
 
@@ -206,6 +207,7 @@ speeds, `motion.ramp_s`): [docs/box-pipeline.md](docs/box-pipeline.md), [docs/mo
 | `scripts/tools/contact_sheet.sh [--session S] [--items]` | Contact sheets of a session's crops, to check items |
 | `python scripts/tools/draw_objects.py` | Draw the object library's boxes on the setup photos (train green, test red) |
 | `scripts/tools/check_split.sh` | Verify the train/test split by item design |
+| `scripts/tools/data_report.sh [--name N]` | Markdown report of the data collected (`docs/reports/`), with places for the model and its test results |
 | `scripts/tools/build_gallery.sh --crops DIR` | Build the DINO gallery and print the held-out evaluation |
 | `scripts/dataset/view.sh <dataset dir> [episode]` | Browse an episode (both cameras, joints, actions) in Rerun |
 | `scripts/dataset/sync.sh status \| push \| pull [pick]` | Sync datasets with the Hub (`pick` = both pick repos) |
