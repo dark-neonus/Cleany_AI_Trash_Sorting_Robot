@@ -1,0 +1,17 @@
+id: o-pocket-lighter
+class: other
+kind: object
+name: pocket-lighter
+design: pocket-lighter
+copies: 1
+crushed: false
+target: 3
+recorded: 3
+source:
+  photo: recorder
+  session: 20261128T020133332
+  box:
+  - 290.0
+  - 334.0
+  - 330.0
+  - 478.0

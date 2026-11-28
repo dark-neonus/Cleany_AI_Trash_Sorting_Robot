@@ -1,0 +1,17 @@
+id: o-black-white-lines-rag
+class: other
+kind: object
+name: black-white-lines-rag
+design: black-white-lines-rag
+copies: 1
+crushed: false
+target: 3
+recorded: 1
+source:
+  photo: recorder
+  session: 20261128T020133332
+  box:
+  - 150.0
+  - 234.0
+  - 430.0
+  - 478.0
