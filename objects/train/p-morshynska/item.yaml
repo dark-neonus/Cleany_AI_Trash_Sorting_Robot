@@ -1,0 +1,17 @@
+id: p-morshynska
+class: plastic
+kind: bottle
+name: Morshynska 1.5 L
+brand: Моршинська
+design: morshynska
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 0
+    - 285
+    - 265
+    - 505

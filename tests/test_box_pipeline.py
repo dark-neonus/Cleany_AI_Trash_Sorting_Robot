@@ -6,10 +6,23 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import yaml
-
-from box_logic import (GRIPPER, JOINT_KEYS, BackgroundTrigger, GraspCheck, Item, SettleGate, choose_target,
-                       group_detections, load_poses, min_jerk, move_duration, record_failure, slipped, trajectory,
-                       yolo_vote)
+from box_logic import (
+    GRIPPER,
+    JOINT_KEYS,
+    BackgroundTrigger,
+    GraspCheck,
+    Item,
+    SettleGate,
+    choose_target,
+    group_detections,
+    load_poses,
+    min_jerk,
+    move_duration,
+    record_failure,
+    slipped,
+    trajectory,
+    yolo_vote,
+)
 from box_states import BoxPipeline, DoorError, DoorSequencer, Hooks, ScriptedGrasper, Stop
 from dino_classifier import Gallery, decide, normalise
 
@@ -413,3 +426,19 @@ def test_the_scripted_grasp_advances_slower_while_the_arm_lags_it():
         keen.action(keen.last or POSES["hover"])  # an arm exactly where the last command was
         lagging.action(far)
     assert keen.position == pytest.approx(40, abs=1) and lagging.position < 0.4 * keen.position
+
+
+def test_a_box_around_the_arm_is_not_an_item():
+    """The arm is in the empty-tray reference too: a detection of it has nothing new under it."""
+    empty = np.full((480, 640, 3), 90, dtype=np.uint8)
+    empty[20:110, 215:415] = 40  # the arm, hanging into the view
+    frame = np.full((480, 640, 3), 90, dtype=np.uint8)
+    frame[20:112, 215:415] = 40  # where it holds still again: 2 px off
+    frame[300:380, 260:330] = 200
+    arm = {"box": [215, 2, 415, 206], "class": "item", "conf": 0.99}
+    item = {"box": [260, 300, 330, 380], "class": "item", "conf": 0.9}
+    pipeline = BoxPipeline(None, lambda f: [arm, item], None, None, None, {}, CONFIG, Hooks(lambda *a, **k: None))
+    assert pipeline.detector(frame) == [arm, item]  # no reference yet
+    pipeline.trigger.set_reference(empty)
+    assert pipeline.detector(frame) == [item]
+    assert pipeline.detector(empty) == []  # an empty tray: the arm does not trigger a cycle

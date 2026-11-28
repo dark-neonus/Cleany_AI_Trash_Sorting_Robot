@@ -1,0 +1,17 @@
+id: p-fanta
+class: plastic
+kind: bottle
+name: Fanta bottle
+brand: Fanta
+design: fanta
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 220
+    - 640
+    - 420
+    - 850

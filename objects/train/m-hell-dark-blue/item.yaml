@@ -1,0 +1,17 @@
+id: m-hell-dark-blue
+class: metal
+kind: can
+name: Hell dark blue art
+brand: Hell
+design: hell-dark-blue
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 375
+    - 314
+    - 433
+    - 417

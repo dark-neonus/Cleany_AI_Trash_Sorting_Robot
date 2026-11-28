@@ -31,6 +31,8 @@ from box_logic import (
     Item,
     SettleGate,
     approach_waypoint,
+    change_mask,
+    changed_share,
     choose_target,
     crop_box,
     group_detections,
@@ -195,10 +197,17 @@ class BoxPipeline:
         return self.arm.observe()
 
     def detector(self, frame) -> list[dict]:
-        """Detections centred in the tray region: items already in a bin are not seen."""
+        """Detections centred in the tray region (items already in a bin are not seen) that lie on
+        something new since the empty-tray reference: YOLO takes the arm, which hangs into the front
+        view and is in the reference too, for an item."""
         x0, y0, x1, y1 = self.region
-        return [d for d in self.yolo(frame)
-                if x0 <= (d["box"][0] + d["box"][2]) / 2 <= x1 and y0 <= (d["box"][1] + d["box"][3]) / 2 <= y1]
+        found = [d for d in self.yolo(frame)
+                 if x0 <= (d["box"][0] + d["box"][2]) / 2 <= x1 and y0 <= (d["box"][1] + d["box"][3]) / 2 <= y1]
+        if not found or self.trigger.reference is None:
+            return found
+        t = self.cfg["trigger"]
+        mask = change_mask(self.trigger.reference, frame, self.region, t["item_diff"])
+        return [d for d in found if changed_share(d["box"], mask, self.region) >= t["min_changed_share"]]
 
     def joints(self, obs: dict) -> dict:
         return {k: obs[k] for k in JOINT_KEYS}

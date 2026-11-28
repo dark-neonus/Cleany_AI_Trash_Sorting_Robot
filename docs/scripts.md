@@ -29,7 +29,8 @@ All scripts can be run from any directory; they `cd` to the project root themsel
 | `scripts/tools/`       | `capture_poses.sh`       | Capture the arm's named poses with a live panel ([box-pipeline.md](box-pipeline.md#setting-it-up-in-the-box)) |
 |                        | `show_poses.sh`          | Move the arm through the poses: walk, slideshow, go to one (`--dry-run` without the arm) |
 |                        | `draw_poses.py`          | Draw the poses in the v3 box (`assets/poses_workspace.svg`) |
-|                        | `contact_sheet.sh`       | One image per pick session with every record's crop, to label the items ([collection-plan.md](collection-plan.md)) |
+|                        | `contact_sheet.sh`       | One image per pick session with every record's crop, to check the items ([collection-plan.md](collection-plan.md)) |
+|                        | `draw_objects.py`        | The object library's boxes on the setup photos, train green / test red ([objects/README.md](../objects/README.md)) |
 |                        | `check_split.sh`         | Fail when a held-out test item is in the pick records, crops, YOLO frames or gallery |
 |                        | `tune_cameras.sh`        | Lock camera exposure, gain and white balance to the current lighting |
 |                        | `preview_augmentation.sh` | Show the training image augmentations on a recorded episode |

@@ -1,0 +1,17 @@
+id: m-hell-classic
+class: metal
+kind: can
+name: Hell Classic
+brand: Hell
+design: hell-classic
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 264
+    - 927
+    - 349
+    - 1131

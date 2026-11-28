@@ -1,0 +1,16 @@
+id: p-water-d
+class: plastic
+kind: bottle
+name: Clear water bottle D (top right of centre)
+design: water-d
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 650
+    - 355
+    - 830
+    - 545

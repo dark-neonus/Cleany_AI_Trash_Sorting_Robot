@@ -1,0 +1,17 @@
+id: m-hell-red-black
+class: metal
+kind: can
+name: Hell red/black
+brand: Hell
+design: hell-red-black
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 559
+    - 305
+    - 618
+    - 410

@@ -20,6 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "common"))
 import arm_estop  # noqa: E402
 import estop  # noqa: E402
+
 import lerobot_wide_fov  # noqa: E402,F401
 
 arm_estop.install()  # the red emergency stop button releases the follower's torque

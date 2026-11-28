@@ -193,6 +193,97 @@ def changed_fraction(a: np.ndarray, b: np.ndarray, region, pixel_diff: float) ->
     return float(np.mean(np.abs(_gray(a, region) - _gray(b, region)) > pixel_diff))
 
 
+def change_mask(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: float) -> np.ndarray:
+    """Which 4x4-pixel cells of the region (640x480 coordinates) differ from the empty tray: 1 or 0.
+
+    Two cues. Colour: a cell differs by more than pixel_diff in a channel, after the overall change of
+    exposure and white balance since the empty photo is taken off (the median difference of the
+    region); brightness alone loses light cardboard on the light tray. Texture: edges where the empty
+    tray had none; a clear bottle without a label barely changes the colour, but its creases, ribs and
+    highlights do this. Edges near one of the empty photo do not count (the arm, a tray wall, shifted
+    by a pixel or two). Blobs are found with the dense texture; sparser texture only extends them."""
+    import cv2
+
+    x0, y0, x1, y1 = (int(v) for v in region)
+    size = ((x1 - x0) // 4, (y1 - y0) // 4)
+
+    def full(image):
+        if image.shape[:2] != (480, 640):
+            image = cv2.resize(image, (640, 480), interpolation=cv2.INTER_AREA)
+        return image
+
+    def cells(image):  # the region averaged over 4x4 pixels
+        crop = image[y0:y0 + size[1] * 4, x0:x0 + size[0] * 4].astype(np.float32)
+        return cv2.resize(crop, size, interpolation=cv2.INTER_AREA)
+
+    def gradient(image):
+        gray = cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY).astype(np.float32), (3, 3), 0)
+        return cv2.magnitude(cv2.Sobel(gray, cv2.CV_32F, 1, 0), cv2.Sobel(gray, cv2.CV_32F, 0, 1))
+
+    def morph(mask, op, k):
+        return cv2.morphologyEx(mask, op, np.ones((k, k), np.uint8))
+
+    reference, frame = full(reference), full(frame)
+    diff = cells(frame) - cells(reference)
+    diff -= np.clip(np.median(diff.reshape(-1, 3), axis=0), -25, 25)
+    colour = (np.abs(diff).max(axis=2) > pixel_diff).astype(np.uint8)
+    colour = morph(morph(colour, cv2.MORPH_OPEN, 5), cv2.MORPH_CLOSE, 5)  # no slivers under 20 px
+    new_edges, old_edges = gradient(frame), gradient(reference)
+
+    def textured(threshold, share):
+        near_old = cv2.dilate((old_edges > 0.6 * threshold).astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
+        new = cells(((new_edges > threshold) & ~near_old).astype(np.float32))
+        dense = (cv2.blur(new, (5, 5)) > share).astype(np.uint8)  # dense edges around each cell
+        # Not next to a blob of colour: that one's outline is exact, and the average would pad it
+        return dense & (cv2.dilate(colour, np.ones((7, 7), np.uint8)) == 0)
+
+    def tidy(mask):
+        return morph(morph(mask, cv2.MORPH_CLOSE, 7), cv2.MORPH_OPEN, 5)
+
+    strong = tidy(colour | textured(40, 0.08))
+    weak = tidy(strong | textured(35, 0.06))
+    _, labels = cv2.connectedComponents(weak, connectivity=8)
+    keep = np.unique(labels[(strong > 0) & (weak > 0)])
+    return np.isin(labels, keep[keep > 0]).astype(np.uint8)
+
+
+def changed_box(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: float,
+                min_cells: int = 40) -> list[float] | None:
+    """Bounding box (640x480 coordinates) of what differs from the empty tray (change_mask), or None.
+    With one item on the tray this is that item's box, independent of any detector: the largest blob
+    and any at least a fifth of its size (a clear bottle breaks into parts)."""
+    import cv2
+
+    mask = change_mask(reference, frame, region, pixel_diff)
+    count, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    blobs = stats[1:count]  # 0 is the background
+    if not len(blobs):
+        return None
+    areas = blobs[:, cv2.CC_STAT_AREA]
+    blobs = blobs[areas >= max(min_cells, 0.2 * areas.max())]
+    if not len(blobs):
+        return None
+    left, top = blobs[:, cv2.CC_STAT_LEFT], blobs[:, cv2.CC_STAT_TOP]
+    right, bottom = left + blobs[:, cv2.CC_STAT_WIDTH], top + blobs[:, cv2.CC_STAT_HEIGHT]
+    x0, y0 = int(region[0]), int(region[1])
+    return [float(x0 + left.min() * 4), float(y0 + top.min() * 4),
+            float(x0 + right.max() * 4), float(y0 + bottom.max() * 4)]
+
+
+def changed_share(box, mask: np.ndarray, region) -> float:
+    """Share of a box's area that changed since the empty tray (what lies outside the region counts
+    as unchanged). An item's box has much of it; a box around the arm, which is in the empty photo
+    too, next to none."""
+    x0, y0 = int(region[0]), int(region[1])
+    area = (box[2] - box[0]) * (box[3] - box[1])
+    if area <= 0:
+        return 0.0
+    ys, xs = np.nonzero(mask)
+    px, py = x0 + xs * 4 + 2, y0 + ys * 4 + 2  # cell centres
+    inside = (px >= box[0]) & (px < box[2]) & (py >= box[1]) & (py < box[3])
+    return float(min(1.0, inside.sum() * 16 / area))
+
+
 @dataclass
 class BackgroundTrigger:
     """Is something in the tray? Compares the front image with an empty-tray reference taken

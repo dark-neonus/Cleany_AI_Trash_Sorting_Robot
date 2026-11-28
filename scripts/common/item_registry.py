@@ -1,11 +1,13 @@
 """Which physical item each pick record is, and whether it is held out for testing
-(docs/collection-plan.md).
+(docs/collection-plan.md, objects/README.md).
 
-Two files, both written by the agent (Claude) after a session from its contact sheet
-(scripts/tools/contact_sheet.py), never filled in by hand during recording:
+  objects/                 the object library, one folder per physical object (or set of identical copies):
+    train/<id>/              item.yaml (class, kind, name, target, recorded, ...) and thumb.jpg;
+                             the recorder's panel shows these and every record names one of them
+    test/<id>/               held out: never recorded, never shown in the panel
+  config/item_labels.yaml  record time -> item id, for old records whose typed name was only a hint
 
-  config/items.yaml        the items: id, class, brand, design, split (train / test), ...
-  config/item_labels.yaml  record time -> item id, for records whose typed name was only a hint
+Registry.load() also still reads a single items.yaml (the format before the library).
 
 The split is by design: a test item stands for every copy of its design, and no record, YOLO frame,
 gallery crop or episode of a test design may be in the training data (check_split).
@@ -24,9 +26,14 @@ from pathlib import Path
 
 import yaml
 
-CLASSES = ("metal", "plastic", "generic", "other")
-PICKED = ("metal", "plastic", "generic")  # classes with a pick episode
+CLASSES = ("metal", "plastic", "other")
 SPLITS = ("train", "test")
+# What an object is within its class: the panel's "Add new object" offers these
+TYPES = {"metal can": ("metal", "can"), "plastic bottle": ("plastic", "bottle"), "plastic cap": ("plastic", "cap"),
+         "plastic other": ("plastic", "object"), "other": ("other", "object")}
+PREFIX = {"metal": "m", "plastic": "p", "other": "o"}  # id prefix; caps get "c"
+TARGET = 3  # records per training object (pick episodes; Other items: classify-and-drop records)
+ITEM_FILE, THUMB_FILE, PHOTO_FILE, TRAY_FILE = "item.yaml", "thumb.jpg", "photo.jpg", "tray.jpg"
 
 
 def slug(text: str) -> str:
@@ -46,15 +53,56 @@ class Item:
     names: list[str] = field(default_factory=list)
     crushed: bool = False
     notes: str = ""
+    kind: str = ""  # can, bottle, cap, glass, paper, object
+    name: str = ""  # shown in the panel; brand + design when empty
+    copies: int = 1  # identical copies this entry stands for (one design, one look)
+    target: int = TARGET
+    recorded: int = 0  # kept records, as last written by the recorder (records.jsonl is the truth)
+    source: dict = field(default_factory=dict)  # where its thumbnail comes from (a photo and box, or the recorder)
+    path: Path | None = None  # its library folder
 
     @property
     def keys(self) -> set[str]:
         """Every name a record may carry for this item, in file-name form."""
         return {slug(self.id), *(slug(n) for n in self.names)}
 
+    @property
+    def thumb(self) -> Path | None:
+        """Its picture: the recorder's crop on the tray (tray.jpg) once recorded, else thumb.jpg."""
+        if self.path is None:
+            return None
+        return next((self.path / f for f in (TRAY_FILE, THUMB_FILE) if (self.path / f).exists()), None)
+
     def label(self) -> str:
+        if self.name:
+            return self.name + (" (crushed)" if self.crushed and "crushed" not in self.name.lower() else "")
         bits = [self.brand, self.design.replace("-", " ")]
         return " ".join(b for b in bits if b) + (" (crushed)" if self.crushed else "")
+
+    def to_yaml(self) -> dict:
+        """item.yaml of its library folder (the split is the folder it is in)."""
+        data = {"id": self.id, "class": self.cls, "kind": self.kind, "name": self.name, "brand": self.brand,
+                "design": self.design, "copies": self.copies, "crushed": self.crushed, "names": self.names,
+                "target": self.target, "recorded": self.recorded, "source": self.source, "notes": self.notes}
+        return {k: v for k, v in data.items() if v not in ("", [], {}, None) or k in ("recorded",)}
+
+    def save(self) -> None:
+        self.path.mkdir(parents=True, exist_ok=True)
+        (self.path / ITEM_FILE).write_text(yaml.safe_dump(self.to_yaml(), sort_keys=False, allow_unicode=True))
+
+
+def item_from(raw: dict, where, split: str | None = None, path: Path | None = None) -> Item:
+    item = Item(id=str(raw["id"]), cls=raw["class"], design=str(raw.get("design", raw["id"])),
+                split=split or raw.get("split", "train"), brand=str(raw.get("brand", "")),
+                names=[str(n) for n in raw.get("names") or []], crushed=bool(raw.get("crushed", False)),
+                notes=str(raw.get("notes", "")), kind=str(raw.get("kind", "")), name=str(raw.get("name", "")),
+                copies=int(raw.get("copies", 1)), target=int(raw.get("target", TARGET)),
+                recorded=int(raw.get("recorded", 0)), source=dict(raw.get("source") or {}), path=path)
+    if item.cls not in CLASSES:
+        raise RegistryError(f"{where}: item {item.id}: class {item.cls!r} is not one of {CLASSES}")
+    if item.split not in SPLITS:
+        raise RegistryError(f"{where}: item {item.id}: split {item.split!r} is not train or test")
+    return item
 
 
 class RegistryError(ValueError):
@@ -65,29 +113,74 @@ class RegistryError(ValueError):
 class Registry:
     items: dict[str, Item] = field(default_factory=dict)
     labels: dict[str, str] = field(default_factory=dict)  # record time -> item id
+    root: Path | None = None  # the library folder (objects/), where new objects are added
 
     @classmethod
     def load(cls, items_path: Path | None, labels_path: Path | None = None) -> Registry:
-        """Missing files are an empty registry (before the first session is labelled)."""
+        """items_path: the library folder (objects/) or an items.yaml. Missing is an empty registry."""
         reg = cls()
-        if items_path is not None and Path(items_path).exists():
+        if items_path is not None and Path(items_path).is_dir():
+            reg.root = Path(items_path)
+            for split in SPLITS:
+                for folder in sorted((reg.root / split).glob(f"*/{ITEM_FILE}")):
+                    raw = yaml.safe_load(folder.read_text()) or {}
+                    reg._add(item_from(raw, folder, split, folder.parent), folder)
+        elif items_path is not None and Path(items_path).exists():
             data = yaml.safe_load(Path(items_path).read_text()) or {}
             for raw in data.get("items") or []:
-                item = Item(id=str(raw["id"]), cls=raw["class"], design=str(raw.get("design", raw["id"])),
-                            split=raw.get("split", "train"), brand=str(raw.get("brand", "")),
-                            names=[str(n) for n in raw.get("names") or []], crushed=bool(raw.get("crushed", False)),
-                            notes=str(raw.get("notes", "")))
-                if item.cls not in CLASSES:
-                    raise RegistryError(f"{items_path}: item {item.id}: class {item.cls!r} is not one of {CLASSES}")
-                if item.split not in SPLITS:
-                    raise RegistryError(f"{items_path}: item {item.id}: split {item.split!r} is not train or test")
-                if item.id in reg.items:
-                    raise RegistryError(f"{items_path}: item id {item.id} twice")
-                reg.items[item.id] = item
+                reg._add(item_from(raw, items_path), items_path)
         if labels_path is not None and Path(labels_path).exists():
             data = yaml.safe_load(Path(labels_path).read_text()) or {}
             reg.labels = {str(k): str(v) for k, v in data.items()}
         return reg
+
+    def _add(self, item: Item, where) -> None:
+        if item.id in self.items:
+            raise RegistryError(f"{where}: item id {item.id} twice")
+        self.items[item.id] = item
+
+    # -- the library: new objects and their counts ---------------------------------------------------
+
+    def new_id(self, cls: str, kind: str, name: str, taken: set[str] = frozenset()) -> str:
+        prefix = "c" if kind == "cap" else PREFIX[cls]
+        base = f"{prefix}-{slug(name)}" if name.strip() else prefix
+        n, candidate = 1, base if name.strip() else f"{base}-1"
+        while candidate in self.items or candidate in taken or (self.root is not None and any(
+                (self.root / s / candidate).exists() for s in SPLITS)):
+            n += 1
+            candidate = f"{base}-{n}"
+        return candidate
+
+    def add_object(self, cls: str, kind: str, name: str, thumb, save_image, photo=None, source=None,
+                   taken: set[str] = frozenset()) -> Item:
+        """A new training object in the library: objects/train/<id>/ with item.yaml and thumb.jpg
+        (save_image(path, rgb) writes the images). Returns it; it is in self.items at once.
+        taken: ids that may not be given out again (those in the records: of deleted objects too)."""
+        if self.root is None:
+            raise RegistryError("no object library folder (items.registry in config/pick_recording.yaml)")
+        if cls not in CLASSES:
+            raise RegistryError(f"class {cls!r} is not one of {CLASSES}")
+        item_id = self.new_id(cls, kind, name, taken)
+        item = Item(id=item_id, cls=cls, design=item_id.split("-", 1)[-1], kind=kind, name=name.strip() or item_id,
+                    source=dict(source or {}), path=self.root / "train" / item_id)
+        item.path.mkdir(parents=True, exist_ok=True)
+        save_image(item.path / THUMB_FILE, thumb)
+        if photo is not None:
+            save_image(item.path / PHOTO_FILE, photo)
+        item.save()
+        self.items = {**self.items, item.id: item}  # a new dict: the panel may be reading the old one
+        return item
+
+    def write_counts(self, counts: dict) -> list[str]:
+        """Write each library object's kept-record count into its item.yaml (`recorded`); returns the ids changed."""
+        changed = []
+        for item in list(self.items.values()):
+            n = int(counts.get(item.id, 0))
+            if item.path is not None and item.path.exists() and item.split == "train" and item.recorded != n:
+                item.recorded = n
+                item.save()
+                changed.append(item.id)
+        return changed
 
     # -- lookups ------------------------------------------------------------------------------------
 
@@ -118,21 +211,27 @@ class Registry:
 
     # -- counts -------------------------------------------------------------------------------------
 
+    def resolve_record(self, r: dict) -> Item | None:
+        """The item of a record: its item_id (written since the library), else label / typed name."""
+        if r.get("item_id") in self.items and str(r.get("time", "")) not in self.labels:
+            return self.items[r["item_id"]]
+        return self.resolve(str(r.get("time", "")), r.get("item", ""))
+
     def item_counts(self, records: list[dict]) -> Counter:
-        """Kept pick episodes per item id."""
+        """Kept records per item id: pick episodes, and for Other objects (glass, paper) their
+        classify-and-drop records. A pickable object put through Other does not count."""
         counts = Counter()
         for r in records:
-            if r.get("kind") == "episode":
-                item = self.resolve(r.get("time", ""), r.get("item", ""))
-                if item is not None:
-                    counts[item.id] += 1
+            item = self.resolve_record(r)
+            if item is not None and (r.get("kind") == "episode" or (item.cls == "other" and r.get("kind") == "other")):
+                counts[item.id] += 1
         return counts
 
     def suggest(self, cls: str, records: list[dict]) -> Item | None:
-        """The training item of this class with the fewest episodes (ties: registry order)."""
+        """The training item of this class with the fewest records (ties: registry order)."""
         counts = self.item_counts(records)
         items = self.train_items(cls)
-        return min(items, key=lambda it: counts[it.id]) if items else None
+        return min(items, key=lambda it: counts[it.id] / max(it.target, 1)) if items else None
 
 
 def read_records(path: Path) -> list[dict]:
@@ -142,16 +241,11 @@ def read_records(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def class_counts(records: list[dict]) -> Counter:
-    """Kept records per class (pick episodes for metal / plastic / generic; drops for other)."""
-    return Counter(r["material"] for r in records)
-
-
 def progress(counts: dict, targets: dict, phase: str) -> str:
-    """'metal 12/23 · plastic 5/22 · generic 0/15 · other 3  (pilot)'."""
+    """'metal 12/23 · plastic 5/22 · other 3/15 · saved only 2  (pilot)': episodes against the targets."""
     goal = targets.get(phase, {}) if targets else {}
-    parts = [f"{c} {counts.get(c, 0)}" + (f"/{goal[c]}" if c in goal else "") for c in ("metal", "plastic", "generic")]
-    parts.append(f"other {counts.get('other', 0)}")
+    parts = [f"{c} {counts.get(c, 0)}" + (f"/{goal[c]}" if c in goal else "") for c in CLASSES]
+    parts.append(f"saved only {counts.get('saved', 0)}")
     return " · ".join(parts) + (f"  ({phase})" if goal else "")
 
 
@@ -176,18 +270,18 @@ def check_split(reg: Registry, records: list[dict], crops: Path | None = None, y
             problems.append(f"item {item.id} is in training but its design {item.design} is held out")
     for time, item_id in reg.labels.items():
         if item_id not in reg.items:
-            problems.append(f"label {time} -> {item_id}: no such item in items.yaml")
+            problems.append(f"label {time} -> {item_id}: no such item in the object library")
 
     unlabelled = Counter()
     for r in records:
         time, name = str(r.get("time", "")), r.get("item", "")
-        item = reg.resolve(time, name)
+        item = reg.resolve_record(r)
         where = f"record {time} ({r.get('material')}, " + (
             f"episode {r['episode']})" if "episode" in r else f"{r.get('kind', '?')})")
         if item is None:
             if reg.held_out(name):
                 problems.append(f"{where}: typed name {name!r} looks like held-out {reg.held_out(name).id}")
-            elif r.get("material") in PICKED:
+            elif r.get("material") in CLASSES:
                 unlabelled[r.get("material")] += 1
             continue
         if item.split == "test":

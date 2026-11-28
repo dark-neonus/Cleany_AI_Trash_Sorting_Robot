@@ -1,0 +1,19 @@
+id: m-hell-back-rows
+class: metal
+kind: can
+name: Hell, black, back rows (flavour not seen)
+brand: Hell
+design: hell-back-rows
+copies: 14
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 215
+    - 836
+    - 483
+    - 962
+notes: 'the black Hell cans behind the front row: flavours not visible in the photo.
+  Add each new flavour with Add new object'

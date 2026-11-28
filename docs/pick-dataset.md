@@ -67,19 +67,23 @@ scripts/dataset/sync.sh push pick        # upload
 The doors open and close once (keep hands out), both arms go home and the empty tray is
 photographed. Then, per item:
 
-1. **READY.** Put one item on the tray, name it in the **Item** field, press **Metal** (M),
-   **Plastic** (P), **Pick other** (G) or **Other** (O). The name is a short hint (`hell black`);
-   once [config/items.yaml](../config/items.yaml) has items, pick one from the list instead: it shows
-   each item's episode count, and the panel names the least-recorded item per class. A held-out
-   test item, or an item whose registered class is not the button's, is refused.
-   **Pick other** is for generic objects (socks, toys, tools): a pick episode like metal and
-   plastic, for grasp variety ([collection-plan.md](collection-plan.md#how-much)). The counts line
+1. **READY.** Put one item on the tray, **click its picture in the object library** on the right of
+   the panel (required), then press **Metal** (M), **Plastic** (P), **Pick other** (G) or **Save other** (O).
+   Each tile shows the object's records against its target (`2/3`); the filter buttons narrow the
+   list (Metal, Plastic, Caps, ...). An object that is not in the library yet: choose its type, type a
+   name, press **Add new object** (N): it is photographed on the tray and added to
+   [objects/train](../objects/README.md). An object of another class than the button is refused;
+   held-out (test) objects are not in the panel at all.
+   There are three classes: metal, plastic, other. **Pick other** is a pick episode for an object that
+   is neither metal nor plastic (boxes, socks, toys, tools); **Save other** only saves its picture for
+   YOLO and the classifier. How many to pick: ([collection-plan.md](collection-plan.md#how-much)). The counts line
    shows the episodes against the targets of the current phase (`targets` in
    [pick_recording.yaml](../config/pick_recording.yaml)).
-2. **CLASSIFY.** Hands off the tray. The panel shows the tray change (orange), the YOLO boxes
-   (blue) and the target (green), and warns when DINO disagrees with your button or YOLO found
-   nothing. A labelled YOLO frame and a gallery crop are saved.
-   **Other** ends here: the doors drop the item, back to READY.
+2. **CLASSIFY.** Hands off the tray. The item's box is what differs from the empty-tray photo: in colour,
+   or by edges the empty tray did not have (clear bottles) (`trigger.item_diff` in [box_pipeline.yaml](../config/box_pipeline.yaml)). The panel shows it
+   (green), with any YOLO box that agrees (blue), and warns when DINO disagrees with your button. A
+   labelled YOLO frame and a gallery crop are saved. **Glance at the green box**: it should fit the item.
+   **Save other** ends here: the doors drop the item, back to READY.
 3. **HOVER, ARMED.** Both arms move to the hover pose by themselves: hands off. Then grab the
    leader and **push it**: the moment it moves 3°, its torque goes off and recording starts
    (or press **Space**). **Esc** cancels: back home, nothing recorded.
@@ -94,7 +98,7 @@ photographed. Then, per item:
    land in a fresh place every time: move or turn the item yourself every few episodes (see the
    recommendations). `release.where: bin` in the config carries it to its bin instead.
 6. **READY again**, with the episode's length and how it ended. **Backspace** discards it (and
-   its YOLO frame and crop) until you press the next Metal / Plastic / Other.
+   its YOLO frame and crop) until you press the next Metal / Plastic / Pick other / Save other.
 
 **Stop session** (or closing the window, or Ctrl+C) keeps the last finished episode, discards
 one being recorded, and sends both arms home. The red **EMERGENCY STOP** releases both arms;
@@ -162,33 +166,35 @@ The pick dataset is two repos in the org (private), laid out the same way locall
 | Local | Hub (`cleany-ai/`) | What |
 | --- | --- | --- |
 | `data/pick/episodes/` | `cleany_pick` | the LeRobot dataset: both cameras, joints, current/load/temperature, item embedding; the material is the episode's task |
-| `data/pick/items/records.jsonl` | `cleany_pick_items` | one line per kept episode or Other item: session, episode index, material, boxes, DINO's opinion |
-| `data/pick/items/registry/` | `cleany_pick_items` | copies of `config/items.yaml` and `config/item_labels.yaml` made at push (config/ stays the source) |
-| `data/pick/items/crops/<class>/` | `cleany_pick_items` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/pick/items/crops`; generic is not a gallery class |
+| `data/pick/items/records.jsonl` | `cleany_pick_items` | one line per kept episode or Other item: session, episode index, material, `item_id` (the library object), boxes, DINO's opinion |
+| `data/pick/items/registry/` | `cleany_pick_items` | copies of [objects/](../objects/README.md) (test objects without pictures) and `config/item_labels.yaml` made at push (the repo stays the source) |
+| `data/pick/items/crops/<class>/` | `cleany_pick_items` | DINO gallery crops: `scripts/tools/build_gallery.sh --crops data/pick/items/crops` |
 | `data/pick/items/yolo/` | `cleany_pick_items` | `images/`, `labels/` (YOLO format, `classes.txt`), `frames.jsonl` with every box found; one empty-tray frame per session |
 | `data/pick/sheets/` | (local) | contact sheets of a session |
 | `logs/pick/pick_<time>.jsonl` | (local) | every event of a session |
 
 `scripts/dataset/sync.sh push pick` uploads both repos (pull and status work the same way); a push is
 refused when the Hub has more episodes or records than you have. The old per-material datasets
-(`cleany_plastic`, `cleany_metal`) stay on the Hub but are not synced by this repository any more. The item repo's README describes the layout.
+(`cleany_plastic`, `cleany_metal`) stay on the Hub (local copies: `data/archive/setupv2/`) but are not synced by this repository any more. The item repo's README describes the layout.
 
-**YOLO labels without a good YOLO.** With one item on the tray, the label box is the change from
-the empty-tray photo (`label_from: tray_change`), whatever YOLO sees: the old-setup YOLO is only
-a cross-check. Record the first sessions with **one item at a time**, retrain YOLO on
-`data/pick/items/yolo` (as a one-class `item` detector is the plan), then several items are fine.
+**YOLO labels without a good YOLO.** The label box is the change from the empty-tray photo
+(`label_from: tray_change`), never a YOLO box: the old-setup YOLO takes the arm, which hangs into the
+front view, for an item. So record **one item at a time** (two items make one box around both). A dark
+item right under the dark arm can be cut off at the top. Then retrain YOLO on `data/pick/items/yolo`
+(as a one-class `item` detector is the plan).
 
-### After a session: label the items
+### After a session
 
 ```bash
-scripts/tools/contact_sheet.sh     # data/pick/sheets/session_<stamp>_1.jpg + .yaml
-scripts/tools/check_split.sh       # fails when a held-out item got into the training data
+scripts/tools/check_split.sh       # fails when a held-out object got into the training data
+scripts/tools/contact_sheet.sh     # data/pick/sheets/session_<stamp>_1.jpg + .yaml: to check the records by eye
 ```
 
-The agent (Claude) looks at the contact sheet, adds new items to
-[config/items.yaml](../config/items.yaml) and writes each record's item into
-[config/item_labels.yaml](../config/item_labels.yaml), then runs the split check.
-`build_gallery.sh` skips held-out crops and groups labelled crops by item.
+Every record carries the id of the object chosen in the panel (`item_id`, and its crop is
+`<id>_<time>.jpg`), and each object's `recorded` count in `objects/train/<id>/item.yaml` is
+updated. Records made before the library (no `item_id`) are matched to objects in
+[config/item_labels.yaml](../config/item_labels.yaml). `build_gallery.sh` skips held-out crops and
+groups crops by object.
 
 ### Recommendations
 

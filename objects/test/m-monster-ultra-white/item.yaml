@@ -1,0 +1,23 @@
+id: m-monster-ultra-white
+class: metal
+kind: can
+name: Monster Ultra white
+brand: Monster
+design: monster-ultra-white
+copies: 2
+crushed: false
+names:
+- monster-ultra-white
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 580
+    - 830
+    - 646
+    - 1013
+  - - 633
+    - 826
+    - 696
+    - 870

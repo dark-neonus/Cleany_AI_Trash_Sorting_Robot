@@ -41,8 +41,8 @@ if __name__ == "__main__":
     camera_preopen.start(sys.argv[2:], CAPTURE_MODES)
 
 import cv2  # noqa: E402
-
 import screenshot  # noqa: E402
+
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera  # noqa: E402
 from lerobot.motors.feetech.feetech import FeetechMotorsBus  # noqa: E402
 from lerobot.robots.so_follower.so_follower import SOFollower  # noqa: E402

@@ -1,0 +1,17 @@
+id: m-redbull-blue
+class: metal
+kind: can
+name: Red Bull light blue edition
+brand: Red Bull
+design: redbull-blue
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 188
+    - 278
+    - 223
+    - 420

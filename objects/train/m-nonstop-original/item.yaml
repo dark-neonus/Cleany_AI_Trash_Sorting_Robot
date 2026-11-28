@@ -1,0 +1,17 @@
+id: m-nonstop-original
+class: metal
+kind: can
+name: Non Stop Original
+brand: Non Stop
+design: nonstop-original
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 517
+    - 574
+    - 571
+    - 716

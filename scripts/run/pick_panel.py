@@ -2,8 +2,9 @@
 both cameras live, and the buttons, each with a key.
 
     M / P          Metal / Plastic: classify the item on the tray, then a pick episode (READY)
-    G              Pick other: a generic object (sock, toy, tool), a pick episode for grasp variety
-    O              Other: classify only, the doors drop it (glass, paper, ...)
+    G              Pick other: neither metal nor plastic, with a pick episode (class `other`)
+    O              Save other: class `other`, picture only (YOLO / gallery), the doors drop it
+    N              Add new object: the object on the tray joins the library (type and name beside it)
     Space          start the episode (ARMED), end it (RECORDING)
     Backspace      discard the last record (READY), or the episode being recorded
     Esc            cancel: back home without recording (ARMED)
@@ -17,22 +18,22 @@ the camera's real fps (green from 24, amber below, red NO SIGNAL after a second 
 the front view the boxes of the session, and while recording both get a red frame and the episode
 time; under them is the rate the dataset is actually recorded at.
 
-Keys work while the panel has focus and the item field does not (Enter leaves the field).
-The item field takes any name (a hint for the labelling after the session) or, once
-config/items.yaml exists, a training item from its list, which shows each item's episode count.
-The panel only reads the session's Status and puts commands in its queue; the session runs in
-its own thread.
+On the right is the object library (pick_library.py): every training object of objects/train with
+its picture and N/3 records. Choosing one (a click) is required before a record: the record, its
+YOLO frame and crop carry its id. Keys work while the panel has focus and the new object's name
+field does not (Enter leaves the field). The panel only reads the session's Status and puts
+commands in its queue; the session runs in its own thread.
 """
 
 from __future__ import annotations
 
 import time
 import tkinter as tk
-from tkinter import ttk
 
 from camera_feed import StatusFeed
 from estop import add_estop_button
 from item_registry import Registry, progress
+from pick_library import LibraryView
 from pick_session import Commands, Status
 from pick_view import GREEN, GREY, RED, badge_text, render
 from screenshot import save_screenshots
@@ -48,19 +49,13 @@ FEED_MS = 15  # how often the views look for a new camera frame (30 fps cameras:
 BUTTONS = [
     ("metal", "Metal", "M", ("READY",)),
     ("plastic", "Plastic", "P", ("READY",)),
-    ("generic", "Pick other", "G", ("READY",)),
-    ("other", "Other", "O", ("READY",)),
+    ("pick_other", "Pick other", "G", ("READY",)),
+    ("other", "Save other", "O", ("READY",)),
     ("start", "Start", "Space", ("ARMED",)),
     ("end", "End", "Space", ("RECORDING",)),
     ("cancel", "Cancel", "Esc", ("ARMED",)),
     ("discard", "Discard", "Bksp", ("READY", "RECORDING")),
 ]
-
-
-def item_choices(registry: Registry, counts: dict) -> list[str]:
-    """'m03 · Hell classic · 2 ep' for every training item, least recorded first within a class."""
-    items = sorted(registry.train_items(), key=lambda it: (it.cls, counts.get(it.id, 0), it.id))
-    return [f"{it.id} · {it.label()} · {counts.get(it.id, 0)} ep" for it in items]
 
 
 def rate_text(status: Status, target_fps: float) -> tuple[str, str]:
@@ -86,26 +81,30 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
     root.resizable(False, False)
     root.protocol("WM_DELETE_WINDOW", stop)  # closing the window stops the session (arms go home)
     add_estop_button(root)
+    body = tk.Frame(root)
+    body.pack(fill="both", expand=True)
+    left = tk.Frame(body)
+    left.pack(side="left", anchor="n")
 
-    phase_label = tk.Label(root, font=("Sans", 18, "bold"))
+    phase_label = tk.Label(left, font=("Sans", 18, "bold"))
     phase_label.pack(padx=16, pady=(8, 0), anchor="w")
-    message_label = tk.Label(root, font=("Sans", 11), justify="left", wraplength=1000)
+    message_label = tk.Label(left, font=("Sans", 11), justify="left", wraplength=1000)
     message_label.pack(padx=16, anchor="w")
-    warning_label = tk.Label(root, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=1000)
+    warning_label = tk.Label(left, font=("Sans", 11, "bold"), fg="#b71c1c", justify="left", wraplength=1000)
     warning_label.pack(padx=16, anchor="w")
 
-    bar = tk.Canvas(root, width=1000, height=18, highlightthickness=0, bg="#dddddd")
+    bar = tk.Canvas(left, width=1000, height=18, highlightthickness=0, bg="#dddddd")
     bar.pack(padx=16, pady=(6, 0))
 
-    cameras = tk.Frame(root, bg="#101010")
+    cameras = tk.Frame(left, bg="#101010")
     cameras.pack(padx=16, pady=6)
     views = {name: tk.Label(cameras, bg="#222222", bd=0) for name in ("front", "wrist")}
-    rate_label = tk.Label(root, font=("Sans", 10, "bold"))
+    rate_label = tk.Label(left, font=("Sans", 10, "bold"))
     rate_label.pack(padx=16, anchor="w")
 
     view_var = tk.StringVar(value="both")
     show_boxes = tk.BooleanVar(value=True)
-    options = tk.Frame(root)
+    options = tk.Frame(left)
     options.pack(padx=16, pady=(2, 0), fill="x")
     tk.Label(options, text="View:", font=("Sans", 10)).pack(side="left")
     for key, name in VIEW_KEYS.items():
@@ -116,43 +115,34 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
     screenshot_label.pack(side="right")
     tk.Button(options, text="Screenshot [S]", font=("Sans", 10), command=lambda: screenshot()).pack(side="right", padx=6)
 
-    counts_label = tk.Label(root, font=("Sans", 11))
+    counts_label = tk.Label(left, font=("Sans", 11))
     counts_label.pack(padx=16, pady=(6, 0), anchor="w")
-    suggest_label = tk.Label(root, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=1000)
+    suggest_label = tk.Label(left, font=("Sans", 10), fg="#1565c0", justify="left", wraplength=1000)
     suggest_label.pack(padx=16, anchor="w")
-    last_label = tk.Label(root, font=("Sans", 10), fg="#444444")
+    last_label = tk.Label(left, font=("Sans", 10), fg="#444444")
     last_label.pack(padx=16, anchor="w")
 
-    name_row = tk.Frame(root)
-    name_row.pack(padx=16, pady=(8, 0), fill="x")
     registry = registry or Registry()
-    tk.Label(name_row, text="Item:", font=("Sans", 11)).pack(side="left")
-    item_var = tk.StringVar(value=commands.item)
-    entry = ttk.Combobox(name_row, textvariable=item_var, font=("Sans", 11), width=34,
-                         postcommand=lambda: entry.configure(values=item_choices(registry, status.item_counts)))
-    entry.pack(side="left", padx=6)
-    hint = "(pick from the list, or type a short name)" if registry.items else "(a short name: a hint for labelling)"
-    tk.Label(name_row, text=hint, font=("Sans", 9), fg="#666666").pack(side="left")
-    # a choice from the list is 'm03 · Hell classic · 2 ep': the item is its id
-    item_var.trace_add("write", lambda *_: setattr(commands, "item", item_var.get().split(" · ")[0].strip()))
-    entry.bind("<<ComboboxSelected>>", lambda _: root.focus_set())
-    entry.bind("<Return>", lambda _: root.focus_set())
-    entry.bind("<Escape>", lambda _: root.focus_set())
+    library = LibraryView(body, registry, commands, status, on_add=lambda: commands.put("add_object"),
+                          is_ready=lambda: status.phase == "READY")
 
-    grid = tk.Frame(root)
+    grid = tk.Frame(left)
     grid.pack(padx=16, pady=8)
     widgets = {}
     for i, (command, label, key, _) in enumerate(BUTTONS):
         widgets[command] = tk.Button(grid, text=f"{label}  [{key}]", width=13, font=("Sans", 11, "bold"),
                                      command=lambda c=command: commands.put(c))
         widgets[command].grid(row=i // 4, column=i % 4, padx=3, pady=3)
-    tk.Button(root, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 10), fill="x")
+    tk.Button(left, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 10), fill="x")
 
     def screenshot():
         screenshot_label.config(text=save_screenshots())
 
     def key(event):
-        if root.focus_get() is entry:
+        if library.typing:
+            return
+        if event.keysym.lower() == "n":
+            library.add()
             return
         if event.keysym in VIEW_KEYS:
             view_var.set(VIEW_KEYS[event.keysym])
@@ -165,7 +155,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
             screenshot()
             return
         phase = status.phase
-        name = {"m": "metal", "p": "plastic", "g": "generic", "o": "other", "BackSpace": "discard",
+        name = {"m": "metal", "p": "plastic", "g": "pick_other", "o": "other", "BackSpace": "discard",
                 "Escape": "cancel"}.get(event.keysym, event.keysym.lower())
         if event.keysym == "space":
             name = "start" if phase == "ARMED" else "end"
@@ -238,6 +228,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
             color = "#2e7d32" if s.elapsed < warn_after_s else "#ef6c00"
             bar.create_rectangle(0, 0, 1000 * min(1.0, s.elapsed / s.timeout), 18, fill=color, width=0)
             bar.create_text(500, 9, text=f"{s.elapsed:4.1f} s / {s.timeout:g} s")
+        library.refresh()
         for command, _, _, phases in BUTTONS:
             enabled = s.phase in phases and (command != "discard" or s.phase == "RECORDING" or bool(s.pending))
             widgets[command].config(state=tk.NORMAL if enabled else tk.DISABLED)

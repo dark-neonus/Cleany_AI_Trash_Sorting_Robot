@@ -1,0 +1,17 @@
+id: m-monster-juiced-apple
+class: metal
+kind: can
+name: Monster Juiced (apple girl)
+brand: Monster
+design: monster-juiced-apple
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 400
+    - 577
+    - 460
+    - 731

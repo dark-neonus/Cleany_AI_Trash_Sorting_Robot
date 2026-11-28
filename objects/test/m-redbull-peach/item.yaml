@@ -1,0 +1,28 @@
+id: m-redbull-peach
+class: metal
+kind: can
+name: Red Bull Peach Edition
+brand: Red Bull
+design: redbull-peach
+copies: 5
+crushed: false
+names:
+- redbull-peach
+- red-bull-peach
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 548
+    - 1008
+    - 628
+    - 1206
+  - - 536
+    - 900
+    - 612
+    - 1050
+  - - 479
+    - 832
+    - 545
+    - 905

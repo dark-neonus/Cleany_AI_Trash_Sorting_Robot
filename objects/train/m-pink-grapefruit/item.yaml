@@ -1,0 +1,16 @@
+id: m-pink-grapefruit
+class: metal
+kind: can
+name: Pink grapefruit (white can)
+design: pink-grapefruit
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 226
+    - 612
+    - 256
+    - 766

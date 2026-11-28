@@ -1,0 +1,16 @@
+id: m-crushed-lemon
+class: metal
+kind: can
+name: Crushed yellow lemon can
+design: crushed-lemon
+copies: 1
+crushed: true
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 246
+    - 334
+    - 316
+    - 420

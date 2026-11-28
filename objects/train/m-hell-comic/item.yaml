@@ -1,0 +1,17 @@
+id: m-hell-comic
+class: metal
+kind: can
+name: Hell comic (blue/yellow art)
+brand: Hell
+design: hell-comic
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 314
+    - 315
+    - 373
+    - 418

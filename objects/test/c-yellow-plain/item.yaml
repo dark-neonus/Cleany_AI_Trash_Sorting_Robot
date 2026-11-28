@@ -1,0 +1,16 @@
+id: c-yellow-plain
+class: plastic
+kind: cap
+name: Plain yellow cap (held-out water bottle)
+design: cap-yellow-plain
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 455
+    - 795
+    - 550
+    - 902

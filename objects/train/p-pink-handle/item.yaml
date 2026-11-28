@@ -1,0 +1,16 @@
+id: p-pink-handle
+class: plastic
+kind: bottle
+name: Bottle of the pink handle cap
+design: pink-handle
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 262
+    - 255
+    - 490
+    - 505

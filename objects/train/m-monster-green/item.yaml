@@ -1,0 +1,17 @@
+id: m-monster-green
+class: metal
+kind: can
+name: Monster Energy (green)
+brand: Monster
+design: monster-green
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 699
+    - 826
+    - 759
+    - 1006

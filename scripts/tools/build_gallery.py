@@ -10,9 +10,8 @@ Sources (any mix):
   --crops DIR         DIR/<class>/<item>_<n>.jpg crops, class metal, plastic or other. Group: the
                       part of the file name before the last "_", so name the files by item
                       (cola_can_01.jpg, cola_can_02.jpg, ...) to evaluate on unseen items.
-                      Crops of held-out test items (config/items.yaml, item_labels.yaml) are
+                      Crops of held-out test items (objects/test, item_labels.yaml) are
                       skipped (docs/collection-plan.md); a labelled crop is grouped by its item id.
-                      DIR/generic/ (Pick other objects) is not a gallery class and is left out.
 
 Evaluation: every group is held out in turn and its crops are classified against the rest, at
 several max_distance values. With --yolo-dataset only, the same cans appear in several
@@ -109,8 +108,8 @@ def main():
     parser.add_argument("--crops", type=Path)
     parser.add_argument("--output", type=Path, default=PROJECT_ROOT / config["gallery"])
     parser.add_argument("--device", default=None)
-    parser.add_argument("--items", type=Path, default=PROJECT_ROOT / "config" / "items.yaml",
-                        help="item registry: held-out test items are skipped")
+    parser.add_argument("--items", type=Path, default=PROJECT_ROOT / "objects",
+                        help="object library (or an items.yaml): held-out test items are skipped")
     parser.add_argument("--labels", type=Path, default=PROJECT_ROOT / "config" / "item_labels.yaml")
     args = parser.parse_args()
     if not args.yolo_dataset and not args.crops:

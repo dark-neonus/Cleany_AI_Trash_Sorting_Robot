@@ -1,0 +1,16 @@
+id: p-dark-label
+class: plastic
+kind: bottle
+name: Bottle with dark label (green handle cap)
+design: dark-label
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 830
+    - 605
+    - 1010
+    - 820

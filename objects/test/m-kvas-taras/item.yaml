@@ -1,0 +1,19 @@
+id: m-kvas-taras
+class: metal
+kind: can
+name: Kvas Taras Pryanyi
+brand: Квас Тарас
+design: kvas-taras-pryanyi
+copies: 1
+crushed: false
+names:
+- kvas-taras
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 769
+    - 569
+    - 857
+    - 786

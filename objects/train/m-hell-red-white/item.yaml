@@ -1,0 +1,21 @@
+id: m-hell-red-white
+class: metal
+kind: can
+name: Hell red/white
+brand: Hell
+design: hell-red-white
+copies: 2
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 706
+    - 296
+    - 737
+    - 401
+  - - 205
+    - 625
+    - 233
+    - 782

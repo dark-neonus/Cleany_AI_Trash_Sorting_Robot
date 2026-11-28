@@ -1,0 +1,21 @@
+id: c-mojo
+class: plastic
+kind: cap
+name: Mojo cap (black)
+brand: Mojo
+design: mojo-cap
+copies: 2
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 348
+    - 558
+    - 432
+    - 628
+  - - 1008
+    - 538
+    - 1078
+    - 618

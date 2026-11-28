@@ -1,0 +1,19 @@
+id: p-1886
+class: plastic
+kind: bottle
+name: '1886'
+brand: '1886'
+design: bottle-1886
+copies: 1
+crushed: false
+names:
+- '1886'
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 760
+    - 585
+    - 950
+    - 780

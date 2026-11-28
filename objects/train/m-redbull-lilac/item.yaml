@@ -1,0 +1,17 @@
+id: m-redbull-lilac
+class: metal
+kind: can
+name: Red Bull Lilac Edition
+brand: Red Bull
+design: redbull-lilac
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 107
+    - 232
+    - 185
+    - 420

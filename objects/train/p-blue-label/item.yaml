@@ -1,0 +1,16 @@
+id: p-blue-label
+class: plastic
+kind: bottle
+name: Bottle with dark blue label (light blue cap)
+design: blue-label
+copies: 1
+crushed: false
+target: 3
+recorded: 3
+source:
+  photo: assets/setup_v3_plastic_bottles.jpg
+  boxes:
+  - - 505
+    - 550
+    - 680
+    - 650

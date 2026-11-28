@@ -1,0 +1,17 @@
+id: m-monster-pink-zero
+class: metal
+kind: can
+name: Monster pink (zero sugar)
+brand: Monster
+design: monster-pink-zero
+copies: 1
+crushed: false
+target: 3
+recorded: 0
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 494
+    - 302
+    - 558
+    - 413

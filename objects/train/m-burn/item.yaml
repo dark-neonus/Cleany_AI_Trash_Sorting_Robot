@@ -1,0 +1,17 @@
+id: m-burn
+class: metal
+kind: can
+name: Burn
+brand: Burn
+design: burn
+copies: 1
+crushed: false
+target: 3
+recorded: 3
+source:
+  photo: assets/setup_v3_metal_cans.jpg
+  boxes:
+  - - 782
+    - 150
+    - 880
+    - 399
