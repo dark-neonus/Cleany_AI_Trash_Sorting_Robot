@@ -11,7 +11,7 @@ poses: config/poses.yaml
 trigger:
   tray_region: [150, 90, 450, 480]
   pixel_diff: 25            # brightness change (0-255, after a 4x4 blur) that counts as changed
-  item_diff: 22             # colour change from the empty tray (0-255) that counts as item (box_logic.change_mask)
+  item_diff: 22             # colour change from the empty tray (0-255) that counts as item; new edges count too (box_logic.change_mask)
   min_changed_share: 0.12   # a YOLO box with less of its area changed is dropped: the arm (<= 0.07 on the
                             # first recordings, items >= 0.17)
   occupied_fraction: 0.004  # share of changed tray pixels vs the empty reference: "something is there"

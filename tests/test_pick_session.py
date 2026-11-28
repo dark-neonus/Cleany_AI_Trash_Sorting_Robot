@@ -277,9 +277,18 @@ def test_the_arm_in_view_is_never_taken_for_the_item(tmp_path):
 
 
 def test_slivers_of_shifted_edges_do_not_stretch_the_box():
-    frame = tray([(300, 200)])
-    frame[20:460, 600:608] = 255  # a tray wall slot that moved
-    assert changed_box(tray(), frame, (0, 0, 640, 480), 25) == pytest.approx([300, 200, 360, 260], abs=4)
+    empty, frame = tray(), tray([(300, 200)])
+    empty[20:460, 600:608] = 20  # a slot in the tray wall
+    frame[20:460, 603:611] = 20  # the same slot, shifted by 3 px since the empty photo
+    assert changed_box(empty, frame, (0, 0, 640, 480), 25) == pytest.approx([300, 200, 360, 260], abs=4)
+
+
+def test_a_clear_item_is_found_by_its_creases_when_the_colour_hardly_changes():
+    empty = tray()
+    frame = empty.copy()
+    for y in range(200, 360, 12):  # creases and highlights of a clear bottle: thin, faint overall
+        frame[y:y + 3, 240:340] = 150
+    assert changed_box(empty, frame, (0, 0, 640, 480), 90) == pytest.approx([240, 200, 340, 351], abs=20)  # padded a little: no sharp outline
 
 
 def test_held_out_items_and_a_wrong_class_are_refused(tmp_path):

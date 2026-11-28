@@ -79,8 +79,8 @@ photographed. Then, per item:
    YOLO and the classifier. How many to pick: ([collection-plan.md](collection-plan.md#how-much)). The counts line
    shows the episodes against the targets of the current phase (`targets` in
    [pick_recording.yaml](../config/pick_recording.yaml)).
-2. **CLASSIFY.** Hands off the tray. The item's box is what differs in colour from the empty-tray
-   photo (`trigger.item_diff` in [box_pipeline.yaml](../config/box_pipeline.yaml)). The panel shows it
+2. **CLASSIFY.** Hands off the tray. The item's box is what differs from the empty-tray photo: in colour,
+   or by edges the empty tray did not have (clear bottles) (`trigger.item_diff` in [box_pipeline.yaml](../config/box_pipeline.yaml)). The panel shows it
    (green), with any YOLO box that agrees (blue), and warns when DINO disagrees with your button. A
    labelled YOLO frame and a gallery crop are saved. **Glance at the green box**: it should fit the item.
    **Save other** ends here: the doors drop the item, back to READY.
