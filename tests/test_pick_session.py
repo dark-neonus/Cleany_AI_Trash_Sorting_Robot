@@ -421,3 +421,15 @@ def test_add_new_object_with_an_empty_tray_adds_nothing(tmp_path):
     world.registry = Registry(root=tmp_path / "objects")
     world.run(tmp_path)
     assert not (tmp_path / "objects" / "train").exists() and "nothing on the tray" in world.status.warning
+
+
+def test_a_discarded_record_leaves_no_library_picture(tmp_path):
+    from item_registry import Registry
+
+    world = World([("READY", "add_object", (300, 200)), ("READY", "metal", None), ("READY", "discard", None),
+                   ("READY", "stop", None)])
+    world.registry = Registry(root=tmp_path / "objects")
+    world.commands.new_object = ("metal can", "Cola")
+    world.run(tmp_path)
+    folder = tmp_path / "objects" / "train" / "m-cola"
+    assert (folder / "thumb.jpg").exists() and not (folder / "tray.jpg").exists()

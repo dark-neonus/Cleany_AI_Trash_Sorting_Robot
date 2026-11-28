@@ -71,6 +71,7 @@ class Record:
     stamp: str
     files: list[Path] = field(default_factory=list)
     data: dict = field(default_factory=dict)
+    picture: np.ndarray | None = None  # the item's crop: its library picture once a record is kept
 
 
 class PickStore:
@@ -348,6 +349,9 @@ class PickSession(BoxPipeline):
         if kind == "episode":
             extra = {**extra, "episode": self.recorder.save()}
         self.store.commit(rec, kind=kind, **extra)
+        item = self.registry.items.get(rec.data.get("item_id"))
+        if item is not None:
+            self.tray_picture(item, rec.picture)
         key = rec.material if kind == "episode" else "saved"
         self.status.counts[key] = self.status.counts.get(key, 0) + 1
         self.status.session += 1
@@ -448,8 +452,8 @@ class PickSession(BoxPipeline):
         chosen = self.registry.by_name(self.commands.item) if self.commands.item else None
         if chosen is not None:
             meta["item_id"] = chosen.id
-            self.tray_picture(chosen, crop)
         self.record = self.store.classification(self.material, self.commands.item or "item", last, change, crop, meta)
+        self.record.picture = crop
         self.item = {"embedding": embedding, "box": np.array(change, dtype=np.float32) / [640, 480, 640, 480]}
         self.status.target_box = change
         if notes:
@@ -458,7 +462,7 @@ class PickSession(BoxPipeline):
         return "HOVER" if self.pick else "DROP"
 
     def tray_picture(self, item, crop):
-        """The first time an object is recorded, its crop on the tray becomes its library picture
+        """With the first kept record of an object, its crop on the tray becomes its library picture
         (tray.jpg: shown instead of the cut-out from the shelf photo)."""
         if crop is None or item.path is None or (item.path / "tray.jpg").exists():
             return
