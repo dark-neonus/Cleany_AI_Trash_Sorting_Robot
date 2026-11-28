@@ -433,3 +433,37 @@ def test_a_discarded_record_leaves_no_library_picture(tmp_path):
     world.run(tmp_path)
     folder = tmp_path / "objects" / "train" / "m-cola"
     assert (folder / "thumb.jpg").exists() and not (folder / "tray.jpg").exists()
+
+
+def test_an_item_in_the_empty_tray_photo_blocks_recording_until_it_is_retaken(tmp_path):
+    def session(world):
+        store = PickStore(tmp_path, RECORDING["outputs"], lambda path, rgb: np.save(path.open("wb"), rgb),
+                          lambda path: np.load(path.open("rb")))
+        world.status = Status()
+        PickSession(world, world, world.detector, world.embed, world.decide, world, world, store, POSES, CONFIG,
+                    RECORDING, Hooks(world.log), world.commands, world.status, clock=world.clock,
+                    should_stop=lambda: world.stop or world.clock.t > 200, registry=world.registry).run()
+        return store
+
+    session(World([("READY", "stop", None)]))  # a first session: its empty photo is the one to compare with
+
+    left_there = World([("READY", "metal", None), ("READY", "stop", None)])
+    left_there.items.append((300, 200))
+    left_there.drop = lambda: None  # it did not fall through the doors
+    store = session(left_there)
+    assert left_there.episodes["begun"] == 0 and "Retake empty tray" in left_there.status.warning
+    assert len(list((store.yolo / "images").glob("empty_*"))) == 1  # not kept as a negative frame
+
+    retaken = World([("READY", "empty", None), ("READY", "metal", (300, 200)), ("READY", "stop", None)])
+    retaken.items.append((100, 300))
+    retaken.drop = lambda: None
+    log = retaken.log
+
+    def take_out_first(event, **data):  # the person empties the tray before pressing Retake
+        if event == "phase" and data["phase"] == "READY" and retaken.presses[0][1] == "empty":
+            retaken.items.clear()
+        log(event, **data)
+
+    retaken.log = take_out_first
+    session(retaken)
+    assert retaken.episodes["begun"] == 1

@@ -4,6 +4,7 @@ both cameras live, and the buttons, each with a key.
     M / P          Metal / Plastic: classify the item on the tray, then a pick episode (READY)
     G              Pick other: neither metal nor plastic, with a pick episode (class `other`)
     O              Save other: class `other`, picture only (YOLO / gallery), the doors drop it
+    E              Retake empty tray: the photo items are compared with (tray empty, hands out)
     N              Add new object: the object on the tray joins the library (type and name beside it)
     Space          start the episode (ARMED), end it (RECORDING)
     Backspace      discard the last record (READY), or the episode being recorded
@@ -55,6 +56,7 @@ BUTTONS = [
     ("end", "End", "Space", ("RECORDING",)),
     ("cancel", "Cancel", "Esc", ("ARMED",)),
     ("discard", "Discard", "Bksp", ("READY", "RECORDING")),
+    ("empty", "Retake empty tray", "E", ("READY",)),
 ]
 
 
@@ -130,7 +132,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
     grid.pack(padx=16, pady=8)
     widgets = {}
     for i, (command, label, key, _) in enumerate(BUTTONS):
-        widgets[command] = tk.Button(grid, text=f"{label}  [{key}]", width=13, font=("Sans", 11, "bold"),
+        widgets[command] = tk.Button(grid, text=f"{label}  [{key}]", width=18, font=("Sans", 11, "bold"),
                                      command=lambda c=command: commands.put(c))
         widgets[command].grid(row=i // 4, column=i % 4, padx=3, pady=3)
     tk.Button(left, text="Stop session (arms go home)", command=stop).pack(padx=16, pady=(0, 10), fill="x")
@@ -155,7 +157,7 @@ def run_panel(status: Status, commands: Commands, stop, title: str, tray_region,
             screenshot()
             return
         phase = status.phase
-        name = {"m": "metal", "p": "plastic", "g": "pick_other", "o": "other", "BackSpace": "discard",
+        name = {"m": "metal", "p": "plastic", "g": "pick_other", "o": "other", "e": "empty", "BackSpace": "discard",
                 "Escape": "cancel"}.get(event.keysym, event.keysym.lower())
         if event.keysym == "space":
             name = "start" if phase == "ARMED" else "end"

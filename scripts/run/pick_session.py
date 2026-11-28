@@ -77,12 +77,13 @@ class Record:
 class PickStore:
     """Everything a session writes besides the LeRobot dataset."""
 
-    def __init__(self, project_root: Path, outputs: dict, save_image):
-        """save_image(path, rgb): writes a JPEG (cv2 in the runner)."""
+    def __init__(self, project_root: Path, outputs: dict, save_image, load_image=None):
+        """save_image(path, rgb): writes a JPEG; load_image(path) -> rgb reads one (cv2 in the runner;
+        without it the empty-tray photo is not checked against the previous one)."""
         self.yolo = project_root / outputs["yolo_frames"]
         self.crops = project_root / outputs["crops"]
         self.records = project_root / outputs["records"]
-        self.save_image = save_image
+        self.save_image, self.load_image = save_image, load_image
         self.session = self._stamp()  # every record of this session carries it (contact sheets)
         for sub in ("images", "labels"):
             (self.yolo / sub).mkdir(parents=True, exist_ok=True)
@@ -108,6 +109,11 @@ class PickStore:
         """A negative YOLO frame (no items), kept at once."""
         stamp = self._stamp()
         self._yolo_frame(f"empty_{stamp}", frame, [], {"material": None, "kind": "empty_tray"})
+
+    def last_empty(self) -> np.ndarray | None:
+        """The newest empty-tray photo kept so far (an earlier session's, or a retake)."""
+        photos = sorted((self.yolo / "images").glob("empty_*.jpg"))
+        return self.load_image(photos[-1]) if photos and self.load_image is not None else None
 
     def classification(self, material: str, item: str, frame: np.ndarray, label_box, crop, meta: dict) -> Record:
         stamp = self._stamp()
@@ -220,6 +226,7 @@ class PickSession(BoxPipeline):
         self.item: dict | None = None  # embedding and box recorded with the episode
         self.pending: tuple[str, Record, dict] | None = None  # last record, kept unless discarded
         self.recording = False
+        self.tray_unconfirmed = False  # the empty-tray photo may have an item in it
         self.registry = registry or Registry()
         self.require_item = (recording.get("items") or {}).get("required", True)
         targets = recording.get("targets") or {}
@@ -378,16 +385,33 @@ class PickSession(BoxPipeline):
         self.move_to(self.poses["home"], "yolo")
         if self.door is not None:
             self.door.drop()  # whatever is on the tray falls into the mixed bin
-        frames = list(self.front_frames(5))
-        self.trigger.set_reference(frames[-1]["front"])
-        self.store.empty_tray(frames[-1]["front"])
-        self.log("ready", reference="taken")
+        self.empty_photo(check=True)
         return "READY"
+
+    def empty_photo(self, check: bool):
+        """The reference every item is compared with. An item lying there when it is taken is never
+        seen, so at start (check) it is compared with the previous empty photo: if they differ, nothing
+        is recorded until Retake empty tray says the tray is empty (the light or the setup may have
+        changed instead: then Retake too)."""
+        frame = list(self.front_frames(5))[-1]["front"]
+        self.trigger.set_reference(frame)
+        previous = self.store.last_empty() if check else None
+        t = self.cfg["trigger"]
+        box = None if previous is None else changed_box(previous, frame, self.region, t["item_diff"])
+        self.tray_unconfirmed = box is not None
+        if self.tray_unconfirmed:
+            self.status.change_box = box
+            self.warn("The tray does not look empty (green box: what differs from the last empty photo). Take "
+                      "everything out, then press Retake empty tray [E]")
+        else:
+            self.store.empty_tray(frame)
+            self.status.warning = ""
+        self.log("ready", reference="taken", unconfirmed=box)
 
     def ready(self):
         self.set_phase("READY", "Put an item on the tray, choose it in the library, then Metal, Plastic, "
-                                "Pick other or Other",
-                       target_box=None, change_box=None, yolo_boxes=[])
+                                "Pick other or Save other", target_box=None, yolo_boxes=[],
+                       **({} if self.tray_unconfirmed else {"change_box": None}))
         if self.mirror:  # the leader rests at home: no torque while waiting
             self.mirror = False
             self.leader_torque(False)
@@ -395,6 +419,12 @@ class PickSession(BoxPipeline):
             command = self.commands.get()
             if command == "discard":
                 self.discard_pending()
+            elif command == "empty":
+                self.empty_photo(check=False)
+                self.status.last = "empty-tray photo taken"
+                return "READY"
+            elif self.tray_unconfirmed and (command in ACTIONS or command == "add_object"):
+                self.warn("First empty the tray and press Retake empty tray [E]")
             elif command == "add_object":
                 self.add_object()
                 return "READY"  # READY again: its message, and the leader stays limp
@@ -431,7 +461,8 @@ class PickSession(BoxPipeline):
         change = changed_box(self.trigger.reference, last, self.region, t["item_diff"])
         if change is None:
             self.status.change_box, self.status.yolo_boxes = None, []
-            self.warn("Nothing on the tray (no change from the empty tray)")
+            self.warn("Nothing on the tray (no change from the empty tray). If the item was already there when "
+                      "that photo was taken: take it out and press Retake empty tray [E]")
             return "READY"
         yolo = [it.box for it in group_detections(seen) if iou(change, it.box) > 0.3]
         self.status.change_box, self.status.yolo_boxes = change, yolo

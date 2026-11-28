@@ -181,7 +181,8 @@ def run(args, recording, config, poses, log, robot, teleop, detector, embedder, 
         door = DoorSequencer(get_controller(), Clock(), d["open_timeout_s"], d["cycle_timeout_s"])
 
     store = PickStore(PROJECT_ROOT, recording["outputs"],
-                      lambda path, rgb: cv2.imwrite(str(path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)))
+                      lambda path, rgb: cv2.imwrite(str(path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)),
+                      lambda path: cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB))
     status, commands, stop = Status(), Commands(), threading.Event()
     session = PickSession(Follower(robot), Leader(teleop, recording["start"].get("leader_gripper_torque", 40),
                                   recording["start"].get("drive_leader_gripper", True)), detector, embedder, check, door, recorder, store, poses,

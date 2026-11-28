@@ -65,7 +65,9 @@ scripts/dataset/sync.sh push pick        # upload
 ```
 
 The doors open and close once (keep hands out), both arms go home and the empty tray is
-photographed. Then, per item:
+photographed. **The tray must be empty then**: an item in that photo is never seen. If the photo
+differs from the previous session's, the panel says so and records nothing until the tray is empty
+and you press **Retake empty tray** (E); press it too after the light or the setup changed. Then, per item:
 
 1. **READY.** Put one item on the tray, **click its picture in the object library** on the right of
    the panel (required), then press **Metal** (M), **Plastic** (P), **Pick other** (G) or **Save other** (O).
