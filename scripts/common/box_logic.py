@@ -193,6 +193,9 @@ def changed_fraction(a: np.ndarray, b: np.ndarray, region, pixel_diff: float) ->
     return float(np.mean(np.abs(_gray(a, region) - _gray(b, region)) > pixel_diff))
 
 
+CLEAR_SHARE, CLEAR_DIFF = 0.35, 14  # change_mask: when an item counts as clear, and its colour threshold
+
+
 def change_mask(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: float) -> np.ndarray:
     """Which 4x4-pixel cells of the region (640x480 coordinates) differ from the empty tray: 1 or 0.
 
@@ -201,7 +204,11 @@ def change_mask(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: fl
     region); brightness alone loses light cardboard on the light tray. Texture: edges where the empty
     tray had none; a clear bottle without a label barely changes the colour, but its creases, ribs and
     highlights do this. Edges near one of the empty photo do not count (the arm, a tray wall, shifted
-    by a pixel or two). Blobs are found with the dense texture; sparser texture only extends them."""
+    by a pixel or two). Blobs are found with the dense texture; sparser texture only extends them.
+
+    A clear item (little of what was found differs in colour: under CLEAR_SHARE; bare bottles 0.14 to
+    0.19, everything else 0.53 and up on the first recordings) is extended again with much weaker
+    colour and texture, on what is plain white tray in the empty photo only: not onto the arm."""
     import cv2
 
     x0, y0, x1, y1 = (int(v) for v in region)
@@ -226,7 +233,8 @@ def change_mask(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: fl
     reference, frame = full(reference), full(frame)
     diff = cells(frame) - cells(reference)
     diff -= np.clip(np.median(diff.reshape(-1, 3), axis=0), -25, 25)
-    colour = (np.abs(diff).max(axis=2) > pixel_diff).astype(np.uint8)
+    strength = np.abs(diff).max(axis=2)
+    colour = (strength > pixel_diff).astype(np.uint8)
     colour = morph(morph(colour, cv2.MORPH_OPEN, 5), cv2.MORPH_CLOSE, 5)  # no slivers under 20 px
     new_edges, old_edges = gradient(frame), gradient(reference)
 
@@ -240,11 +248,21 @@ def change_mask(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: fl
     def tidy(mask):
         return morph(morph(mask, cv2.MORPH_CLOSE, 7), cv2.MORPH_OPEN, 5)
 
+    def touching(mask, seeds):  # the blobs of mask that overlap seeds
+        _, labels = cv2.connectedComponents(mask, connectivity=8)
+        keep = np.unique(labels[(seeds > 0) & (mask > 0)])
+        return np.isin(labels, keep[keep > 0]).astype(np.uint8)
+
     strong = tidy(colour | textured(40, 0.08))
-    weak = tidy(strong | textured(35, 0.06))
-    _, labels = cv2.connectedComponents(weak, connectivity=8)
-    keep = np.unique(labels[(strong > 0) & (weak > 0)])
-    return np.isin(labels, keep[keep > 0]).astype(np.uint8)
+    found = touching(tidy(strong | textured(35, 0.06)), strong)
+    if not found.any() or colour[found > 0].mean() >= CLEAR_SHARE:
+        return found
+    hsv = cv2.cvtColor(reference, cv2.COLOR_RGB2HSV)
+    white = ((hsv[..., 1] < 60) & (hsv[..., 2] > 90)).astype(np.float32)
+    plain = (cells(white) > 0.9).astype(np.uint8)
+    faint = (cv2.blur(strength, (3, 3)) > CLEAR_DIFF).astype(np.uint8) | textured(22, 0.04)
+    weak = morph(morph(found | (faint & plain), cv2.MORPH_OPEN, 3), cv2.MORPH_CLOSE, 9)
+    return touching((weak & plain) | found, found)
 
 
 def changed_box(reference: np.ndarray, frame: np.ndarray, region, pixel_diff: float,
